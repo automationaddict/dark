@@ -12,12 +12,12 @@ import (
 )
 
 // renderAppstoreStatus is the one-line footer under the main pane.
-func renderAppstoreStatus(s *core.State, width int) string {
+func renderAppstoreStatus(s *core.State, width int, spinnerView string) string {
 	var parts []string
 	if s.AppstoreStatusMsg != "" {
 		parts = append(parts, statusErrorStyle.Render(s.AppstoreStatusMsg))
 	} else if s.AppstoreBusy {
-		parts = append(parts, statusBusyStyle.Render("working…"))
+		parts = append(parts, spinnerView+" "+statusBusyStyle.Render("working…"))
 	} else {
 		var text string
 		switch {

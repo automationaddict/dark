@@ -12,7 +12,7 @@ import (
 // right showing the search bar, results, and detail for the
 // highlighted category. Same styles, same proportions, same
 // focus model.
-func renderAppStoreTab(s *core.State, width, height int) string {
+func renderAppStoreTab(s *core.State, width, height int, spinnerView string) string {
 	cats := s.Appstore.Categories
 	entries := make([]sidebarEntry, len(cats))
 	for i, cat := range cats {
@@ -21,7 +21,7 @@ func renderAppStoreTab(s *core.State, width, height int) string {
 	// Use the shared sidebar renderer so F1 and F2 are identical.
 	sidebar := renderSidebarGeneric(s, entries, s.AppstoreCategoryIdx, height)
 	contentWidth := width - lipgloss.Width(sidebar)
-	content := renderAppStoreContent(s, contentWidth, height)
+	content := renderAppStoreContent(s, contentWidth, height, spinnerView)
 	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
 }
 
@@ -30,7 +30,7 @@ func renderAppStoreTab(s *core.State, width, height int) string {
 // vertically, wrap once in contentStyle.Height. No intermediate
 // height constraints on sub-components — contentStyle clips the whole
 // thing to the correct height.
-func renderAppStoreContent(s *core.State, width, height int) string {
+func renderAppStoreContent(s *core.State, width, height int, spinnerView string) string {
 	if !s.AppstoreLoaded {
 		return renderContentPane(width, height,
 			placeholderStyle.Render("Loading package catalog…"))
@@ -42,7 +42,7 @@ func renderAppStoreContent(s *core.State, width, height int) string {
 	}
 
 	searchBar := renderAppstoreSearchBar(s, innerWidth)
-	status := renderAppstoreStatus(s, innerWidth)
+	status := renderAppstoreStatus(s, innerWidth, spinnerView)
 
 	// contentStyle has Padding(1, 3) → 2 vertical padding rows.
 	// The search bar, two blank-line separators, and the status footer

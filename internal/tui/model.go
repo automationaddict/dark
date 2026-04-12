@@ -4,6 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
@@ -59,6 +60,7 @@ type Model struct {
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
 	dialog    *Dialog
+	spinner   spinner.Model
 	width     int
 	height    int
 }
@@ -77,6 +79,8 @@ type WifiMsg wifi.Snapshot
 type BusStatusMsg bool
 
 func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
 	return Model{
 		state:     state,
 		binPath:   binPath,
@@ -86,6 +90,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		network:   network,
 		notifier:  notifier,
 		appstore:  appstore,
+		spinner:   sp,
 	}
 }
 
@@ -106,7 +111,7 @@ func (m *Model) notifyError(section, message string) {
 	})
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func (m Model) Init() tea.Cmd { return m.spinner.Tick }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -114,6 +119,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
+
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 
 	case SysInfoMsg:
 		m.state.SetSysInfo(sysinfo.SystemInfo(msg))
@@ -217,11 +227,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case AppstoreRefreshResultMsg:
+		m.state.AppstoreBusy = false
 		if msg.Err != "" {
 			m.state.SetAppstoreError(msg.Err)
 			m.notifyError("App Store", msg.Err)
 			return m, nil
 		}
+		m.state.AppstoreStatusMsg = ""
 		m.state.SetAppstore(msg.Snapshot)
 		return m, nil
 
@@ -978,7 +990,7 @@ func (m Model) View() string {
 	case core.TabSettings:
 		body = renderSettings(m.state, width, bodyHeight)
 	case core.TabF2:
-		body = renderAppStoreTab(m.state, width, bodyHeight)
+		body = renderAppStoreTab(m.state, width, bodyHeight, m.spinner.View())
 	default:
 		body = renderEmpty(m.state, width, bodyHeight)
 	}

@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	pacmanCatalogTTL = 6 * time.Hour
+	pacmanCatalogTTL       = 6 * time.Hour
+	pacmanInstalledTTL     = 30 * time.Second
 	pacmanCatalogCacheFile = "pacman_catalog.json"
 )
 
@@ -24,14 +25,15 @@ type pacmanBackend struct {
 	engine *scripting.Engine
 	cache  string
 
-	mu             sync.RWMutex
-	catalog        []Package
-	index          map[string]int // lower(name) -> catalog position
-	installed      map[string]struct{}
-	catCounts      map[string]int // sidebar ID → count of packages
-	featured       []string       // curated package names from Lua
-	lastLoad       time.Time
-	expacAvailable bool
+	mu               sync.RWMutex
+	catalog          []Package
+	index            map[string]int // lower(name) -> catalog position
+	installed        map[string]struct{}
+	catCounts        map[string]int // sidebar ID → count of packages
+	featured         []string       // curated package names from Lua
+	lastLoad         time.Time
+	lastInstallCheck time.Time
+	expacAvailable   bool
 }
 
 // NewPacmanBackend constructs the pacman-backed Backend. It probes for
@@ -207,9 +209,17 @@ func (p *pacmanBackend) Detail(req DetailRequest) (Detail, error) {
 // serialized on the write lock so only one population runs.
 func (p *pacmanBackend) ensureCatalog() {
 	p.mu.RLock()
-	fresh := p.catalog != nil && time.Since(p.lastLoad) < pacmanCatalogTTL
+	catalogFresh := p.catalog != nil && time.Since(p.lastLoad) < pacmanCatalogTTL
+	installedStale := p.catalog != nil && time.Since(p.lastInstallCheck) >= pacmanInstalledTTL
 	p.mu.RUnlock()
-	if fresh {
+	if catalogFresh && !installedStale {
+		return
+	}
+	if catalogFresh && installedStale {
+		p.mu.Lock()
+		p.refreshInstalledLocked()
+		p.lastInstallCheck = time.Now()
+		p.mu.Unlock()
 		return
 	}
 	p.mu.Lock()
@@ -228,6 +238,7 @@ func (p *pacmanBackend) ensureCatalog() {
 			p.installCatalogLocked(cached)
 			p.lastLoad = time.Now()
 			p.refreshInstalledLocked()
+			p.lastInstallCheck = p.lastLoad
 			return
 		}
 	}
@@ -241,6 +252,7 @@ func (p *pacmanBackend) ensureCatalog() {
 	p.installCatalogLocked(cat)
 	p.lastLoad = time.Now()
 	p.refreshInstalledLocked()
+	p.lastInstallCheck = p.lastLoad
 	p.logger.Info("appstore: built pacman catalog",
 		"packages", len(cat),
 		"installed", len(p.installed),
