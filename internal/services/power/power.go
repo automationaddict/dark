@@ -1,13 +1,13 @@
 package power
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/godbus/dbus/v5"
 )
 
 type Snapshot struct {
@@ -102,9 +102,50 @@ func ReadSnapshot() Snapshot {
 	return s
 }
 
+// --- Power Profiles via D-Bus (net.hadess.PowerProfiles) ---
+
 func SetProfile(profile string) error {
-	return exec.Command("powerprofilesctl", "set", profile).Run()
+	conn, err := dbus.SystemBus()
+	if err != nil {
+		return err
+	}
+	obj := conn.Object("net.hadess.PowerProfiles", "/net/hadess/PowerProfiles")
+	return obj.SetProperty("net.hadess.PowerProfiles.ActiveProfile", dbus.MakeVariant(profile))
 }
+
+func readPowerProfiles() (string, []string) {
+	conn, err := dbus.SystemBus()
+	if err != nil {
+		return "", nil
+	}
+	obj := conn.Object("net.hadess.PowerProfiles", "/net/hadess/PowerProfiles")
+
+	activeV, err := obj.GetProperty("net.hadess.PowerProfiles.ActiveProfile")
+	if err != nil {
+		return "", nil
+	}
+	active, _ := activeV.Value().(string)
+
+	profilesV, err := obj.GetProperty("net.hadess.PowerProfiles.Profiles")
+	if err != nil {
+		return active, nil
+	}
+
+	var profiles []string
+	if arr, ok := profilesV.Value().([]map[string]dbus.Variant); ok {
+		for _, m := range arr {
+			if p, ok := m["Profile"]; ok {
+				if name, ok := p.Value().(string); ok {
+					profiles = append(profiles, name)
+				}
+			}
+		}
+	}
+
+	return active, profiles
+}
+
+// --- CPU Governor / EPP via sysfs ---
 
 func SetGovernor(gov string) error {
 	cpus, _ := filepath.Glob("/sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_governor")
@@ -121,6 +162,8 @@ func SetEPP(epp string) error {
 	}
 	return nil
 }
+
+// --- Batteries & AC via sysfs ---
 
 func readBatteries() []Battery {
 	entries, _ := os.ReadDir("/sys/class/power_supply")
@@ -164,34 +207,7 @@ func readACAdapters() []ACAdapter {
 	return acs
 }
 
-func readPowerProfiles() (string, []string) {
-	out, err := exec.Command("powerprofilesctl", "list").Output()
-	if err != nil {
-		return "", nil
-	}
-	var profiles []string
-	var active string
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasSuffix(line, ":") && !strings.Contains(line, "=") {
-			name := strings.TrimSuffix(line, ":")
-			isActive := strings.HasPrefix(name, "*")
-			name = strings.TrimPrefix(name, "* ")
-			name = strings.TrimSpace(name)
-			profiles = append(profiles, name)
-			if isActive {
-				active = name
-			}
-		}
-	}
-	if active == "" {
-		out2, err := exec.Command("powerprofilesctl", "get").Output()
-		if err == nil {
-			active = strings.TrimSpace(string(out2))
-		}
-	}
-	return active, profiles
-}
+// --- CPU info via sysfs ---
 
 func readCPU() ([]CPU, string, []string, string, []string, string) {
 	cpuDirs, _ := filepath.Glob("/sys/devices/system/cpu/cpu[0-9]*")
@@ -247,64 +263,42 @@ func readCPU() ([]CPU, string, []string, string, []string, string) {
 	return cpus, governor, governors, epp, epps, pstate
 }
 
+// --- Thermals via /sys/class/hwmon ---
+
 func readThermals() []Thermal {
-	out, err := exec.Command("sensors").Output()
-	if err != nil {
-		return readThermalsFromSysfs()
-	}
+	hwmons, _ := filepath.Glob("/sys/class/hwmon/hwmon*")
 	var thermals []Thermal
-	var currentChip string
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
-			continue
-		}
-		if !strings.Contains(line, ":") {
-			currentChip = line
-			continue
-		}
-		if !strings.Contains(line, "°C") {
-			continue
-		}
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		label := strings.TrimSpace(parts[0])
-		valStr := strings.TrimSpace(parts[1])
-		if idx := strings.Index(valStr, "°C"); idx > 0 {
-			valStr = strings.TrimSpace(valStr[:idx])
-			valStr = strings.TrimPrefix(valStr, "+")
-			temp, err := strconv.ParseFloat(valStr, 64)
-			if err == nil {
-				name := label
-				if currentChip != "" {
-					name = currentChip + " · " + label
-				}
-				thermals = append(thermals, Thermal{Label: name, Temp: temp})
+	for _, dir := range hwmons {
+		chipName := readSysStr(dir, "name")
+		for i := 1; ; i++ {
+			tempFile := fmt.Sprintf("temp%d_input", i)
+			path := filepath.Join(dir, tempFile)
+			if _, err := os.Stat(path); err != nil {
+				break
 			}
+			raw := readFileInt(path)
+			if raw == 0 {
+				continue
+			}
+			labelFile := fmt.Sprintf("temp%d_label", i)
+			label := readSysStr(dir, labelFile)
+			if label == "" {
+				label = fmt.Sprintf("temp%d", i)
+			}
+			name := label
+			if chipName != "" {
+				name = chipName + " · " + label
+			}
+			thermals = append(thermals, Thermal{
+				Label: name,
+				Temp:  float64(raw) / 1000.0,
+			})
 		}
 	}
 	return thermals
 }
 
-func readThermalsFromSysfs() []Thermal {
-	zones, _ := filepath.Glob("/sys/class/thermal/thermal_zone*")
-	var thermals []Thermal
-	for _, z := range zones {
-		typ := readSysStr(z, "type")
-		tempRaw := readSysInt(z, "temp")
-		if tempRaw == 0 {
-			continue
-		}
-		thermals = append(thermals, Thermal{
-			Label: typ,
-			Temp:  float64(tempRaw) / 1000.0,
-		})
-	}
-	return thermals
-}
+// --- Fans via /sys/class/hwmon ---
 
 func readFans() []Fan {
 	inputs, _ := filepath.Glob("/sys/class/hwmon/hwmon*/fan*_input")
@@ -325,6 +319,8 @@ func readFans() []Fan {
 	return fans
 }
 
+// --- GPU via /sys/class/hwmon (amdgpu) ---
+
 func readGPU() GPUInfo {
 	var gpu GPUInfo
 	hwmons, _ := filepath.Glob("/sys/class/hwmon/hwmon*/name")
@@ -344,27 +340,61 @@ func readGPU() GPUInfo {
 	return gpu
 }
 
+// --- Peripherals via D-Bus (org.freedesktop.UPower) ---
+
 func readPeripherals() []Peripheral {
-	out, err := exec.Command("upower", "-e").Output()
+	conn, err := dbus.SystemBus()
 	if err != nil {
 		return nil
 	}
+
+	obj := conn.Object("org.freedesktop.UPower", "/org/freedesktop/UPower")
+	var paths []dbus.ObjectPath
+	if err := obj.Call("org.freedesktop.UPower.EnumerateDevices", 0).Store(&paths); err != nil {
+		return nil
+	}
+
 	var periph []Peripheral
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.Contains(line, "battery_BAT") ||
-			strings.Contains(line, "line_power") ||
-			strings.Contains(line, "DisplayDevice") {
+	for _, path := range paths {
+		sp := string(path)
+		if strings.Contains(sp, "battery_BAT") ||
+			strings.Contains(sp, "line_power") ||
+			strings.Contains(sp, "DisplayDevice") {
 			continue
 		}
-		info, err := exec.Command("upower", "-i", line).Output()
-		if err != nil {
-			continue
+
+		dev := conn.Object("org.freedesktop.UPower", path)
+		p := Peripheral{}
+
+		if v, err := dev.GetProperty("org.freedesktop.UPower.Device.Model"); err == nil {
+			p.Model, _ = v.Value().(string)
 		}
-		p := parseUPowerDevice(string(info))
+		if v, err := dev.GetProperty("org.freedesktop.UPower.Device.NativePath"); err == nil {
+			p.Name, _ = v.Value().(string)
+		}
+		if v, err := dev.GetProperty("org.freedesktop.UPower.Device.Percentage"); err == nil {
+			if pct, ok := v.Value().(float64); ok {
+				p.Charge = int(pct)
+			}
+		}
+		if v, err := dev.GetProperty("org.freedesktop.UPower.Device.State"); err == nil {
+			if state, ok := v.Value().(uint32); ok {
+				switch state {
+				case 1:
+					p.Status = "charging"
+				case 2:
+					p.Status = "discharging"
+				case 4:
+					p.Status = "fully-charged"
+				default:
+					p.Status = "unknown"
+				}
+			}
+		}
+
 		if p.Model != "" || p.Name != "" {
 			if p.Name == "" {
-				p.Name = filepath.Base(line)
+				p.Name = filepath.Base(sp)
 			}
 			periph = append(periph, p)
 		}
@@ -372,32 +402,7 @@ func readPeripherals() []Peripheral {
 	return periph
 }
 
-func parseUPowerDevice(info string) Peripheral {
-	var p Peripheral
-	for _, line := range strings.Split(info, "\n") {
-		line = strings.TrimSpace(line)
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		switch key {
-		case "model":
-			p.Model = val
-		case "native-path":
-			if p.Name == "" {
-				p.Name = val
-			}
-		case "percentage":
-			pct, _ := strconv.Atoi(strings.TrimSuffix(val, "%"))
-			p.Charge = pct
-		case "state":
-			p.Status = val
-		}
-	}
-	return p
-}
+// --- Sleep states via sysfs ---
 
 func readSleep() ([]string, string) {
 	states := readSysStr("/sys/power", "state")
@@ -415,6 +420,8 @@ func readSleep() ([]string, string) {
 	}
 	return stateList, active
 }
+
+// --- sysfs helpers ---
 
 func readSysStr(dir, name string) string {
 	data, err := os.ReadFile(filepath.Join(dir, name))
