@@ -1,0 +1,115 @@
+version: '3'
+
+vars:
+  TUI_BIN: ./tmp/dark
+  DAEMON_BIN: ./tmp/darkd
+  DAEMON_LOG: ./tmp/darkd.log
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  build:
+    desc: Build both binaries (darkd + dark) into ./tmp
+    cmds:
+      - mkdir -p tmp
+      - go build -o {{.DAEMON_BIN}} ./cmd/darkd
+      - go build -o {{.TUI_BIN}} ./cmd/dark
+
+  build:tui:
+    desc: Build only the TUI binary
+    cmds:
+      - mkdir -p tmp
+      - go build -o {{.TUI_BIN}} ./cmd/dark
+
+  build:daemon:
+    desc: Build only the daemon binary
+    cmds:
+      - mkdir -p tmp
+      - go build -o {{.DAEMON_BIN}} ./cmd/darkd
+
+  dev:up:
+    desc: Build both, start darkd in the background if needed, then run the TUI in the foreground
+    cmds:
+      - mkdir -p tmp
+      - task: build
+      - |
+        if pgrep -x darkd > /dev/null; then
+          echo "darkd already running (pid $(pgrep -x darkd))"
+        else
+          nohup {{.DAEMON_BIN}} > {{.DAEMON_LOG}} 2>&1 &
+          disown 2>/dev/null || true
+          # wait briefly for the lock + listener + discovery file
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if pgrep -x darkd > /dev/null; then break; fi
+            sleep 0.05
+          done
+          echo "darkd started (pid $(pgrep -x darkd)), log: {{.DAEMON_LOG}}"
+        fi
+      - "{{.TUI_BIN}}"
+
+  dev:down:
+    desc: Stop the TUI and the daemon, leave nothing behind
+    cmds:
+      - |
+        stopped=0
+        for name in dark darkd; do
+          if pgrep -x "$name" > /dev/null; then
+            pkill -x "$name"
+            stopped=1
+            echo "$name stopped"
+          fi
+        done
+        if [ "$stopped" = "0" ]; then
+          echo "nothing running"
+        fi
+
+  dev:restart:
+    desc: Stop both, start both
+    cmds:
+      - task: dev:down
+      - task: dev:up
+
+  dev:status:
+    desc: Show whether darkd and dark are running
+    cmds:
+      - |
+        for name in darkd dark; do
+          pid=$(pgrep -x "$name" || true)
+          if [ -n "$pid" ]; then
+            echo "$name: running (pid $pid)"
+          else
+            echo "$name: not running"
+          fi
+        done
+
+  dev:logs:
+    desc: Tail the daemon log
+    cmds:
+      - touch {{.DAEMON_LOG}}
+      - tail -f {{.DAEMON_LOG}}
+
+  daemon:
+    desc: Run darkd in the foreground (alternative to dev:up; useful for debugging)
+    deps: [build:daemon]
+    cmds:
+      - "{{.DAEMON_BIN}}"
+
+  run:
+    desc: Run the TUI client (assumes darkd is already running)
+    deps: [build:tui]
+    cmds:
+      - "{{.TUI_BIN}} {{.CLI_ARGS}}"
+
+  tidy:
+    desc: go mod tidy
+    cmds:
+      - go mod tidy
+
+  clean:
+    desc: Remove build artifacts and the daemon log
+    cmds:
+      - rm -rf tmp
