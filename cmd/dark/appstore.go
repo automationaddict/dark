@@ -113,7 +113,7 @@ func appstoreRefreshRequest(nc *nats.Conn) tui.AppstoreRefreshResultMsg {
 
 func appstoreInstallRequest(nc *nats.Conn, req appstoresvc.InstallRequest) tui.AppstoreActionResultMsg {
 	payload, _ := json.Marshal(req)
-	reply, err := nc.Request(bus.SubjectAppstoreInstallCmd, payload, 120*time.Second)
+	reply, err := nc.Request(bus.SubjectAppstoreInstallCmd, payload, core.TimeoutPkexec)
 	if err != nil {
 		return tui.AppstoreActionResultMsg{Err: err.Error()}
 	}
@@ -122,7 +122,7 @@ func appstoreInstallRequest(nc *nats.Conn, req appstoresvc.InstallRequest) tui.A
 
 func appstoreRemoveRequest(nc *nats.Conn, names []string) tui.AppstoreActionResultMsg {
 	payload, _ := json.Marshal(map[string][]string{"names": names})
-	reply, err := nc.Request(bus.SubjectAppstoreRemoveCmd, payload, 60*time.Second)
+	reply, err := nc.Request(bus.SubjectAppstoreRemoveCmd, payload, core.TimeoutPkexec)
 	if err != nil {
 		return tui.AppstoreActionResultMsg{Err: err.Error()}
 	}
@@ -130,7 +130,7 @@ func appstoreRemoveRequest(nc *nats.Conn, names []string) tui.AppstoreActionResu
 }
 
 func appstoreUpgradeRequest(nc *nats.Conn) tui.AppstoreActionResultMsg {
-	reply, err := nc.Request(bus.SubjectAppstoreUpgradeCmd, nil, 300*time.Second)
+	reply, err := nc.Request(bus.SubjectAppstoreUpgradeCmd, nil, 5*core.TimeoutPkexec)
 	if err != nil {
 		return tui.AppstoreActionResultMsg{Err: err.Error()}
 	}

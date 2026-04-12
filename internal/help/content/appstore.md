@@ -1,233 +1,351 @@
 # App Store
 
-Browse the package repositories available on your Arch system: the official pacman repos (core, extra, multilib) and the Arch User Repository. Search, view full package details, see what's already installed, and learn about anything interesting before pulling it down.
-
-The App Store is **read-only in this release.** Install, remove, and upgrade actions are planned for the next pass. You can browse and research packages today; actually installing them still happens from a regular terminal.
+Browse, search, install, and remove packages from the official Arch repos (core, extra, multilib) and the Arch User Repository (AUR). The App Store gives you a visual way to explore what's available on your system, see what's already installed, read full package details, and manage packages — all without leaving dark.
 
 Press `?` at any time to open this help. Press `esc` to close it.
 
 ## What you see when you land here
 
-The F2 tab lays out like a small Cosmic-style app store, translated into a strict TUI. From top to bottom:
+Press `F2` to switch to the App Store tab. The screen is divided into four regions from top to bottom:
 
-1. A **Search bar** spanning the top of the tab. The cursor blinks here when you press `/`.
-2. A **Categories** sidebar on the left listing the views you can drill into.
-3. A **Results / Detail** pane on the right that tracks whatever the sidebar or search has selected.
-4. A one-line **status footer** at the bottom showing either the key hint row, the current busy state, or a rate-limit warning.
+1. **Search bar** — spans the full width at the top. Shows your current search query (or a placeholder prompt) and an AUR toggle badge on the right.
+2. **Categories sidebar** — a narrow column on the left listing the views you can browse: Featured, All Packages, Installed, AUR, plus content categories like Development, Graphics, Internet, and so on.
+3. **Main pane** — the large area to the right of the sidebar. It shows either a **Results list** (package rows you can scroll through) or a **Detail panel** (the full readout for one package), depending on what you've selected.
+4. **Status footer** — a single line at the bottom that shows keyboard hints, your position in the list (e.g. `3/142`), busy indicators, or error messages.
 
-On the first frame `darkd` has already pulled a fresh catalog, so the sidebar shows real counts for "All Packages" and "Installed". The Featured view populates from a small curated list of common apps that also exist on your system.
+When you first open the tab, the daemon has already loaded the full catalog from pacman, so the sidebar shows real counts and you can start browsing immediately.
+
+## Understanding focus — how to navigate
+
+The App Store uses a **focus model** where one region at a time owns the keyboard. This is different from a mouse-driven GUI — you move focus between regions with specific keys and the status footer always shows which keys are available.
+
+Here is the focus flow, step by step:
+
+1. **You start on the sidebar.** The `j` and `k` keys (or arrow keys) move the highlight between categories. The status footer shows: `j/k categories · enter browse · / search · R refresh · A toggle AUR · U upgrade`.
+2. **Press `enter` to browse a category.** Focus shifts to the Results list on the right. The sidebar highlight stays put so you can see which category you're viewing. The footer changes to: `j/k nav · enter detail · i install · X remove · / search · R refresh · U upgrade · 1/55`.
+3. **Press `enter` on a result to see its details.** The Results list is replaced by the Detail panel for that package. The `j` and `k` keys now scroll the detail content up and down. The footer changes to: `i install · X remove · esc back to results · scroll 1/12`.
+4. **Press `esc` to go back.** Each press of `esc` backs out one level: Detail → Results → Sidebar → quit the app. You can always press `esc` repeatedly to get back to the sidebar.
+
+At any point, press `/` to jump to the search bar, `?` to open help, or `F1`–`F12` to switch tabs.
 
 ## The Search bar
 
-The search bar is where you enter fuzzy queries against both pacman and the AUR. Its behavior:
+The search bar lets you find packages by name or description across both pacman and the AUR.
 
-- Press `/` from anywhere in the App Store to focus the bar. The border turns accent blue and the cursor block appears.
-- Type freely. Every printable character including letters like `j`, `k`, `q` goes into the input — shortcut keys are suspended while the bar has focus.
-- Press `enter` to run the search. Results come back as a merged list sorted with exact name matches first, installed packages next, pacman before AUR, then by name.
-- Press `esc` to abandon the input without searching. The existing query (and its results) stay intact.
-- Press `backspace` to erase the last character.
-- The `[aur: on]` / `[aur: off]` badge on the right of the bar shows whether AUR results are included. Toggle it with `A` (shift+a) from outside search mode.
+### How to search
 
-An empty query search returns you to whichever category is currently highlighted in the sidebar.
+1. Press `/` from anywhere in the App Store. The search bar border turns accent blue and a cursor appears.
+2. Type your query. While the search bar has focus, **every key you press goes into the search text** — letters like `j`, `k`, and `q` that are normally shortcuts are treated as regular characters so you can type package names freely.
+3. Press `enter` to run the search. Results appear in the main pane, sorted with the best matches first.
+4. Press `esc` to cancel without searching. Your previous query and results stay intact.
+5. Press `backspace` to delete the last character.
+
+### The AUR toggle
+
+The `[aur: on]` / `[aur: off]` badge on the right side of the search bar controls whether the AUR is included in your searches. Press `A` (shift+a) from outside search mode to toggle it. When off, searches only cover the official pacman repos. When on, searches fan out to both pacman and the AUR and merge the results.
+
+An empty search (pressing `enter` with nothing typed) returns you to whichever category is highlighted in the sidebar.
 
 ## The Categories sidebar
 
-The sidebar owns the left column of the App Store body. Categories are divided into two tiers:
+The sidebar has two kinds of entries:
 
-**Navigation views (always enabled)**
+### Navigation views (always available)
 
-- **Featured** — A curated list of common end-user apps, filtered against your repos so nothing on the list is a ghost. Good for poking around without knowing what to search for.
-- **All Packages** — Every package pacman knows about, in name order. Count in parentheses reflects your repo state.
-- **Installed** — Every package currently on your system according to `pacman -Qq`. Also includes AUR packages you've already built locally.
-- **AUR** — The Arch User Repository. Empty until you run a search with `[aur: on]` — the AUR has no browse-everything endpoint so we don't pull it wholesale.
+- **Featured** — A curated list of popular apps that also exist in your repos. This is a good starting point for exploring. The list is defined in a YAML configuration file that you can customize (see the Customization section below).
+- **All Packages** — Every package pacman knows about. The count in parentheses reflects your current repo state (typically 14,000–16,000 packages depending on which repos are enabled).
+- **Installed** — Everything currently on your system according to pacman, including AUR packages you've installed via a helper.
+- **AUR** — The Arch User Repository. This only shows results when you run a search with the AUR toggle on, because the AUR has no "browse everything" endpoint.
 
-**Content categories (enabled when populated)**
+### Content categories (show a count when populated)
 
-- **Development** — Compilers, IDEs, version control, databases, Docker, language runtimes.
-- **Graphics** — Image editors, 3D modeling, photography, screenshot tools, vector graphics.
-- **Internet** — Web browsers, email clients, chat apps, download tools, VPNs, file sync.
-- **Multimedia** — Media players, video editors, audio workstations, codecs, streaming.
-- **Office** — Document suites, PDF viewers, note-taking, finance, password managers.
-- **System** — Terminals, shells, file managers, system monitors, boot loaders, firewalls, CLI tools.
-- **Games** — Game launchers, emulators, native games, compatibility layers.
-- **Other** — Everything that doesn't fit elsewhere (currently unused — packages without a category assignment are simply uncategorized rather than force-bucketed).
+- **Development** — Compilers, IDEs, version control tools, databases, Docker, language runtimes, and build systems.
+- **Graphics** — Image editors (GIMP, Inkscape, Krita), 3D tools (Blender), photography apps, screenshot tools, and vector graphics.
+- **Internet** — Web browsers (Firefox, Chromium), email clients, chat apps (Signal, Discord, Telegram), download managers, VPNs, and file sync tools.
+- **Multimedia** — Media players (VLC, mpv), video editors (Kdenlive, OBS), audio workstations (Audacity), codecs, and streaming tools.
+- **Office** — Document suites (LibreOffice), PDF viewers, note-taking apps (Obsidian), finance tools, and password managers.
+- **System** — Terminal emulators (Ghostty, Alacritty, Kitty), shells, file managers, system monitors, boot loaders, firewalls, and command-line utilities.
+- **Games** — Game launchers (Steam, Lutris), emulators (RetroArch), native games, and compatibility layers (Wine, Proton).
+- **Other** — A catch-all for packages that don't fit elsewhere. Currently empty because uncategorized packages are left untagged rather than force-bucketed.
 
-Categories are populated at catalog-build time from two sources: a Lua script (`categories.lua`) that maps package names to sidebar groups and maps XDG freedesktop category strings to dark's groups, and the `Categories=` field in installed packages' `.desktop` files. The Lua script takes priority, so you can override any categorization by editing your copy of the script.
+Categories are populated automatically from a curated YAML file plus the `Categories=` field in your installed packages' `.desktop` files. If a category shows a count of zero, it means no packages in your repos matched that category — this is normal for categories like Games if you don't have any game packages installed.
 
-### Customizing categories
+Disabled categories (shown dimmed and italic) are skipped when you press `j`/`k`, so the cursor only lands on entries you can actually browse.
 
-The default `categories.lua` is compiled into the binary. To override it, create a file at:
+## The Results list
 
-    $XDG_CONFIG_HOME/dark/scripts/appstore/categories.lua
+When you select a category or run a search, the main pane fills with a list of packages. Each row shows:
 
-The user file completely replaces the default — dark does not merge them. The script must set two global tables: `xdg_map` (mapping XDG category strings like `"AudioVideo"` to dark sidebar IDs like `"multimedia"`) and `packages` (mapping package names like `"firefox"` to sidebar IDs). See the default script for the full format.
+- **Selection caret** (`▸`) — marks the currently highlighted row when focus is on the results.
+- **Name** — displayed in accent color when the package is already installed.
+- **Size** — the installed size in human-readable form (KiB, MiB, GiB). A dash (`—`) means the size is unknown, which is normal for AUR packages that haven't been built yet.
+- **Origin badge** — shows where the package comes from:
+  - `installed` (green) — already on your system.
+  - `AUR` (gold) — from the Arch User Repository.
+  - `core`, `extra`, `multilib` (dim) — the official pacman repository it lives in.
+- **Description** — the short package description, truncated to fit the row.
+- **Action hint** (on the selected row only) — shows `[i install]` in green for packages you don't have, or `[X remove]` in red for packages you do. This reminds you which key to press.
 
-After editing the script, press `R` in the App Store to refresh the catalog and pick up the changes.
+### Result sort order
 
-### Navigating the sidebar
+Results are sorted to put the most relevant items first:
 
-- `j` / `down` — move selection down, skipping disabled categories
-- `k` / `up` — move selection up, skipping disabled categories
-- `enter` — load the selected category into the Results pane and shift focus to it
-- `esc` — no-op from the sidebar (the global `esc` quits the app from here)
+1. Exact name match — if you searched for `firefox`, the package literally named `firefox` appears first.
+2. Installed packages — things you already have come before things you don't.
+3. Pacman repos before AUR — official-repo packages are listed before AUR results.
+4. Alphabetical by name within each tier.
 
-Cursor movement in the sidebar does **not** fire a search on every keystroke. Nothing happens until you press `enter`, so you can scroll through categories without flooding the daemon with requests.
+### Position indicator
 
-## The Results pane
+The status footer shows your position in the list, e.g. `3/142`, so you know where you are and how many results there are. If the search returned more than 200 results, the footer also shows `(truncated)` — refine your query to see the rest.
 
-Once a category is loaded or a search has returned, the right side of the body fills with a list of package cards. Each row shows:
+## The Detail panel
 
-- A `▸` selection caret when that row is highlighted and focus is on the Results pane.
-- **Name** — accent color when installed, normal color otherwise.
-- **Size** — humanized installed size (MiB or GiB). Zero renders as `—`, which is common for AUR packages since the AUR has no binary to measure.
-- **Origin badge** — `installed` in green for packages on your system, `AUR` in gold for AUR results, or the repo name (`core`, `extra`, `multilib`) for official-repo packages.
-- **Description** — the short package description, truncated to fit the remaining width on the row.
+Press `enter` on a highlighted package to see its full details. The Results list is replaced by a scrollable readout that includes:
 
-### Navigating results
+### Header
 
-- `enter` on the sidebar moves focus into the Results pane when there's something to show.
-- `j` / `k` walks the selection within the list.
-- `enter` on a highlighted row opens the Detail pane for that package.
-- `esc` returns focus to the sidebar.
+The package name in accent color, version in dim, the origin badge, and an action indicator (`[i install]` or `[X remove]`).
 
-### Why you see what you see
+### Metadata fields
 
-Results are sorted in this order, globally:
+- **Repo** — which pacman repository the package lives in (or `aur`).
+- **URL** — the upstream project website.
+- **Licenses** — the software license(s).
+- **Download** — the compressed download size. Only available for official-repo packages.
+- **Installed** — the uncompressed on-disk size after installation. Only available for official-repo packages and packages you've already installed.
+- **Updated** — how long ago the package was last built or modified (e.g. "3 days ago", "2 months ago").
+- **Votes / Popularity** — AUR-only engagement metrics. Higher votes and popularity suggest a more widely-used and better-maintained package.
+- **Maintainer / Packager** — who currently stewards the package.
 
-1. Exact name match (case-insensitive) — useful when searching for a specific tool.
-2. Installed packages.
-3. Pacman repos before AUR.
-4. Alphabetical by name.
+### Dependency lists
 
-A search for `firefox` therefore returns `firefox` first (if it's installed), then other pacman packages containing "firefox", then any AUR results. The status footer shows `(results truncated)` if the search returned more rows than the 200-row window; refine the query to narrow it down.
+Below the metadata, the detail panel shows:
 
-## The Detail pane
+- **Depends On** — packages this one requires to run. These are installed automatically.
+- **Optional** — packages that add extra features but aren't required.
+- **Make Deps** — packages needed only to build this package from source (AUR packages only).
+- **Conflicts** — packages that can't coexist with this one. If you install this, pacman will ask to remove the conflicting package.
 
-Pressing `enter` on a highlighted package replaces the results list with a full detail readout. The top of the pane is a header with the package name and version plus the origin badge. Below that, a two-column metadata block shows:
+Empty sections are hidden so packages with sparse metadata don't waste screen space.
 
-- **Repo** — the pacman repository the package lives in, or `aur`
-- **URL** — the upstream project URL
-- **Licenses** — comma-separated license identifiers
-- **Download** — compressed download size (pacman only — AUR has no binary to measure)
-- **Installed** — uncompressed on-disk size after install
-- **Updated** — how long ago the package was last built or modified
-- **Votes / Popularity** — AUR-only engagement metrics
-- **Maintainer** / **Packager** — who currently stewards the package
+### Scrolling the detail panel
 
-Below the metadata, longer list fields render one per line: **Description** (full text if distinct from the short one), **Depends On**, **Optional**, **Make Deps**, and **Conflicts**. Empty fields are omitted so packages with sparse metadata don't waste screen space.
+When the detail content is taller than the screen, use `j`/`k` (or arrow keys) to scroll up and down. The title bar shows a position indicator like `[3/12]` so you know where you are in the content. Press `esc` to close the detail panel and return to the Results list.
 
-Press `esc` to close the detail pane and return to the Results list.
+## Installing, removing, and upgrading packages
+
+### Install a package (`i`)
+
+1. Navigate to the package in the Results list or open its Detail panel.
+2. Press `i`. A confirmation dialog appears: "Install <name>?"
+3. Press `enter` to confirm, or `esc` to cancel.
+4. For **official-repo packages**: dark invokes the privileged helper (`dark-helper`) via `pkexec`. Your system's polkit agent shows an authentication dialog — type your password and press enter. Pacman downloads and installs the package.
+5. For **AUR packages**: dark shells out to your AUR helper (`paru` or `yay`), which clones the PKGBUILD, builds the package, and installs it. The AUR helper handles sudo internally.
+6. After a successful install, the catalog refreshes automatically and the package's badge flips from its repo name to `installed`.
+
+If the package is already installed, pressing `i` does nothing. The action hint on the row will show `[X remove]` instead.
+
+### Remove a package (`X`)
+
+1. Navigate to an installed package (its badge says `installed` in green).
+2. Press `X` (shift+x). A confirmation dialog appears: "Remove <name>?"
+3. Press `enter` to confirm, or `esc` to cancel.
+4. Dark invokes the privileged helper via `pkexec`. Authenticate in the polkit dialog. Pacman removes the package.
+5. The catalog refreshes and the package's badge reverts to its repo name.
+
+If the package is not installed, pressing `X` does nothing.
+
+### Run a full system upgrade (`U`)
+
+1. Press `U` (shift+u) from anywhere in the App Store.
+2. A confirmation dialog appears: "Run system upgrade (pacman -Syu)?"
+3. Press `enter` to confirm. This is equivalent to running `sudo pacman -Syu` in a terminal.
+4. The status line shows `working…` while the upgrade runs. This can take a while depending on how many packages need updating and your download speed.
+5. When complete, the catalog refreshes with the new package versions.
+
+### About the authentication dialog
+
+Every install, remove, and upgrade requires root access. Dark uses `pkexec` (part of polkit) to request it. When you confirm an action, your desktop's polkit agent pops up an authentication dialog where you type your password. Dark **never** sees, stores, or handles your password — polkit manages the entire authentication flow.
+
+The `dark-helper` binary that runs as root validates every input before touching pacman. Package names must contain only letters, numbers, `@`, `.`, `_`, `+`, and `-`. No more than 20 packages can be installed or removed in a single operation. These restrictions exist to prevent the helper from being misused.
+
+### AUR packages — what's different
+
+The **Arch User Repository (AUR)** is a community-maintained collection of package build scripts, not pre-compiled binaries. When you install an AUR package, your machine downloads the build script, fetches the upstream source code, compiles it locally, and then installs the result. This means:
+
+- **Sizes are unknown until after you install.** The AUR doesn't know how big the compiled package will be because it depends on your compile settings, architecture, and optional features. Size shows as `—` in the results list.
+- **You need an AUR helper.** Dark uses `paru` or `yay` (whichever is installed) to handle the AUR build process. If neither is installed, AUR packages show `[i install]` but pressing `i` will give you an error explaining that you need to install one.
+- **Builds can take a long time.** Compiling software from source ranges from seconds (small tools) to an hour or more (large projects like browsers or game engines). The status line shows `working…` during the build.
+- **AUR packages are not vetted by Arch.** Anyone can upload a PKGBUILD. Always review the votes, popularity, maintainer, and last-updated date in the Detail panel before installing.
+
+## Customization
+
+All curated data — the Featured list, category assignments, and XDG-to-sidebar mappings — lives in a YAML file that you can override.
+
+### The data file: `categories.yaml`
+
+The default is compiled into the dark binary, but you can create your own at:
+
+    $XDG_CONFIG_HOME/dark/scripts/appstore/categories.yaml
+
+(On most systems this is `~/.config/dark/scripts/appstore/categories.yaml`.)
+
+The file has three sections:
+
+```yaml
+# Maps XDG desktop categories to dark sidebar groups
+xdg_map:
+  WebBrowser: internet
+  AudioVideo: multimedia
+  # ... add your own
+
+# Maps specific package names to sidebar groups
+packages:
+  my-custom-tool: development
+  some-game: games
+  # ... add your own
+
+# Curated list for the Featured sidebar view (order matters)
+featured:
+  - firefox
+  - ghostty
+  - my-favorite-app
+  # ... add your own
+```
+
+Your override file **completely replaces** the default — dark does not merge them. Copy the full default from the source if you want to start from the built-in list and make changes.
+
+### The logic file: `categories.lua`
+
+The Lua script controls how the YAML data is loaded and processed. The default script simply loads the YAML and sets the globals:
+
+```lua
+local data = load_yaml("appstore/categories.yaml")
+xdg_map  = data.xdg_map  or {}
+packages = data.packages  or {}
+featured = data.featured  or {}
+```
+
+Override it at `$XDG_CONFIG_HOME/dark/scripts/appstore/categories.lua` if you want to do something more advanced, like merge multiple YAML files or add conditional logic:
+
+```lua
+local data = load_yaml("appstore/categories.yaml")
+xdg_map  = data.xdg_map  or {}
+packages = data.packages  or {}
+featured = data.featured  or {}
+
+-- Add a custom entry
+packages["my-tool"] = "development"
+table.insert(featured, 1, "my-tool")
+```
+
+After changing either file, press `R` in the App Store to refresh and pick up your changes.
 
 ## Global key reference
 
 ### From outside search mode
 
-- `↑` / `↓` or `k` / `j` — move the selection within the currently focused region
-- `enter` — activate the current region (sidebar → results, results → detail)
-- `esc` — back out of the current region (detail → results → sidebar → quit)
-- `/` — open the search bar
-- `i` — install the highlighted package (opens a confirmation dialog, then authenticates via polkit)
-- `X` (shift+x) — remove the highlighted package (only works on installed packages)
-- `U` (shift+u) — run a full system upgrade (`pacman -Syu`)
-- `A` (shift+a) — toggle whether AUR results are included in searches
-- `R` (shift+r) — refresh the catalog, bypassing caches
-- `?` — open this help panel
-- `q` — quit
-- `ctrl+c` — quit from anywhere
-- `ctrl+r` — rebuild dark in place
-- `f1` … `f12` — switch tabs
+| Key | What it does |
+|-----|-------------|
+| `j` / `↓` | Move selection down (sidebar, results, or scroll detail) |
+| `k` / `↑` | Move selection up |
+| `enter` | Activate: sidebar → results, results → detail |
+| `esc` | Back out: detail → results → sidebar → quit |
+| `/` | Open the search bar |
+| `i` | Install the highlighted package |
+| `X` | Remove the highlighted package (shift+x) |
+| `U` | Run a full system upgrade (shift+u) |
+| `A` | Toggle AUR inclusion in searches (shift+a) |
+| `R` | Refresh the catalog (shift+r) |
+| `?` | Open this help panel |
+| `q` | Quit dark |
+| `ctrl+c` | Quit from anywhere |
+| `ctrl+r` | Rebuild dark in place |
+| `f1`–`f12` | Switch tabs |
 
 ### From inside search mode
 
-While the search bar is focused, every printable key goes into the input. Only these commands are reserved:
+| Key | What it does |
+|-----|-------------|
+| Any letter/number | Types into the search query |
+| `enter` | Run the search |
+| `esc` | Cancel and keep existing results |
+| `backspace` | Delete the last character |
+| `ctrl+c` | Quit |
+| `f1`–`f12` | Switch tabs (leaves search mode) |
+| `?` | Open help |
 
-- `enter` — commit the search and show results
-- `esc` — cancel input, keep existing query and results
-- `backspace` — delete the last character
-- `f1` … `f12` — switch tabs (leaves search mode)
-- `ctrl+c` — quit
-- `?` — open help
+## Status footer reference
 
-## Common tasks
+The one-line footer at the bottom always shows what's happening:
 
-### Find a specific package
-
-Press `/`, type the package name, press `enter`. The exact match lands first in the list. Press `enter` again to open the detail pane.
-
-### See what's already installed on your system
-
-Highlight **Installed** in the sidebar and press `enter`. The list loads from the local pacman database and matches pacman's own `-Qq` output, including AUR packages you've installed via makepkg or a helper.
-
-### Include AUR results in a search
-
-Press `A` from outside search mode to flip the AUR toggle on. The badge on the search bar flips from `[aur: off]` to `[aur: on]`. Your next search will fan out to both pacman and the aurweb RPC and merge the results.
-
-### Refresh after installing something in another terminal
-
-Press `R`. The daemon drops its catalog cache, runs `pacman -Sl` and `pacman -Qq` again, rebuilds the installed-set map, and pushes an updated snapshot. This also clears any AUR rate-limit state.
-
-### Inspect a package before installing it
-
-Navigate to the package, press `enter` to open detail, and read the Depends / Optional Deps / Conflicts lists and the Updated timestamp. A package last updated two years ago on an AUR entry with three votes is a different proposition from one updated last week with four thousand votes — the detail view puts both numbers on the same screen so you can decide quickly.
-
-### Install a package
-
-Navigate to the package in the results list and press `i`. A confirmation dialog appears showing the package name. Press `enter` to confirm. For official-repo packages, dark invokes `dark-helper pacman-install` via `pkexec`, which triggers the polkit authentication dialog — authenticate to proceed. For AUR packages, dark shells out to your AUR helper (`paru` or `yay`) which handles building and elevation internally.
-
-After a successful install, the catalog refreshes automatically and the package's badge flips to "installed" in the results list.
-
-### Remove an installed package
-
-Navigate to an installed package and press `X` (shift+x). Confirm in the dialog. This runs `dark-helper pacman-remove` via `pkexec`. The package disappears from the Installed category on the next refresh.
-
-### Run a system upgrade
-
-Press `U` (shift+u) from anywhere in the App Store. Confirm in the dialog. This runs `pacman -Syu` via the privileged helper, upgrading all installed packages. The operation can take a while depending on how many packages need updating — the status line shows "working…" until it completes.
-
-### Elevation and security
-
-Install, remove, and upgrade all require root privileges. Dark uses the same `pkexec` + `dark-helper` mechanism as the Network section: the `dark-helper` binary validates all inputs strictly (package names must match `[a-zA-Z0-9@._+-]`, batch size capped at 20) and runs `pacman` with `--noconfirm`. The polkit authentication dialog handles the actual privilege grant — dark never stores or handles your password.
-
-AUR installs work differently: they run as your current user via `paru` or `yay`, which handle sudo internally for the final `pacman -U` step. If neither helper is installed, the install button is disabled for AUR packages and the status line explains what's needed.
+| What you see | What it means |
+|-------------|--------------|
+| Key hints (e.g. `j/k nav · enter detail · ...`) | Normal idle state. Shows which keys are available for the current focus. |
+| `working…` (accent color) | An operation is in progress: search, detail fetch, install, remove, or upgrade. |
+| `3/142` | Your cursor position and total result count. |
+| `scroll 5/28` | Your scroll position in the detail panel. |
+| `(truncated)` | The search returned more than 200 results. Refine your query. |
+| `AUR limited` (red) | The AUR backend is in rate-limit backoff. Wait for the timer or try again later. |
+| A red error message | Something failed. The text comes from the daemon and describes the problem. |
 
 ## AUR rate limiting
 
-The aurweb RPC has no published rate limits but we treat it as a shared resource. Dark enforces these limits on itself:
+The AUR's web API doesn't publish rate limits, but dark is a good citizen and imposes its own:
 
-- At most **2 inflight requests** to aurweb at any time.
-- On HTTP 429 or 503 from aurweb, dark enters an exponential backoff starting at 10 seconds, doubling per consecutive failure, clamped to 5 minutes. If aurweb sends a `Retry-After` header we honor it instead.
-- During backoff, search and detail calls that miss the local cache return immediately with a status-line warning rather than piling more requests on a throttled server.
-- The cache clears a throttle on the first successful call after the retry window.
+- At most **2 requests in flight** at any time.
+- On HTTP 429 (Too Many Requests) or 503 (Service Unavailable), dark backs off exponentially: 10 seconds, then 20, then 40, up to a maximum of 5 minutes. If the server sends a `Retry-After` header, dark uses that instead.
+- While in backoff, any search that needs AUR data returns immediately with cached results (if available) or an empty result plus a status warning.
+- The backoff clears on the first successful request after the timer expires.
 
-You'll know you've hit a limit when the status footer shows `AUR rate limited — retrying in Ns` in red. Dark does not retry automatically; the next search you run after the window elapses will try again.
+You'll see `AUR rate limited — retrying in Ns` in the status footer when this happens. You don't need to do anything — just wait or keep browsing official-repo packages.
 
-## Status line meanings
+## Troubleshooting
 
-The one-line footer under the main pane shows different messages depending on what's happening:
+### The catalog is empty or shows 0 packages
 
-- `↑↓ nav  /  search  enter open  R refresh  A toggle AUR  ?  help` — the ambient hint row, shown when nothing is in flight.
-- `working…` in accent — a search, detail fetch, or refresh is in flight.
-- `(results truncated)` — the search returned more rows than the 200-row window; refine the query to see more.
-- `AUR limited` in red — the AUR backend is currently in backoff. See the rate-limiting section above.
-- A red error string — the most recent command reported an error; the exact text comes from darkd.
+This usually means `pacman` is not on your PATH or the sync databases haven't been initialized. Run `sudo pacman -Sy` in a terminal to sync the databases, then press `R` in the App Store to refresh.
 
-The hint row returns the next time you move the cursor or trigger another action.
+### Categories all show zero counts
+
+The catalog may have loaded from an old disk cache that predates the category system. Press `R` to force a fresh rebuild. If categories still show zero, check that your Lua/YAML override files are valid — a syntax error in either will cause categories to fail silently (the daemon logs a warning at info level).
+
+### Install fails with "authentication cancelled"
+
+You dismissed the polkit authentication dialog without typing your password. Press `i` again and complete the authentication this time.
+
+### Install fails with "dark-helper binary not found"
+
+The privileged helper is not installed. It should be at `/usr/local/bin/dark-helper` or `/usr/bin/dark-helper`, or you can set the `DARK_HELPER` environment variable to its path. If you built dark from source, the helper binary is in the same directory as the daemon.
+
+### AUR install fails with "no AUR helper installed"
+
+Dark needs `paru` or `yay` on your PATH to install AUR packages. Install one with `sudo pacman -S paru` (if it's in your repos) or build it manually from the AUR. Once installed, AUR installs will work automatically.
+
+### A package I know exists doesn't show up in results
+
+The catalog refreshes every 6 hours from `pacman -Sl`. If a package was recently added to the repos, press `R` to force a refresh. For AUR packages, make sure the AUR toggle is on (`[aur: on]` in the search bar) — AUR results only appear when you explicitly include them.
+
+### The detail panel shows "—" for everything
+
+This happens for packages where pacman has limited metadata. It's common for meta-packages, package groups, and very old packages. The information shown is exactly what `pacman -Si` reports — dark doesn't add or remove fields.
 
 ## Data sources
 
 Everything on this page comes from `darkd`, which reads:
 
-- **pacman** via the `pacman -Sl`, `pacman -Si`, and `pacman -Qq` commands for repo enumeration, per-package detail, and installed state.
-- **expac** when available, used to batch descriptions and installed sizes in a single call instead of running `pacman -Si` N times. Dark runs without expac but the browse list will show empty descriptions.
-- **aurweb RPC v5** at `https://aur.archlinux.org/rpc/v5` for AUR search and detail lookups. All AUR calls go over HTTPS; dark does no unencrypted network traffic.
-- **Lua scripting** via GopherLua. The `categories.lua` script is loaded at catalog-build time and provides the XDG-to-sidebar category mapping plus a curated per-package override table. The embedded default ships ~290 curated package entries and ~90 XDG category mappings. Users can override the script at `$XDG_CONFIG_HOME/dark/scripts/appstore/categories.lua`.
-- **.desktop files** at `/usr/share/applications/*.desktop`. The `Categories=` field is parsed for installed packages and mapped through the Lua `xdg_map` table to assign categories to packages that ship a desktop entry but aren't in the curated list.
-- **On-disk caches** under `$XDG_CACHE_HOME/dark/appstore` — 6 hours for the pacman catalog and 1 hour for AUR search/detail results. Categories are re-assigned from the Lua script on every catalog load (including cache hits) so script edits take effect on the next refresh without clearing the cache.
-
-The daemon publishes a fresh catalog snapshot on `dark.appstore.catalog` every 60 seconds (much slower than wifi or bluetooth because the repo list barely moves) and pushes an updated snapshot immediately after a user-initiated refresh.
+- **pacman** via `pacman -Sl` (repo enumeration), `pacman -Si` (per-package detail), and `pacman -Qq` (installed state).
+- **expac** when installed, for fast batch enrichment of descriptions and sizes. Without expac, the browse list shows empty descriptions but detail still works. Install expac with `sudo pacman -S expac` for the best experience.
+- **aurweb RPC v5** at `https://aur.archlinux.org/rpc/v5` for AUR search and detail. All calls use HTTPS.
+- **categories.yaml** — the curated data file defining category mappings and the Featured list. Loaded by the Lua script at catalog-build time. Ships embedded in the binary; user overrides at `$XDG_CONFIG_HOME/dark/scripts/appstore/categories.yaml`.
+- **categories.lua** — the Lua script that reads the YAML and exposes it to the backend. Ships embedded; user overrides at `$XDG_CONFIG_HOME/dark/scripts/appstore/categories.lua`.
+- **.desktop files** at `/usr/share/applications/*.desktop` — the `Categories=` field is parsed for installed packages and mapped through the YAML's `xdg_map` table to assign categories automatically.
+- **dark-helper** — the privileged companion binary invoked via `pkexec` for install, remove, and upgrade operations. Validates all inputs strictly before running pacman.
+- **On-disk caches** under `$XDG_CACHE_HOME/dark/appstore` — 6 hours for the pacman catalog and 1 hour for AUR results. Categories are re-applied from the Lua/YAML pipeline on every load, so configuration changes take effect on the next refresh without clearing the cache.
 
 ## Backend notes
 
-The appstore service follows the same pluggable-Backend pattern as wifi and bluetooth. The production backend is a composite that fans requests out to a `pacmanBackend` and an `aurBackend`. If `pacman` is not present on PATH the service falls back to a `noopBackend` and the App Store renders an explanation instead of an empty catalog.
+The appstore service follows the same pluggable-Backend pattern as wifi and bluetooth. The production backend composes a `pacmanBackend` (official repos) and an `aurBackend` (AUR) behind a single interface. If `pacman` is not on PATH, the service falls back to a `noopBackend` and the App Store shows an explanation.
 
-Install, remove, and upgrade are routed through `dark-helper` (the same privileged companion binary the Network section uses) via `pkexec`. Package name validation in the helper enforces `[a-zA-Z0-9@._+-]` and a 20-package batch cap. AUR installs bypass dark-helper and run through `paru` or `yay` as the current user since `makepkg` refuses to run as root.
+Install and remove route through `dark-helper` + `pkexec` for official packages. AUR installs run through `paru` or `yay` as the current user. System upgrade runs `pacman -Syu` through the helper. The helper enforces strict input validation: package names must match `[a-zA-Z0-9@._+-]` and batch size is capped at 20.

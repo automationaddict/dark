@@ -96,7 +96,10 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 	if _, err := nc.Subscribe(bus.SubjectAppstoreInstallCmd, func(m *nats.Msg) {
 		var req appstoresvc.InstallRequest
 		if err := json.Unmarshal(m.Data, &req); err != nil {
-			logger.Warn("appstore: malformed install request", "err", err)
+			resp := appstoreActionResponse{Error: "malformed install request: " + err.Error()}
+			data, _ := json.Marshal(resp)
+			_ = m.Respond(data)
+			return
 		}
 		out, err := svc.Install(req)
 		resp := appstoreActionResponse{Output: out}
@@ -110,7 +113,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		data, _ := json.Marshal(resp)
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe appstore install cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreInstallCmd, "error", err); os.Exit(1)
 	}
 
 	if _, err := nc.Subscribe(bus.SubjectAppstoreRemoveCmd, func(m *nats.Msg) {
@@ -118,7 +121,10 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 			Names []string `json:"names"`
 		}
 		if err := json.Unmarshal(m.Data, &req); err != nil {
-			logger.Warn("appstore: malformed remove request", "err", err)
+			resp := appstoreActionResponse{Error: "malformed remove request: " + err.Error()}
+			data, _ := json.Marshal(resp)
+			_ = m.Respond(data)
+			return
 		}
 		out, err := svc.Remove(req.Names)
 		resp := appstoreActionResponse{Output: out}
@@ -132,7 +138,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		data, _ := json.Marshal(resp)
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe appstore remove cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreRemoveCmd, "error", err); os.Exit(1)
 	}
 
 	if _, err := nc.Subscribe(bus.SubjectAppstoreUpgradeCmd, func(m *nats.Msg) {
@@ -148,7 +154,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		data, _ := json.Marshal(resp)
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe appstore upgrade cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreUpgradeCmd, "error", err); os.Exit(1)
 	}
 
 	return func() {
