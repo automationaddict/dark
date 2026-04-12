@@ -50,21 +50,15 @@ func renderAppStoreSidebarColumn(s *core.State, height int) string {
 	return sidebarStyle.Height(height).Render(body)
 }
 
-// renderAppStoreContent is the right-hand pane for F2, mirroring
-// renderSettingsContent for F1. It stacks a search bar, the results
-// or detail panel, and a one-line status footer.
+// renderAppStoreContent is the right-hand pane for F2. Same pattern
+// as renderWifi / renderBluetooth / renderNetwork: build blocks, join
+// vertically, wrap once in contentStyle.Height. No intermediate
+// height constraints on sub-components — contentStyle clips the whole
+// thing to the correct height.
 func renderAppStoreContent(s *core.State, width, height int) string {
 	if !s.AppstoreLoaded {
 		return contentStyle.Width(width).Height(height).Render(
 			placeholderStyle.Render("Loading package catalog…"))
-	}
-
-	searchBar := renderAppstoreSearchBar(s, width-6)
-	status := renderAppstoreStatus(s, width-6)
-
-	bodyH := height - lipgloss.Height(searchBar) - lipgloss.Height(status) - 2
-	if bodyH < 6 {
-		bodyH = 6
 	}
 
 	innerWidth := width - 6
@@ -72,13 +66,27 @@ func renderAppStoreContent(s *core.State, width, height int) string {
 		innerWidth = 30
 	}
 
-	var mainPane string
-	if s.AppstoreDetailOpen {
-		mainPane = renderAppstoreDetailPane(s, innerWidth, bodyH)
-	} else {
-		mainPane = renderAppstoreResults(s, innerWidth, bodyH)
+	// Available rows for results: total height minus contentStyle
+	// padding (2 rows), search bar (~3 lines), status (1 line), and
+	// blank-line gaps (2). Same approach as wifi/bluetooth — a fixed
+	// offset rather than measuring rendered components.
+	resultRows := height - 8
+	if resultRows < 3 {
+		resultRows = 3
 	}
 
-	stack := lipgloss.JoinVertical(lipgloss.Left, searchBar, mainPane, status)
-	return contentStyle.Width(width).Height(height).Render(stack)
+	searchBar := renderAppstoreSearchBar(s, innerWidth)
+
+	var mainPane string
+	if s.AppstoreDetailOpen {
+		mainPane = renderAppstoreDetailPane(s, innerWidth, resultRows)
+	} else {
+		mainPane = renderAppstoreResults(s, innerWidth, resultRows)
+	}
+
+	status := renderAppstoreStatus(s, innerWidth)
+
+	blocks := []string{searchBar, "", mainPane, "", status}
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return contentStyle.Width(width).Height(height).Render(body)
 }
