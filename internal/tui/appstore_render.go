@@ -122,24 +122,27 @@ func renderAppstoreResults(s *core.State, width, height int) string {
 		title = "Search: " + s.AppstoreResults.Query.Text
 	}
 
+	maxRows := height - 2
+	if maxRows < 1 {
+		maxRows = 1
+	}
+
 	if !s.AppstoreResultsLoaded {
 		body := placeholderStyle.Render(
 			"Press Enter on a category or / to search.")
+		body += strings.Repeat("\n", maxRows-1)
 		return groupBoxSections(title, []string{body}, width, border)
 	}
 
 	pkgs := s.AppstoreResults.Packages
 	if len(pkgs) == 0 {
 		body := placeholderStyle.Render("No packages found.")
+		body += strings.Repeat("\n", maxRows-1)
 		return groupBoxSections(title, []string{body}, width, border)
 	}
 
 	innerW := width - 4
 	rows := make([]string, 0, len(pkgs))
-	maxRows := height - 2
-	if maxRows < 1 {
-		maxRows = 1
-	}
 
 	// Simple windowing: keep the selected row on screen. We don't try
 	// to animate or preserve a center offset — the user's focus is

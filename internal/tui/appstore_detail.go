@@ -20,6 +20,10 @@ func renderAppstoreDetailPane(s *core.State, width, height int) string {
 	border := colorAccent
 	if !s.AppstoreDetailLoaded {
 		body := placeholderStyle.Render("Loading package details…")
+		padLines := height - 3
+		if padLines > 0 {
+			body += strings.Repeat("\n", padLines)
+		}
 		return groupBoxSections("Detail", []string{body}, width, border)
 	}
 
