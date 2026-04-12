@@ -46,7 +46,9 @@ func renderAppstoreStatus(s *core.State, width int) string {
 		parts = append(parts, statusErrorStyle.Render("  AUR limited"))
 	}
 	line := strings.Join(parts, "")
-	return lipgloss.NewStyle().Width(width).Render(line)
+	// Clamp to one visual line so the height stays constant and the
+	// sidebar doesn't shift when the status text changes length.
+	return lipgloss.NewStyle().Width(width).MaxHeight(1).Render(line)
 }
 
 // submitAppstoreSearch dispatches a text search with the current

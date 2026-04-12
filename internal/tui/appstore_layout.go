@@ -31,17 +31,18 @@ func renderAppStoreSidebarColumn(s *core.State, height int) string {
 	itemWidth := s.SidebarItemWidth
 	item := sidebarItem.Width(itemWidth)
 	active := sidebarItemActive.Width(itemWidth)
-	disabled := sidebarItem.Width(itemWidth).Foreground(colorDim).Italic(true)
+
+	dim := lipgloss.NewStyle().Foreground(colorDim)
 
 	var rows []string
 	for i, cat := range s.Appstore.Categories {
 		line := cat.Icon + "  " + cat.Title
-		switch {
-		case i == s.AppstoreCategoryIdx:
+		if i == s.AppstoreCategoryIdx {
 			rows = append(rows, active.Render(line))
-		case !cat.Enabled:
-			rows = append(rows, disabled.Render(line))
-		default:
+		} else {
+			if !cat.Enabled {
+				line = dim.Render(line)
+			}
 			rows = append(rows, item.Render(line))
 		}
 	}
