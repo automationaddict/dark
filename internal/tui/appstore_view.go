@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -31,8 +32,15 @@ func renderAppstoreStatus(s *core.State, width int) string {
 		}
 		parts = append(parts, statusBarStyle.Render(text))
 	}
+	if s.ContentFocused && s.AppstoreDetailOpen && s.AppstoreDetailLines > s.AppstoreDetailViewH {
+		pos := fmt.Sprintf("  scroll %d/%d", s.AppstoreDetailScroll+1, s.AppstoreDetailLines-s.AppstoreDetailViewH+1)
+		parts = append(parts, statusBarStyle.Render(pos))
+	} else if s.ContentFocused && len(s.AppstoreResults.Packages) > 0 {
+		pos := fmt.Sprintf("  %d/%d", s.AppstoreResultIdx+1, len(s.AppstoreResults.Packages))
+		parts = append(parts, statusBarStyle.Render(pos))
+	}
 	if res := s.AppstoreResults; res.Truncated {
-		parts = append(parts, statusBarStyle.Render("  (results truncated)"))
+		parts = append(parts, statusBarStyle.Render("  (truncated)"))
 	}
 	if s.Appstore.AURLimit.Active {
 		parts = append(parts, statusErrorStyle.Render("  AUR limited"))

@@ -178,6 +178,10 @@ func renderAppstoreResultRow(p appstore.Package, selected bool, width int) strin
 	nameCol := 24
 	sizeCol := 10
 	badgeCol := 10
+	actionCol := 0
+	if selected {
+		actionCol = 12
+	}
 
 	name := p.Name
 	if selected {
@@ -193,14 +197,30 @@ func renderAppstoreResultRow(p appstore.Package, selected bool, width int) strin
 
 	badge := appstoreOriginBadge(p, badgeCol)
 
-	descW := width - lipgloss.Width(marker) - nameCol - sizeCol - badgeCol - 3
+	var action string
+	if selected {
+		action = appstoreActionHint(p, actionCol)
+	}
+
+	descW := width - lipgloss.Width(marker) - nameCol - sizeCol - badgeCol - actionCol - 4
 	if descW < 10 {
 		descW = 10
 	}
 	desc := lipgloss.NewStyle().Foreground(colorDim).Render(
 		appstore.TruncateDesc(p.Description, descW))
 
-	return marker + name + " " + size + " " + badge + " " + desc
+	row := marker + name + " " + size + " " + badge + " " + desc
+	if action != "" {
+		row += " " + action
+	}
+	return row
+}
+
+func appstoreActionHint(p appstore.Package, width int) string {
+	if p.Installed {
+		return lipgloss.NewStyle().Foreground(colorRed).Render(fitWidth("[X remove]", width))
+	}
+	return lipgloss.NewStyle().Foreground(colorGreen).Render(fitWidth("[i install]", width))
 }
 
 // appstoreOriginBadge renders the small right-side tag that shows

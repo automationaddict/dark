@@ -57,21 +57,42 @@ func renderAppstoreDetailPane(s *core.State, width, height int) string {
 		lines = append(lines, wrapList(d.Conflicts, width-6))
 	}
 
-	// Pad to full height so the box doesn't shrink when the package
-	// has sparse metadata.
-	for len(lines) < height-2 {
-		lines = append(lines, "")
-	}
-	// And truncate if we overflow — the user can close and scroll
-	// results, and phase 2 can add a scroll offset if this turns out
-	// to be a problem in practice.
-	if len(lines) > height-2 {
-		lines = lines[:height-2]
-		lines[len(lines)-1] = placeholderStyle.Render("… (detail truncated — resize terminal or press esc)")
+	viewH := height - 2
+	if viewH < 1 {
+		viewH = 1
 	}
 
-	body := strings.Join(lines, "\n")
-	return groupBoxSections("Detail — "+d.Name, []string{body}, width, border)
+	// Store total lines so the state can clamp its scroll offset.
+	s.AppstoreDetailLines = len(lines)
+	s.AppstoreDetailViewH = viewH
+
+	// Apply scroll window.
+	scroll := s.AppstoreDetailScroll
+	if scroll > len(lines)-viewH {
+		scroll = len(lines) - viewH
+	}
+	if scroll < 0 {
+		scroll = 0
+	}
+	end := scroll + viewH
+	if end > len(lines) {
+		end = len(lines)
+	}
+	visible := lines[scroll:end]
+
+	// Pad to full viewport height so the box doesn't shrink.
+	for len(visible) < viewH {
+		visible = append(visible, "")
+	}
+
+	// Scroll indicator in the title.
+	title := "Detail — " + d.Name
+	if len(lines) > viewH {
+		title = fmt.Sprintf("Detail — %s  [%d/%d]", d.Name, scroll+1, len(lines)-viewH+1)
+	}
+
+	body := strings.Join(visible, "\n")
+	return groupBoxSections(title, []string{body}, width, border)
 }
 
 // renderAppstoreDetailHeader is the single eye-catching row at the
@@ -82,14 +103,22 @@ func renderAppstoreDetailHeader(d appstore.Detail, width int) string {
 	version := lipgloss.NewStyle().Foreground(colorDim).Render(d.Version)
 	badge := appstoreOriginBadge(d.Package, 10)
 
+	var action string
+	if d.Installed {
+		action = lipgloss.NewStyle().Foreground(colorRed).Render("  [X remove]")
+	} else {
+		action = lipgloss.NewStyle().Foreground(colorGreen).Bold(true).Render("  [i install]")
+	}
+
 	left := name + "  " + version
+	right := badge + action
 	leftW := lipgloss.Width(left)
-	rightW := lipgloss.Width(badge)
+	rightW := lipgloss.Width(right)
 	padW := width - leftW - rightW
 	if padW < 1 {
 		padW = 1
 	}
-	return left + strings.Repeat(" ", padW) + badge
+	return left + strings.Repeat(" ", padW) + right
 }
 
 // renderAppstoreDetailFields returns the two-column "label : value"

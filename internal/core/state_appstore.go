@@ -54,8 +54,26 @@ func (s *State) SetAppstoreDetail(detail appstore.Detail) {
 	s.AppstoreDetail = detail
 	s.AppstoreDetailLoaded = true
 	s.AppstoreDetailOpen = true
+	s.AppstoreDetailScroll = 0
 	s.AppstoreFocus = AppstoreFocusDetail
 	s.AppstoreBusy = false
+}
+
+// ScrollAppstoreDetail moves the detail panel viewport by delta lines.
+// Clamped to [0, totalLines - viewportHeight] by the render layer
+// which sets AppstoreDetailLines after each render.
+func (s *State) ScrollAppstoreDetail(delta int) {
+	s.AppstoreDetailScroll += delta
+	if s.AppstoreDetailScroll < 0 {
+		s.AppstoreDetailScroll = 0
+	}
+	max := s.AppstoreDetailLines - s.AppstoreDetailViewH
+	if max < 0 {
+		max = 0
+	}
+	if s.AppstoreDetailScroll > max {
+		s.AppstoreDetailScroll = max
+	}
 }
 
 // SetAppstoreError records a user-facing error message from a failed

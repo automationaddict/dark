@@ -94,6 +94,9 @@ type State struct {
 	AppstoreDetail        appstore.Detail
 	AppstoreDetailLoaded  bool
 	AppstoreDetailOpen    bool
+	AppstoreDetailScroll  int
+	AppstoreDetailLines   int
+	AppstoreDetailViewH   int
 	AppstoreSearchInput   string
 	AppstoreSearchActive  bool
 	AppstoreFocus         AppstoreFocus

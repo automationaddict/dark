@@ -546,7 +546,9 @@ func (m *Model) inWifiDetails() bool {
 func (m *Model) moveSelection(delta int) {
 	switch m.state.ActiveTab {
 	case core.TabF2:
-		if m.state.ContentFocused {
+		if m.state.ContentFocused && m.state.AppstoreDetailOpen {
+			m.state.ScrollAppstoreDetail(delta)
+		} else if m.state.ContentFocused {
 			m.state.MoveAppstoreResult(delta)
 		} else {
 			m.state.MoveAppstoreCategory(delta)
