@@ -67,6 +67,32 @@ type pacmanBackend struct {
 // expac at construction time; absence is non-fatal and logged at info.
 // The first call to Snapshot or Search triggers catalog population, so
 // construction is cheap.
+func (p *pacmanBackend) Install(names []string) (string, error) {
+	out, err := helperInstall(names)
+	if err == nil {
+		p.Refresh()
+	}
+	return out, err
+}
+
+func (p *pacmanBackend) Remove(names []string) (string, error) {
+	out, err := helperRemove(names)
+	if err == nil {
+		p.Refresh()
+	}
+	return out, err
+}
+
+func (p *pacmanBackend) Upgrade() (string, error) {
+	out, err := helperUpgrade()
+	if err == nil {
+		p.Refresh()
+	}
+	return out, err
+}
+
+func (p *pacmanBackend) AURHelper() string { return detectAURHelper() }
+
 func NewPacmanBackend(logger *slog.Logger, engine *scripting.Engine) Backend {
 	if logger == nil {
 		logger = slog.Default()

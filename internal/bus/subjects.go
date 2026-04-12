@@ -78,4 +78,7 @@ const (
 	SubjectAppstoreSearchCmd  = "dark.cmd.appstore.search"
 	SubjectAppstoreDetailCmd  = "dark.cmd.appstore.detail"
 	SubjectAppstoreRefreshCmd = "dark.cmd.appstore.refresh"
+	SubjectAppstoreInstallCmd = "dark.cmd.appstore.install"
+	SubjectAppstoreRemoveCmd  = "dark.cmd.appstore.remove"
+	SubjectAppstoreUpgradeCmd = "dark.cmd.appstore.upgrade"
 )

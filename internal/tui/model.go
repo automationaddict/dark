@@ -225,6 +225,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.SetAppstore(msg.Snapshot)
 		return m, nil
 
+	case AppstoreActionResultMsg:
+		m.state.AppstoreBusy = false
+		if msg.Err != "" {
+			m.state.SetAppstoreError(msg.Err)
+			return m, nil
+		}
+		m.state.AppstoreStatusMsg = ""
+		m.state.SetAppstore(msg.Snapshot)
+		return m, nil
+
 	case BusStatusMsg:
 		m.state.SetBusConnected(bool(msg))
 		return m, nil
@@ -902,6 +912,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "K":
 		if cmd := m.triggerAudioKillStream(); cmd != nil {
 			return m, cmd
+		}
+	case "i":
+		if m.state.ActiveTab == core.TabF2 {
+			return m, m.triggerAppstoreInstall()
+		}
+	case "X":
+		if m.state.ActiveTab == core.TabF2 {
+			return m, m.triggerAppstoreRemove()
+		}
+	case "U":
+		if m.state.ActiveTab == core.TabF2 {
+			return m, m.triggerAppstoreUpgrade()
 		}
 	case "/":
 		if m.state.ActiveTab == core.TabF2 {

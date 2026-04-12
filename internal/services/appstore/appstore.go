@@ -208,6 +208,51 @@ func (s *Service) Refresh() error {
 	return s.backend.Refresh()
 }
 
+// Install installs packages via the privileged helper.
+func (s *Service) Install(req InstallRequest) (string, error) {
+	if s == nil || s.backend == nil {
+		return "", ErrBackendUnsupported
+	}
+	if req.Origin == OriginAUR {
+		if cb, ok := s.backend.(*compositeBackend); ok {
+			return cb.installAUR(req.Names)
+		}
+		return s.backend.Install(req.Names)
+	}
+	return s.backend.Install(req.Names)
+}
+
+// Remove removes packages.
+func (s *Service) Remove(names []string) (string, error) {
+	if s == nil || s.backend == nil {
+		return "", ErrBackendUnsupported
+	}
+	return s.backend.Remove(names)
+}
+
+// Upgrade runs a full system upgrade.
+func (s *Service) Upgrade() (string, error) {
+	if s == nil || s.backend == nil {
+		return "", ErrBackendUnsupported
+	}
+	return s.backend.Upgrade()
+}
+
+// AURHelper returns the detected AUR helper name, or "".
+func (s *Service) AURHelper() string {
+	if s == nil || s.backend == nil {
+		return ""
+	}
+	return s.backend.AURHelper()
+}
+
+// InstallRequest wraps names with an origin so the service can route
+// AUR installs to the AUR helper and pacman installs to dark-helper.
+type InstallRequest struct {
+	Names  []string `json:"names"`
+	Origin Origin   `json:"origin,omitempty"`
+}
+
 // defaultCategories is the sidebar layout shared by all backends. The
 // four navigational entries (Featured, All, Installed, AUR) are always
 // enabled. The named categories (Development, Graphics, etc.) start

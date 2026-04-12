@@ -126,6 +126,9 @@ Press `esc` to close the detail pane and return to the Results list.
 - `enter` — activate the current region (sidebar → results, results → detail)
 - `esc` — back out of the current region (detail → results → sidebar → quit)
 - `/` — open the search bar
+- `i` — install the highlighted package (opens a confirmation dialog, then authenticates via polkit)
+- `X` (shift+x) — remove the highlighted package (only works on installed packages)
+- `U` (shift+u) — run a full system upgrade (`pacman -Syu`)
 - `A` (shift+a) — toggle whether AUR results are included in searches
 - `R` (shift+r) — refresh the catalog, bypassing caches
 - `?` — open this help panel
@@ -167,6 +170,26 @@ Press `R`. The daemon drops its catalog cache, runs `pacman -Sl` and `pacman -Qq
 
 Navigate to the package, press `enter` to open detail, and read the Depends / Optional Deps / Conflicts lists and the Updated timestamp. A package last updated two years ago on an AUR entry with three votes is a different proposition from one updated last week with four thousand votes — the detail view puts both numbers on the same screen so you can decide quickly.
 
+### Install a package
+
+Navigate to the package in the results list and press `i`. A confirmation dialog appears showing the package name. Press `enter` to confirm. For official-repo packages, dark invokes `dark-helper pacman-install` via `pkexec`, which triggers the polkit authentication dialog — authenticate to proceed. For AUR packages, dark shells out to your AUR helper (`paru` or `yay`) which handles building and elevation internally.
+
+After a successful install, the catalog refreshes automatically and the package's badge flips to "installed" in the results list.
+
+### Remove an installed package
+
+Navigate to an installed package and press `X` (shift+x). Confirm in the dialog. This runs `dark-helper pacman-remove` via `pkexec`. The package disappears from the Installed category on the next refresh.
+
+### Run a system upgrade
+
+Press `U` (shift+u) from anywhere in the App Store. Confirm in the dialog. This runs `pacman -Syu` via the privileged helper, upgrading all installed packages. The operation can take a while depending on how many packages need updating — the status line shows "working…" until it completes.
+
+### Elevation and security
+
+Install, remove, and upgrade all require root privileges. Dark uses the same `pkexec` + `dark-helper` mechanism as the Network section: the `dark-helper` binary validates all inputs strictly (package names must match `[a-zA-Z0-9@._+-]`, batch size capped at 20) and runs `pacman` with `--noconfirm`. The polkit authentication dialog handles the actual privilege grant — dark never stores or handles your password.
+
+AUR installs work differently: they run as your current user via `paru` or `yay`, which handle sudo internally for the final `pacman -U` step. If neither helper is installed, the install button is disabled for AUR packages and the status line explains what's needed.
+
 ## AUR rate limiting
 
 The aurweb RPC has no published rate limits but we treat it as a shared resource. Dark enforces these limits on itself:
@@ -207,4 +230,4 @@ The daemon publishes a fresh catalog snapshot on `dark.appstore.catalog` every 6
 
 The appstore service follows the same pluggable-Backend pattern as wifi and bluetooth. The production backend is a composite that fans requests out to a `pacmanBackend` and an `aurBackend`. If `pacman` is not present on PATH the service falls back to a `noopBackend` and the App Store renders an explanation instead of an empty catalog.
 
-Install / remove / upgrade verbs are explicitly out of scope for this release and will arrive in the next pass, gated behind an elevation strategy that is still being designed.
+Install, remove, and upgrade are routed through `dark-helper` (the same privileged companion binary the Network section uses) via `pkexec`. Package name validation in the helper enforces `[a-zA-Z0-9@._+-]` and a 20-package batch cap. AUR installs bypass dark-helper and run through `paru` or `yay` as the current user since `makepkg` refuses to run as root.

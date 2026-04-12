@@ -27,6 +27,21 @@ type Backend interface {
 	// fresh data. Bound to the user-initiated refresh key in the TUI.
 	Refresh() error
 
+	// Install installs one or more packages via the privileged helper.
+	// Returns the combined stdout/stderr output for the TUI status line.
+	Install(names []string) (string, error)
+
+	// Remove removes one or more packages via the privileged helper.
+	Remove(names []string) (string, error)
+
+	// Upgrade runs a full system upgrade (pacman -Syu) via the helper.
+	Upgrade() (string, error)
+
+	// AURHelper returns the name of the detected AUR helper (paru, yay)
+	// or "" when none is installed. The TUI uses this to decide whether
+	// to show an install button on AUR packages.
+	AURHelper() string
+
 	// Close releases any held resources (HTTP clients, file handles).
 	Close()
 }

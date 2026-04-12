@@ -37,4 +37,9 @@ func (n *noopBackend) Detail(req DetailRequest) (Detail, error) {
 
 func (n *noopBackend) Refresh() error { return nil }
 
+func (n *noopBackend) Install([]string) (string, error) { return "", ErrBackendUnsupported }
+func (n *noopBackend) Remove([]string) (string, error)  { return "", ErrBackendUnsupported }
+func (n *noopBackend) Upgrade() (string, error)         { return "", ErrBackendUnsupported }
+func (n *noopBackend) AURHelper() string                { return "" }
+
 func (n *noopBackend) Close() {}

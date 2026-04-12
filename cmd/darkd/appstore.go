@@ -93,6 +93,64 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreRefreshCmd, "error", err); os.Exit(1)
 	}
 
+	if _, err := nc.Subscribe(bus.SubjectAppstoreInstallCmd, func(m *nats.Msg) {
+		var req appstoresvc.InstallRequest
+		if err := json.Unmarshal(m.Data, &req); err != nil {
+			logger.Warn("appstore: malformed install request", "err", err)
+		}
+		out, err := svc.Install(req)
+		resp := appstoreActionResponse{Output: out}
+		if err != nil {
+			resp.Error = err.Error()
+		} else {
+			resp.Snapshot = svc.Snapshot()
+			snapData, _ := json.Marshal(resp.Snapshot)
+			_ = nc.Publish(bus.SubjectAppstoreCatalog, snapData)
+		}
+		data, _ := json.Marshal(resp)
+		_ = m.Respond(data)
+	}); err != nil {
+		log.Fatalf("subscribe appstore install cmd: %v", err)
+	}
+
+	if _, err := nc.Subscribe(bus.SubjectAppstoreRemoveCmd, func(m *nats.Msg) {
+		var req struct {
+			Names []string `json:"names"`
+		}
+		if err := json.Unmarshal(m.Data, &req); err != nil {
+			logger.Warn("appstore: malformed remove request", "err", err)
+		}
+		out, err := svc.Remove(req.Names)
+		resp := appstoreActionResponse{Output: out}
+		if err != nil {
+			resp.Error = err.Error()
+		} else {
+			resp.Snapshot = svc.Snapshot()
+			snapData, _ := json.Marshal(resp.Snapshot)
+			_ = nc.Publish(bus.SubjectAppstoreCatalog, snapData)
+		}
+		data, _ := json.Marshal(resp)
+		_ = m.Respond(data)
+	}); err != nil {
+		log.Fatalf("subscribe appstore remove cmd: %v", err)
+	}
+
+	if _, err := nc.Subscribe(bus.SubjectAppstoreUpgradeCmd, func(m *nats.Msg) {
+		out, err := svc.Upgrade()
+		resp := appstoreActionResponse{Output: out}
+		if err != nil {
+			resp.Error = err.Error()
+		} else {
+			resp.Snapshot = svc.Snapshot()
+			snapData, _ := json.Marshal(resp.Snapshot)
+			_ = nc.Publish(bus.SubjectAppstoreCatalog, snapData)
+		}
+		data, _ := json.Marshal(resp)
+		_ = m.Respond(data)
+	}); err != nil {
+		log.Fatalf("subscribe appstore upgrade cmd: %v", err)
+	}
+
 	return func() {
 		data, err := json.Marshal(svc.Snapshot())
 		if err != nil {
@@ -120,5 +178,11 @@ type appstoreDetailResponse struct {
 
 type appstoreRefreshResponse struct {
 	Snapshot appstoresvc.Snapshot `json:"snapshot"`
+	Error    string               `json:"error,omitempty"`
+}
+
+type appstoreActionResponse struct {
+	Snapshot appstoresvc.Snapshot `json:"snapshot,omitempty"`
+	Output   string               `json:"output,omitempty"`
 	Error    string               `json:"error,omitempty"`
 }

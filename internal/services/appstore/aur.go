@@ -54,6 +54,30 @@ func (a *aurBackend) Name() string { return "aur" }
 
 func (a *aurBackend) Close() {}
 
+func (a *aurBackend) Install(names []string) (string, error) {
+	helper := detectAURHelper()
+	if helper == "" {
+		return "", fmt.Errorf("no AUR helper installed (install paru or yay)")
+	}
+	var allOut string
+	for _, name := range names {
+		out, err := aurInstall(helper, name)
+		allOut += out
+		if err != nil {
+			return allOut, err
+		}
+	}
+	return allOut, nil
+}
+
+func (a *aurBackend) Remove(names []string) (string, error) {
+	return helperRemove(names)
+}
+
+func (a *aurBackend) Upgrade() (string, error) { return "", ErrBackendUnsupported }
+
+func (a *aurBackend) AURHelper() string { return detectAURHelper() }
+
 func (a *aurBackend) Refresh() error {
 	if a.cache == "" {
 		return nil

@@ -199,3 +199,42 @@ func (c *compositeBackend) Detail(req DetailRequest) (Detail, error) {
 	}
 	return Detail{}, ErrBackendUnsupported
 }
+
+// Install routes by the first package's origin when known. For
+// pacman packages this goes through dark-helper + pkexec. For AUR
+// packages it uses the detected AUR helper (paru/yay).
+func (c *compositeBackend) Install(names []string) (string, error) {
+	if c.pacman != nil {
+		return c.pacman.Install(names)
+	}
+	return "", ErrBackendUnsupported
+}
+
+// InstallAUR installs AUR packages via the detected helper.
+func (c *compositeBackend) installAUR(names []string) (string, error) {
+	if c.aur != nil {
+		return c.aur.Install(names)
+	}
+	return "", ErrBackendUnsupported
+}
+
+func (c *compositeBackend) Remove(names []string) (string, error) {
+	if c.pacman != nil {
+		return c.pacman.Remove(names)
+	}
+	return "", ErrBackendUnsupported
+}
+
+func (c *compositeBackend) Upgrade() (string, error) {
+	if c.pacman != nil {
+		return c.pacman.Upgrade()
+	}
+	return "", ErrBackendUnsupported
+}
+
+func (c *compositeBackend) AURHelper() string {
+	if c.aur != nil {
+		return c.aur.AURHelper()
+	}
+	return ""
+}

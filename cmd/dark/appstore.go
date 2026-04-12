@@ -33,6 +33,21 @@ func newAppstoreActions(nc *nats.Conn) tui.AppstoreActions {
 				return appstoreRefreshRequest(nc)
 			}
 		},
+		Install: func(req appstoresvc.InstallRequest) tea.Cmd {
+			return func() tea.Msg {
+				return appstoreInstallRequest(nc, req)
+			}
+		},
+		Remove: func(names []string) tea.Cmd {
+			return func() tea.Msg {
+				return appstoreRemoveRequest(nc, names)
+			}
+		},
+		Upgrade: func() tea.Cmd {
+			return func() tea.Msg {
+				return appstoreUpgradeRequest(nc)
+			}
+		},
 	}
 }
 
@@ -94,6 +109,47 @@ func appstoreRefreshRequest(nc *nats.Conn) tui.AppstoreRefreshResultMsg {
 		return tui.AppstoreRefreshResultMsg{Snapshot: resp.Snapshot, Err: resp.Error}
 	}
 	return tui.AppstoreRefreshResultMsg{Snapshot: resp.Snapshot}
+}
+
+func appstoreInstallRequest(nc *nats.Conn, req appstoresvc.InstallRequest) tui.AppstoreActionResultMsg {
+	payload, _ := json.Marshal(req)
+	reply, err := nc.Request(bus.SubjectAppstoreInstallCmd, payload, 120*time.Second)
+	if err != nil {
+		return tui.AppstoreActionResultMsg{Err: err.Error()}
+	}
+	return decodeAppstoreActionReply(reply.Data)
+}
+
+func appstoreRemoveRequest(nc *nats.Conn, names []string) tui.AppstoreActionResultMsg {
+	payload, _ := json.Marshal(map[string][]string{"names": names})
+	reply, err := nc.Request(bus.SubjectAppstoreRemoveCmd, payload, 60*time.Second)
+	if err != nil {
+		return tui.AppstoreActionResultMsg{Err: err.Error()}
+	}
+	return decodeAppstoreActionReply(reply.Data)
+}
+
+func appstoreUpgradeRequest(nc *nats.Conn) tui.AppstoreActionResultMsg {
+	reply, err := nc.Request(bus.SubjectAppstoreUpgradeCmd, nil, 300*time.Second)
+	if err != nil {
+		return tui.AppstoreActionResultMsg{Err: err.Error()}
+	}
+	return decodeAppstoreActionReply(reply.Data)
+}
+
+func decodeAppstoreActionReply(data []byte) tui.AppstoreActionResultMsg {
+	var resp struct {
+		Snapshot appstoresvc.Snapshot `json:"snapshot,omitempty"`
+		Output   string               `json:"output,omitempty"`
+		Error    string               `json:"error,omitempty"`
+	}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return tui.AppstoreActionResultMsg{Err: err.Error()}
+	}
+	if resp.Error != "" {
+		return tui.AppstoreActionResultMsg{Output: resp.Output, Err: resp.Error}
+	}
+	return tui.AppstoreActionResultMsg{Snapshot: resp.Snapshot, Output: resp.Output}
 }
 
 // requestInitialAppstore fetches a catalog snapshot up front so the

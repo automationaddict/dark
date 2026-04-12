@@ -23,11 +23,11 @@ func renderAppstoreStatus(s *core.State, width int) string {
 		case s.AppstoreSearchActive:
 			text = "type to search · enter submit · esc cancel"
 		case s.ContentFocused && s.AppstoreDetailOpen:
-			text = "esc back to results"
+			text = "i install · X remove · esc back to results"
 		case s.ContentFocused:
-			text = "j/k nav · enter detail · / search · R refresh · A toggle AUR · esc sidebar"
+			text = "j/k nav · enter detail · i install · X remove · / search · R refresh · U upgrade"
 		default:
-			text = "j/k categories · enter browse · / search · R refresh · A toggle AUR"
+			text = "j/k categories · enter browse · / search · R refresh · A toggle AUR · U upgrade"
 		}
 		parts = append(parts, statusBarStyle.Render(text))
 	}
@@ -121,4 +121,65 @@ func (m Model) categoryID() string {
 		return cat.ID
 	}
 	return ""
+}
+
+// triggerAppstoreInstall opens a confirmation dialog for installing
+// the currently selected package. AUR packages route to paru/yay;
+// pacman packages route through dark-helper + pkexec.
+func (m *Model) triggerAppstoreInstall() tea.Cmd {
+	if m.appstore.Install == nil || !m.state.ContentFocused || m.state.AppstoreBusy {
+		return nil
+	}
+	pkg, ok := m.state.SelectedAppstorePackage()
+	if !ok || pkg.Installed {
+		return nil
+	}
+	if pkg.Origin == appstore.OriginAUR {
+		// Check if AUR helper is available — we can't tell from here
+		// directly, but the daemon will return an error if not.
+	}
+	name := pkg.Name
+	origin := pkg.Origin
+	m.dialog = NewDialog("Install "+name+"?", nil, func(_ DialogResult) tea.Cmd {
+		m.state.MarkAppstoreBusy()
+		return m.appstore.Install(appstore.InstallRequest{
+			Names:  []string{name},
+			Origin: origin,
+		})
+	})
+	return nil
+}
+
+// triggerAppstoreRemove opens a confirmation dialog for removing the
+// currently selected package.
+func (m *Model) triggerAppstoreRemove() tea.Cmd {
+	if m.appstore.Remove == nil || !m.state.ContentFocused || m.state.AppstoreBusy {
+		return nil
+	}
+	pkg, ok := m.state.SelectedAppstorePackage()
+	if !ok || !pkg.Installed {
+		return nil
+	}
+	name := pkg.Name
+	m.dialog = NewDialog("Remove "+name+"?", nil, func(_ DialogResult) tea.Cmd {
+		m.state.MarkAppstoreBusy()
+		return m.appstore.Remove([]string{name})
+	})
+	return nil
+}
+
+// triggerAppstoreUpgrade opens a confirmation dialog for a full
+// system upgrade (pacman -Syu).
+func (m *Model) triggerAppstoreUpgrade() tea.Cmd {
+	if m.appstore.Upgrade == nil || m.state.AppstoreBusy {
+		return nil
+	}
+	if m.state.ActiveTab != core.TabF2 {
+		return nil
+	}
+	m.dialog = NewDialog("Run system upgrade (pacman -Syu)?", nil, func(_ DialogResult) tea.Cmd {
+		m.state.MarkAppstoreBusy()
+		return m.appstore.Upgrade()
+	})
+	return nil
 }

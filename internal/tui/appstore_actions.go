@@ -15,6 +15,9 @@ type AppstoreActions struct {
 	Search  func(query appstore.SearchQuery) tea.Cmd
 	Detail  func(req appstore.DetailRequest) tea.Cmd
 	Refresh func() tea.Cmd
+	Install func(req appstore.InstallRequest) tea.Cmd
+	Remove  func(names []string) tea.Cmd
+	Upgrade func() tea.Cmd
 }
 
 // AppstoreMsg is dispatched whenever darkd publishes a catalog
@@ -41,5 +44,14 @@ type AppstoreDetailResultMsg struct {
 // update immediately without waiting for the next periodic publish.
 type AppstoreRefreshResultMsg struct {
 	Snapshot appstore.Snapshot
+	Err      string
+}
+
+// AppstoreActionResultMsg is the reply from an install, remove, or
+// upgrade command. Output carries stdout/stderr from pacman for the
+// status line. On success, Snapshot carries the refreshed catalog.
+type AppstoreActionResultMsg struct {
+	Snapshot appstore.Snapshot
+	Output   string
 	Err      string
 }
