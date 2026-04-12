@@ -6,6 +6,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/weblink"
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
+	"github.com/johnnelson/dark/internal/services/display"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/wifi"
@@ -73,6 +74,15 @@ type State struct {
 	NetworkRouteSelected int
 	NetworkBusy          bool
 	NetworkActionError   string
+
+	Display              display.Snapshot
+	DisplayLoaded        bool
+	DisplayMonitorIdx    int
+	DisplayFocus         DisplayFocus
+	DisplayInfoOpen      bool
+	DisplayLayoutOpen    bool
+	DisplayBusy          bool
+	DisplayActionError   string
 
 	Audio                 audio.Snapshot
 	AudioLoaded           bool
@@ -261,6 +271,13 @@ func (s *State) FocusContent() {
 				}
 			}
 		}
+	case "display":
+		if len(s.Display.Monitors) > 0 {
+			s.ContentFocused = true
+			if s.DisplayFocus == "" {
+				s.DisplayFocus = DisplayFocusMonitors
+			}
+		}
 	case "sound":
 		if len(s.Audio.Sinks) > 0 || len(s.Audio.Sources) > 0 {
 			s.ContentFocused = true
@@ -281,6 +298,8 @@ func (s *State) FocusSidebar() {
 	s.WifiDetailsOpen = false
 	s.BluetoothDetailsOpen = false
 	s.BluetoothDeviceInfoOpen = false
+	s.DisplayInfoOpen = false
+	s.DisplayLayoutOpen = false
 	s.AudioDeviceInfoOpen = false
 	s.NetworkRoutesOpen = false
 	s.AppstoreDetailOpen = false

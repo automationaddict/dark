@@ -15,6 +15,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/appstore"
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
+	"github.com/johnnelson/dark/internal/services/display"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
@@ -58,6 +59,7 @@ type Model struct {
 	bluetooth BluetoothActions
 	audio     AudioActions
 	network   NetworkActions
+	display   DisplayActions
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
 	dialog    *Dialog
@@ -82,7 +84,7 @@ type WebLinksMsg []weblink.WebApp
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -92,6 +94,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		bluetooth: bluetooth,
 		audio:     audio,
 		network:   network,
+		display:   displayAct,
 		notifier:  notifier,
 		appstore:  appstore,
 		spinner:   sp,
@@ -185,6 +188,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.BluetoothActionError = ""
 		m.state.SetBluetooth(msg.Snapshot)
+		return m, nil
+
+	case DisplayMsg:
+		m.state.SetDisplay(display.Snapshot(msg))
+		return m, nil
+
+	case DisplayActionResultMsg:
+		m.state.DisplayBusy = false
+		if msg.Err != "" {
+			m.state.DisplayActionError = msg.Err
+			m.notifyError("Displays", msg.Err)
+			return m, nil
+		}
+		m.state.DisplayActionError = ""
+		m.state.SetDisplay(msg.Snapshot)
 		return m, nil
 
 	case AudioMsg:
@@ -612,6 +630,8 @@ func (m *Model) moveSelection(delta int) {
 			default:
 				m.state.MoveBluetoothDeviceSelection(delta)
 			}
+		case "display":
+			m.state.MoveDisplaySelection(delta)
 		case "sound":
 			m.state.MoveAudioSelection(delta)
 		case "network":
@@ -694,6 +714,11 @@ func (m Model) handleHelpSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Layout mode gets its own key routing so arrow keys move
+	// monitors instead of triggering normal navigation.
+	if m.state.DisplayLayoutOpen {
+		return m.handleDisplayLayoutKey(msg)
+	}
 	// When the appstore search input is active, swallow all keys
 	// so typed characters don't trigger action shortcuts.
 	if m.state.ActiveTab == core.TabF2 && m.state.AppstoreSearchActive {
@@ -712,6 +737,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.state.BluetoothDeviceInfoOpen {
 			m.state.CloseBluetoothDeviceInfo()
+			return m, nil
+		}
+		if m.state.DisplayLayoutOpen {
+			m.state.CloseDisplayLayout()
+			return m, nil
+		}
+		if m.state.DisplayInfoOpen {
+			m.state.CloseDisplayInfo()
 			return m, nil
 		}
 		if m.state.AudioDeviceInfoOpen {
@@ -762,6 +795,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case m.state.ActiveTab == core.TabSettings:
 			switch m.state.ActiveSection().ID {
+			case "display":
+				if !m.state.DisplayInfoOpen {
+					m.state.OpenDisplayInfo()
+				}
 			case "bluetooth":
 				if !m.state.BluetoothDeviceInfoOpen {
 					m.state.OpenBluetoothDeviceInfo()
@@ -853,6 +890,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "w":
+		if cmd := m.triggerDisplayDpmsToggle(); cmd != nil {
+			return m, cmd
+		}
 		if cmd := m.triggerWifiPowerToggle(); cmd != nil {
 			return m, cmd
 		}
@@ -880,6 +920,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "e":
+		if cmd := m.triggerDisplayToggleEnabled(); cmd != nil {
+			return m, cmd
+		}
 		if m.state.ActiveTab == core.TabF3 {
 			return m, m.triggerWebLinkEdit()
 		}
@@ -887,6 +930,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "p":
+		if m.inDisplayContent() {
+			m.triggerDisplayPositionDialog()
+			return m, nil
+		}
 		if cmd := m.triggerWifiAPToggle(); cmd != nil {
 			return m, cmd
 		}
@@ -917,6 +964,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "r":
+		if cmd := m.triggerDisplayCycleTransform(); cmd != nil {
+			return m, cmd
+		}
 		if cmd := m.triggerBluetoothRename(); cmd != nil {
 			return m, cmd
 		}
@@ -967,8 +1017,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "i":
+		if cmd := m.triggerDisplayIdentify(); cmd != nil {
+			return m, cmd
+		}
 		if m.state.ActiveTab == core.TabF2 {
 			return m, m.triggerAppstoreInstall()
+		}
+	case "l":
+		if m.inDisplayContent() && !m.state.DisplayInfoOpen {
+			m.state.OpenDisplayLayout()
+			return m, nil
 		}
 	case "X":
 		if m.state.ActiveTab == core.TabF2 {
@@ -988,7 +1046,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.AppstoreIncludeAUR = !m.state.AppstoreIncludeAUR
 			return m, nil
 		}
+	case "v":
+		if cmd := m.triggerDisplayVrrToggle(); cmd != nil {
+			return m, cmd
+		}
 	case "+", "=":
+		if cmd := m.triggerDisplayScaleUp(); cmd != nil {
+			return m, cmd
+		}
 		if cmd := m.triggerAudioVolumeDelta(core.VolumeStepPercent); cmd != nil {
 			return m, cmd
 		}
@@ -996,6 +1061,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.ResizeSidebar(1)
 		}
 	case "-", "_":
+		if cmd := m.triggerDisplayScaleDown(); cmd != nil {
+			return m, cmd
+		}
 		if cmd := m.triggerAudioVolumeDelta(-core.VolumeStepPercent); cmd != nil {
 			return m, cmd
 		}
@@ -1003,6 +1071,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.ResizeSidebar(-1)
 		}
 	case "m":
+		if m.inDisplayContent() {
+			m.triggerDisplayModeDialog()
+			return m, nil
+		}
 		if cmd := m.triggerAudioMuteToggle(); cmd != nil {
 			return m, cmd
 		}

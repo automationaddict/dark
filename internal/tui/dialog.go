@@ -6,23 +6,22 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// DialogFieldKind distinguishes visible text fields from masked password
-// fields. Add more kinds here (selects, checkboxes, multiline) as we grow
-// the dialog component.
 type DialogFieldKind int
 
 const (
 	DialogFieldText DialogFieldKind = iota
 	DialogFieldPassword
+	DialogFieldSelect
 )
 
 // DialogFieldSpec defines one form row. Declared up front when building
 // the dialog so the Dialog struct can carry internal state per field.
 type DialogFieldSpec struct {
-	Key   string
-	Label string
-	Kind  DialogFieldKind
-	Value string // optional pre-filled value
+	Key     string
+	Label   string
+	Kind    DialogFieldKind
+	Value   string   // optional pre-filled value
+	Options []string // for DialogFieldSelect
 }
 
 // DialogResult is passed to the submit callback. Keys are the spec keys.
@@ -45,10 +44,13 @@ type Dialog struct {
 }
 
 type dialogField struct {
-	key   string
-	label string
-	kind  DialogFieldKind
-	value []rune
+	key       string
+	label     string
+	kind      DialogFieldKind
+	value     []rune
+	options   []string
+	selectIdx int
+	scrollOff int
 }
 
 // NewDialog constructs a dialog with the given title, field definitions,
@@ -56,12 +58,22 @@ type dialogField struct {
 func NewDialog(title string, fields []DialogFieldSpec, submit DialogSubmitFunc) *Dialog {
 	d := &Dialog{title: title, submit: submit}
 	for _, f := range fields {
-		d.fields = append(d.fields, dialogField{
-			key:   f.Key,
-			label: f.Label,
-			kind:  f.Kind,
-			value: []rune(f.Value),
-		})
+		df := dialogField{
+			key:     f.Key,
+			label:   f.Label,
+			kind:    f.Kind,
+			value:   []rune(f.Value),
+			options: f.Options,
+		}
+		if f.Kind == DialogFieldSelect {
+			for i, o := range f.Options {
+				if o == f.Value {
+					df.selectIdx = i
+					break
+				}
+			}
+		}
+		d.fields = append(d.fields, df)
 	}
 	return d
 }
@@ -77,20 +89,18 @@ func (d *Dialog) Update(msg tea.KeyMsg) tea.Cmd {
 	if d == nil {
 		return nil
 	}
+
+	af := d.activeField()
+	if af != nil && af.kind == DialogFieldSelect {
+		return d.updateSelect(msg)
+	}
+
 	switch msg.Type {
 	case tea.KeyEsc, tea.KeyCtrlC:
 		d.closed = true
 		return nil
 	case tea.KeyEnter:
-		values := DialogResult{}
-		for _, f := range d.fields {
-			values[f.key] = string(f.value)
-		}
-		d.closed = true
-		if d.submit != nil {
-			return d.submit(values)
-		}
-		return nil
+		return d.doSubmit()
 	case tea.KeyTab, tea.KeyDown:
 		d.advanceField(1)
 	case tea.KeyShiftTab, tea.KeyUp:
@@ -101,6 +111,66 @@ func (d *Dialog) Update(msg tea.KeyMsg) tea.Cmd {
 		d.appendRunes(msg.Runes)
 	}
 	return nil
+}
+
+func (d *Dialog) updateSelect(msg tea.KeyMsg) tea.Cmd {
+	af := d.activeField()
+	if af == nil {
+		return nil
+	}
+	switch msg.Type {
+	case tea.KeyEsc, tea.KeyCtrlC:
+		d.closed = true
+		return nil
+	case tea.KeyEnter:
+		if len(af.options) > 0 {
+			af.value = []rune(af.options[af.selectIdx])
+		}
+		return d.doSubmit()
+	case tea.KeyTab:
+		d.advanceField(1)
+	case tea.KeyShiftTab:
+		d.advanceField(-1)
+	default:
+		switch msg.String() {
+		case "j", "down":
+			if af.selectIdx < len(af.options)-1 {
+				af.selectIdx++
+			}
+		case "k", "up":
+			if af.selectIdx > 0 {
+				af.selectIdx--
+			}
+		case "g", "home":
+			af.selectIdx = 0
+		case "G", "end":
+			af.selectIdx = len(af.options) - 1
+		}
+	}
+	return nil
+}
+
+func (d *Dialog) doSubmit() tea.Cmd {
+	values := DialogResult{}
+	for _, f := range d.fields {
+		if f.kind == DialogFieldSelect && len(f.options) > 0 {
+			values[f.key] = f.options[f.selectIdx]
+		} else {
+			values[f.key] = string(f.value)
+		}
+	}
+	d.closed = true
+	if d.submit != nil {
+		return d.submit(values)
+	}
+	return nil
+}
+
+func (d *Dialog) activeField() *dialogField {
+	if len(d.fields) == 0 || d.active >= len(d.fields) {
+		return nil
+	}
+	return &d.fields[d.active]
 }
 
 func (d *Dialog) advanceField(delta int) {
@@ -115,6 +185,9 @@ func (d *Dialog) backspace() {
 		return
 	}
 	f := &d.fields[d.active]
+	if f.kind == DialogFieldSelect {
+		return
+	}
 	if len(f.value) == 0 {
 		return
 	}
@@ -126,6 +199,9 @@ func (d *Dialog) appendRunes(runes []rune) {
 		return
 	}
 	f := &d.fields[d.active]
+	if f.kind == DialogFieldSelect {
+		return
+	}
 	f.value = append(f.value, runes...)
 }
 
@@ -134,7 +210,6 @@ func (d *Dialog) appendRunes(runes []rune) {
 func (d *Dialog) View() string {
 	const innerWidth = 48
 
-	// Title is drawn by groupBoxSections in the top border, not in the body.
 	var rows []string
 
 	for i, f := range d.fields {
@@ -143,11 +218,23 @@ func (d *Dialog) View() string {
 			label = dialogFieldLabelActiveStyle.Render(f.label)
 		}
 		rows = append(rows, label)
-		rows = append(rows, renderDialogField(f, i == d.active, innerWidth))
+
+		if f.kind == DialogFieldSelect {
+			rows = append(rows, renderDialogSelect(f, i == d.active, innerWidth))
+		} else {
+			rows = append(rows, renderDialogField(f, i == d.active, innerWidth))
+		}
 		rows = append(rows, "")
 	}
 
-	rows = append(rows, dialogHintStyle.Render("enter submit · tab next field · esc cancel"))
+	hint := "enter submit · esc cancel"
+	af := d.activeField()
+	if af != nil && af.kind == DialogFieldSelect {
+		hint = "j/k select · enter submit · esc cancel"
+	} else if len(d.fields) > 1 {
+		hint = "enter submit · tab next field · esc cancel"
+	}
+	rows = append(rows, dialogHintStyle.Render(hint))
 
 	body := strings.Join(rows, "\n")
 	return groupBoxSections(d.title, []string{body}, innerWidth+4, colorAccent)
@@ -173,4 +260,49 @@ func renderDialogField(f dialogField, active bool, width int) string {
 		style = dialogFieldActiveStyle
 	}
 	return style.Width(width).Render(display)
+}
+
+const selectVisibleRows = 8
+
+func renderDialogSelect(f dialogField, active bool, width int) string {
+	if len(f.options) == 0 {
+		return dialogFieldStyle.Width(width).Render("(no options)")
+	}
+
+	start := f.scrollOff
+	if f.selectIdx < start {
+		start = f.selectIdx
+	}
+	if f.selectIdx >= start+selectVisibleRows {
+		start = f.selectIdx - selectVisibleRows + 1
+	}
+	if start < 0 {
+		start = 0
+	}
+
+	end := start + selectVisibleRows
+	if end > len(f.options) {
+		end = len(f.options)
+	}
+
+	var lines []string
+	for i := start; i < end; i++ {
+		opt := f.options[i]
+		if i == f.selectIdx && active {
+			line := dialogFieldActiveStyle.Width(width).Render("▸ " + opt)
+			lines = append(lines, line)
+		} else {
+			line := dialogFieldStyle.Width(width).Render("  " + opt)
+			lines = append(lines, line)
+		}
+	}
+
+	if start > 0 {
+		lines = append([]string{dialogHintStyle.Render("  ↑ more")}, lines...)
+	}
+	if end < len(f.options) {
+		lines = append(lines, dialogHintStyle.Render("  ↓ more"))
+	}
+
+	return strings.Join(lines, "\n")
 }

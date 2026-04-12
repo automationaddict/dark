@@ -73,6 +73,18 @@ const (
 	SubjectNetworkConfigureIPv4Cmd = "dark.cmd.network.configure_ipv4"
 	SubjectNetworkResetCmd         = "dark.cmd.network.reset"
 
+	SubjectDisplayMonitors       = "dark.display.monitors"
+	SubjectDisplayMonitorsCmd    = "dark.cmd.display.monitors"
+	SubjectDisplayResolutionCmd  = "dark.cmd.display.resolution"
+	SubjectDisplayScaleCmd       = "dark.cmd.display.scale"
+	SubjectDisplayTransformCmd   = "dark.cmd.display.transform"
+	SubjectDisplayPositionCmd    = "dark.cmd.display.position"
+	SubjectDisplayDpmsCmd        = "dark.cmd.display.dpms"
+	SubjectDisplayVrrCmd         = "dark.cmd.display.vrr"
+	SubjectDisplayMirrorCmd      = "dark.cmd.display.mirror"
+	SubjectDisplayToggleCmd      = "dark.cmd.display.toggle"
+	SubjectDisplayIdentifyCmd    = "dark.cmd.display.identify"
+
 	SubjectAppstoreCatalog    = "dark.appstore.catalog"
 	SubjectAppstoreCatalogCmd = "dark.cmd.appstore.catalog"
 	SubjectAppstoreSearchCmd  = "dark.cmd.appstore.search"

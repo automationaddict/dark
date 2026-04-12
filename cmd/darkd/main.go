@@ -19,6 +19,7 @@ import (
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
+	displaysvc "github.com/johnnelson/dark/internal/services/display"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	wifisvc "github.com/johnnelson/dark/internal/services/wifi"
@@ -122,6 +123,17 @@ func main() {
 		defer networkService.Close()
 	}
 
+	displayService, err := displaysvc.NewService()
+	if err != nil {
+		dn.Warn("Displays", fmt.Sprintf("%v — display controls unavailable", err))
+	}
+	if displayService != nil {
+		defer displayService.Close()
+		slog.Info("service connected", "service", "display", "backend", "hyprland")
+	} else {
+		displayService = &displaysvc.Service{}
+	}
+
 	appstoreLog := appstoreLogger()
 	scriptEngine := scripting.New(appstoreLog)
 	defer scriptEngine.Close()
@@ -191,6 +203,7 @@ func main() {
 
 	publishBluetooth := wireBluetooth(nc, bluetoothService, dn)
 	publishAudio := wireAudio(nc, audioService, dn)
+	publishDisplay := wireDisplay(nc, displayService, dn)
 	publishNetwork := wireNetwork(nc, networkService, dn)
 	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog, dn)
 
@@ -212,6 +225,9 @@ func main() {
 	audioTick := time.NewTicker(core.TickAudio)
 	defer audioTick.Stop()
 
+	displayTick := time.NewTicker(core.TickDisplay)
+	defer displayTick.Stop()
+
 	networkTick := time.NewTicker(core.TickNetwork)
 	defer networkTick.Stop()
 
@@ -224,6 +240,7 @@ func main() {
 	publishWifi(nc, wifiService, dn)
 	publishBluetooth()
 	publishAudio()
+	publishDisplay()
 	publishNetwork()
 	publishAppstore()
 
@@ -237,6 +254,7 @@ func main() {
 				publishWifi(nc, wifiService, dn)
 				publishBluetooth()
 				publishAudio()
+				publishDisplay()
 				publishNetwork()
 				publishAppstore()
 				continue
@@ -264,6 +282,8 @@ func main() {
 			publishBluetooth()
 		case <-audioTick.C:
 			publishAudio()
+		case <-displayTick.C:
+			publishDisplay()
 		case <-networkTick.C:
 			publishNetwork()
 		case <-appstoreTick.C:

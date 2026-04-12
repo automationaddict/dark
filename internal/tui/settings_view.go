@@ -68,6 +68,8 @@ func renderSettingsContent(s *core.State, width, height int) string {
 		return renderWifi(s, width, height)
 	case "bluetooth":
 		return renderBluetooth(s, width, height)
+	case "display":
+		return renderDisplay(s, width, height)
 	case "sound":
 		return renderSound(s, width, height)
 	case "network":

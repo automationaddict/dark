@@ -17,6 +17,7 @@ import (
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
+	displaysvc "github.com/johnnelson/dark/internal/services/display"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
@@ -119,6 +120,7 @@ func main() {
 
 	bluetoothActions := newBluetoothActions(nc)
 	audioActions := newAudioActions(nc)
+	displayActions := newDisplayActions(nc)
 	networkActions := newNetworkActions(nc)
 	appstoreActions := newAppstoreActions(nc)
 
@@ -132,7 +134,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, notifier, appstoreActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, notifier, appstoreActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -236,6 +238,20 @@ func main() {
 	}
 	defer audioLevelsSub.Unsubscribe()
 
+	displaySub, err := nc.Subscribe(bus.SubjectDisplayMonitors, func(m *nats.Msg) {
+		var snap displaysvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Displays", err)
+			return
+		}
+		p.Send(tui.DisplayMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe display:", err)
+		os.Exit(1)
+	}
+	defer displaySub.Unsubscribe()
+
 	networkSub, err := nc.Subscribe(bus.SubjectNetworkSnapshot, func(m *nats.Msg) {
 		var snap netsvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
@@ -283,6 +299,9 @@ func main() {
 	}
 	if snap, ok := requestInitialAudio(nc); ok {
 		state.SetAudio(snap)
+	}
+	if snap, ok := requestInitialDisplay(nc); ok {
+		state.SetDisplay(snap)
 	}
 	if snap, ok := requestInitialNetwork(nc); ok {
 		state.SetNetwork(snap)

@@ -23,6 +23,7 @@ const (
 	TickBluetooth = 15 * time.Second
 	TickAudio     = 30 * time.Second  // safety-net; audio uses event subscription
 	TickNetwork   = 10 * time.Second
+	TickDisplay   = 10 * time.Second
 	TickAppstore  = 60 * time.Second
 )
 
