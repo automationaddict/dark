@@ -13,6 +13,8 @@ package network
 import (
 	"sync"
 	"time"
+
+	"github.com/godbus/dbus/v5"
 )
 
 // Interface is everything we observe about one network device.
@@ -34,6 +36,37 @@ type Interface struct {
 	TxPackets uint64 `json:"tx_packets,omitempty"`
 	RxRateBps uint64 `json:"rx_rate_bps,omitempty"` // computed delta against previous snapshot
 	TxRateBps uint64 `json:"tx_rate_bps,omitempty"`
+
+	// Management is the per-interface state the active backend
+	// (systemd-networkd, NetworkManager) reports about how this
+	// device is being managed. Nil when no backend is detected, or
+	// when the backend doesn't recognize this interface (loopback
+	// for example, on networkd, has no managed config).
+	Management *ManagementInfo `json:"management,omitempty"`
+
+	// Managed is dark's own view of the configuration it has written
+	// for this interface — parsed back out of our `.network` file by
+	// the systemd-networkd backend. Nil when there is no dark-managed
+	// config for the interface yet. Used by the editor dialogs to
+	// prefill from what we wrote (which is the source of truth for
+	// dark's intent) rather than from kernel state (which mixes our
+	// config with everything else).
+	Managed *IPv4Config `json:"managed,omitempty"`
+}
+
+// ManagementInfo is the backend's view of how an interface is being
+// configured. Two managers report mostly-overlapping information; we
+// normalize the field names so the TUI doesn't care which is active.
+type ManagementInfo struct {
+	BackendName string `json:"backend"`               // "systemd-networkd" / "NetworkManager"
+	AdminState  string `json:"admin_state,omitempty"` // configured / configuring / failed / unmanaged / activated / disconnected / ...
+	OnlineState string `json:"online_state,omitempty"` // online / offline / partial
+	Source      string `json:"source,omitempty"`       // .network file path or NM connection name
+	DHCPv4      string `json:"dhcpv4,omitempty"`       // DHCP client state when one is active
+	DHCPv6      string `json:"dhcpv6,omitempty"`
+	DNS         []string `json:"dns,omitempty"`         // per-interface DNS configured by the manager
+	Domains     []string `json:"domains,omitempty"`     // per-interface search/route domains
+	Required    *bool  `json:"required,omitempty"`     // RequiredForOnline / autoconnect
 }
 
 // Address is one IP address bound to an interface, formatted with its
@@ -62,18 +95,73 @@ type DNS struct {
 	Source  string   `json:"source,omitempty"` // resolv.conf path that fed this — typically /etc/resolv.conf or a symlink target
 }
 
+// IPv4Config is a request to set the layer-3 configuration of an
+// interface. Originally IPv4-only (hence the name we kept for type-
+// stability), it now also carries IPv6 fields and link-level MTU.
+// The naming is preserved across the codebase to avoid touching every
+// call site every time we extend it; mentally read it as "interface
+// L3 config".
+//
+// Mode is "dhcp" or "static" and applies to the IPv4 family. For
+// static mode, Address/Gateway/DNS/Search apply.
+//
+// IPv6Mode is the parallel for IPv6: "dhcp" (DHCPv6), "static",
+// "ra" (router advertisements only — the typical SLAAC case), or
+// empty meaning "leave IPv6 unspecified, fall through to systemd-
+// networkd defaults". When set to "static", IPv6Address and
+// IPv6Gateway apply.
+//
+// DNS and Search are shared across families — a v4 and a v6
+// nameserver can both appear in the same DNS list.
+//
+// MTU is a layer-2 setting bundled here because the .network files
+// we write already cover the whole link config and a single editor
+// dialog is friendlier than two. Zero means "don't write an MTU line
+// at all".
+//
+// Routes is the list of static routes dark should add for the
+// interface. Routes can target either family — the destination CIDR
+// determines which.
+type IPv4Config struct {
+	Mode        string        `json:"mode"`
+	Address     string        `json:"address,omitempty"` // IPv4 CIDR like 192.168.1.10/24
+	Gateway     string        `json:"gateway,omitempty"`
+	DNS         []string      `json:"dns,omitempty"`
+	Search      []string      `json:"search,omitempty"`
+	MTU         int           `json:"mtu,omitempty"` // 0 = leave unset
+	Routes      []RouteConfig `json:"routes,omitempty"`
+	IPv6Mode    string        `json:"ipv6_mode,omitempty"`    // dhcp / static / ra / "" (unset)
+	IPv6Address string        `json:"ipv6_address,omitempty"` // IPv6 CIDR like 2001:db8::1/64
+	IPv6Gateway string        `json:"ipv6_gateway,omitempty"`
+}
+
+// RouteConfig is one static route to add to an interface. Destination
+// is required (a CIDR like "10.0.0.0/8" or "0.0.0.0/0" for a default
+// route). Gateway is optional — leaving it empty produces an on-link
+// route. Metric is optional and zero means "let the kernel pick".
+type RouteConfig struct {
+	Destination string `json:"destination"`
+	Gateway     string `json:"gateway,omitempty"`
+	Metric      int    `json:"metric,omitempty"`
+}
+
 // Snapshot is the network domain payload published on the bus.
 type Snapshot struct {
+	Backend    string      `json:"backend"`
 	Hostname   string      `json:"hostname,omitempty"`
 	Interfaces []Interface `json:"interfaces"`
 	Routes     []Route     `json:"routes,omitempty"`
 	DNS        DNS         `json:"dns,omitempty"`
 }
 
-// Service holds long-lived state across snapshot calls — currently
-// just the previous traffic counter readings used to compute live
-// per-interface bandwidth rates.
+// Service holds long-lived state across snapshot calls: the previous
+// traffic counter readings for live bandwidth rate computation, plus
+// the active Backend chosen at construction time. The kernel-scrape
+// path that powers Snapshot is backend-agnostic; the backend only
+// kicks in for mutating operations and for optional state augmentation.
 type Service struct {
+	backend Backend
+
 	rateMu   sync.Mutex
 	ratePrev map[string]rateSample
 }
@@ -84,16 +172,33 @@ type rateSample struct {
 	at      time.Time
 }
 
-// NewService constructs a Service. Currently never errors — every
-// dependency is a kernel filesystem path that's always available.
+// NewService opens a system bus connection, detects which network
+// manager (if any) is running, and returns a Service wired to the
+// right backend. The backend selection is recoverable — even when no
+// manager is detected, the Service still works for read-only kernel
+// scrapes.
 func NewService() (*Service, error) {
-	return &Service{ratePrev: map[string]rateSample{}}, nil
+	conn, err := dbus.ConnectSystemBus()
+	if err != nil {
+		// No D-Bus connection means no backend, but reads still work.
+		return &Service{backend: newNoopBackend(nil), ratePrev: map[string]rateSample{}}, nil
+	}
+	return &Service{
+		backend:  pickBackend(conn),
+		ratePrev: map[string]rateSample{},
+	}, nil
 }
 
-// Close releases any resources the service holds. No-op today.
-func (s *Service) Close() {}
+// Close releases the backend (which closes its D-Bus connection).
+func (s *Service) Close() {
+	if s.backend != nil {
+		s.backend.Close()
+		s.backend = nil
+	}
+}
 
-// Snapshot builds a fresh network state snapshot.
+// Snapshot builds a fresh network state snapshot. The kernel scrape
+// always runs first; the backend then gets a chance to augment.
 func (s *Service) Snapshot() Snapshot {
 	snap := Snapshot{
 		Hostname:   readHostname(),
@@ -101,11 +206,46 @@ func (s *Service) Snapshot() Snapshot {
 		Routes:     readRoutes(),
 		DNS:        readDNS(),
 	}
+	if s.backend != nil {
+		snap.Backend = s.backend.Name()
+		s.backend.Augment(&snap)
+	} else {
+		snap.Backend = BackendNone
+	}
 	now := time.Now()
 	for i := range snap.Interfaces {
 		s.updateRateSample(&snap.Interfaces[i], now)
 	}
 	return snap
+}
+
+// Reconfigure delegates to the active backend. Returns
+// ErrBackendUnsupported when no manager is detected — the TUI shows
+// that error inline so the user knows the section is read-only on
+// this system.
+func (s *Service) Reconfigure(iface string) error {
+	if s.backend == nil {
+		return ErrBackendUnsupported
+	}
+	return s.backend.Reconfigure(iface)
+}
+
+// ConfigureIPv4 commits a new IPv4 layer-3 configuration to an
+// interface via the active backend.
+func (s *Service) ConfigureIPv4(iface string, cfg IPv4Config) error {
+	if s.backend == nil {
+		return ErrBackendUnsupported
+	}
+	return s.backend.ConfigureIPv4(iface, cfg)
+}
+
+// ResetInterface removes any dark-managed configuration for an
+// interface and re-applies the system defaults via the active backend.
+func (s *Service) ResetInterface(iface string) error {
+	if s.backend == nil {
+		return ErrBackendUnsupported
+	}
+	return s.backend.ResetInterface(iface)
 }
 
 // updateRateSample mirrors the wifi service's rate computation: store

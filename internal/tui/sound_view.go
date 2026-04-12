@@ -102,10 +102,8 @@ func renderSound(s *core.State, width, height int) string {
 		}
 	}
 
-	if s.AudioActionError != "" {
-		blocks = append(blocks, "",
-			statusErrorStyle.Render("action failed: "+s.AudioActionError))
-	} else if s.AudioBusy {
+	// Errors fire desktop notifications instead of rendering inline.
+	if s.AudioBusy {
 		blocks = append(blocks, "", statusBusyStyle.Render("working…"))
 	}
 

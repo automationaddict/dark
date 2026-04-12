@@ -9,12 +9,11 @@ import (
 )
 
 func renderStatusBar(s *core.State, width int) string {
-	switch {
-	case s.Rebuilding:
+	// The "rebuilding…" indicator stays inline because it's transient
+	// state, but build failures fire desktop notifications and don't
+	// take over the status bar anymore.
+	if s.Rebuilding {
 		return statusBusyStyle.Width(width).Render("rebuilding…")
-	case s.BuildError != "":
-		msg := firstLine(s.BuildError)
-		return statusErrorStyle.Width(width).Render("build failed: " + msg)
 	}
 
 	left := "? help · ctrl+r rebuild · +/- resize sidebar · F1–F12 tabs · q quit"
@@ -46,14 +45,6 @@ func connectionIndicator(connected bool) string {
 		return statusOnlineStyle.Render("● connected")
 	}
 	return statusOfflineStyle.Render("● disconnected")
-}
-
-func firstLine(s string) string {
-	s = strings.TrimSpace(s)
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return s[:i]
-	}
-	return s
 }
 
 func max0(n int) int {

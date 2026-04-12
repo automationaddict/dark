@@ -14,6 +14,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/network"
+	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/wifi"
 )
@@ -53,6 +54,8 @@ type Model struct {
 	wifi      WifiActions
 	bluetooth BluetoothActions
 	audio     AudioActions
+	network   NetworkActions
+	notifier  *notify.Notifier
 	dialog    *Dialog
 	width     int
 	height    int
@@ -67,15 +70,37 @@ type SysInfoMsg sysinfo.SystemInfo
 // WifiMsg is dispatched whenever darkd publishes a wifi adapter snapshot.
 type WifiMsg wifi.Snapshot
 
-// NetworkMsg is dispatched whenever darkd publishes a network snapshot.
-type NetworkMsg network.Snapshot
-
 // BusStatusMsg flips the connected/disconnected indicator. Sent from the
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions) Model {
-	return Model{state: state, binPath: binPath, wifi: wifi, bluetooth: bluetooth, audio: audio}
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, notifier *notify.Notifier) Model {
+	return Model{
+		state:     state,
+		binPath:   binPath,
+		wifi:      wifi,
+		bluetooth: bluetooth,
+		audio:     audio,
+		network:   network,
+		notifier:  notifier,
+	}
+}
+
+// notifyError fires a critical desktop notification for an action
+// failure. Section is the user-facing label (e.g. "Wi-Fi", "Network")
+// that becomes part of the summary so the user can tell at a glance
+// which part of dark is reporting. No-op when notifications are
+// disabled (no notifier wired in) or the message is empty.
+func (m *Model) notifyError(section, message string) {
+	if m.notifier == nil || message == "" {
+		return
+	}
+	m.notifier.Send(notify.Message{
+		Summary: "dark · " + section,
+		Body:    message,
+		Urgency: notify.UrgencyCritical,
+		Icon:    "dialog-error",
+	})
 }
 
 func (m Model) Init() tea.Cmd { return nil }
@@ -99,6 +124,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.WifiScanning = false
 		if msg.Err != "" {
 			m.state.WifiScanError = msg.Err
+			m.notifyError("Wi-Fi", msg.Err)
 			return m, nil
 		}
 		m.state.WifiScanError = ""
@@ -109,6 +135,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.WifiBusy = false
 		if msg.Err != "" {
 			m.state.WifiActionError = msg.Err
+			m.notifyError("Wi-Fi", msg.Err)
 			return m, nil
 		}
 		m.state.WifiActionError = ""
@@ -123,6 +150,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.BluetoothBusy = false
 		if msg.Err != "" {
 			m.state.BluetoothActionError = msg.Err
+			m.notifyError("Bluetooth", msg.Err)
 			return m, nil
 		}
 		m.state.BluetoothActionError = ""
@@ -141,10 +169,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.SetNetwork(network.Snapshot(msg))
 		return m, nil
 
+	case NetworkActionResultMsg:
+		m.state.NetworkBusy = false
+		if msg.Err != "" {
+			m.state.NetworkActionError = msg.Err
+			m.notifyError("Network", msg.Err)
+			return m, nil
+		}
+		m.state.NetworkActionError = ""
+		m.state.SetNetwork(msg.Snapshot)
+		return m, nil
+
 	case AudioActionResultMsg:
 		m.state.AudioBusy = false
 		if msg.Err != "" {
 			m.state.AudioActionError = msg.Err
+			m.notifyError("Sound", msg.Err)
 			return m, nil
 		}
 		m.state.AudioActionError = ""
@@ -163,6 +203,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		m.state.BuildError = msg.Output
+		m.notifyError("Rebuild", msg.Output)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -482,7 +523,11 @@ func (m *Model) moveSelection(delta int) {
 		case "sound":
 			m.state.MoveAudioSelection(delta)
 		case "network":
-			m.state.MoveNetworkSelection(delta)
+			if m.state.NetworkRoutesOpen {
+				m.state.MoveNetworkRouteSelection(delta)
+			} else {
+				m.state.MoveNetworkSelection(delta)
+			}
 		}
 		return
 	}
@@ -563,6 +608,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 	case "esc":
+		if m.state.NetworkRoutesOpen {
+			m.state.CloseNetworkRoutes()
+			return m, nil
+		}
 		if m.state.BluetoothDeviceInfoOpen {
 			m.state.CloseBluetoothDeviceInfo()
 			return m, nil
@@ -673,6 +722,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerBluetoothDisconnect(); cmd != nil {
 			return m, cmd
 		}
+		if cmd := m.triggerNetworkRouteDelete(); cmd != nil {
+			return m, cmd
+		}
 	case "f":
 		if cmd := m.triggerWifiForget(); cmd != nil {
 			return m, cmd
@@ -691,8 +743,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerBluetoothPairableToggle(); cmd != nil {
 			return m, cmd
 		}
+		if cmd := m.triggerNetworkRouteAdd(); cmd != nil {
+			return m, cmd
+		}
 	case "h":
 		if cmd := m.triggerWifiConnectHidden(); cmd != nil {
+			return m, cmd
+		}
+		if cmd := m.triggerNetworkUseDHCP(); cmd != nil {
+			return m, cmd
+		}
+	case "e":
+		if cmd := m.triggerNetworkEditStatic(); cmd != nil {
 			return m, cmd
 		}
 	case "p":
@@ -717,12 +779,19 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerBluetoothTrustToggle(); cmd != nil {
 			return m, cmd
 		}
+		// triggerNetworkRoutesOpen returns nil unconditionally — it's
+		// a state change, not an async command — so we just call it
+		// and let the next View() see the new state.
+		m.triggerNetworkRoutesOpen()
 	case "y":
 		if cmd := m.triggerBluetoothDiscoverableToggle(); cmd != nil {
 			return m, cmd
 		}
 	case "r":
 		if cmd := m.triggerBluetoothRename(); cmd != nil {
+			return m, cmd
+		}
+		if cmd := m.triggerNetworkReconfigure(); cmd != nil {
 			return m, cmd
 		}
 	case "b":
@@ -735,6 +804,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "R":
 		if cmd := m.triggerBluetoothResetAlias(); cmd != nil {
+			return m, cmd
+		}
+		if cmd := m.triggerNetworkReset(); cmd != nil {
 			return m, cmd
 		}
 	case "T":

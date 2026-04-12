@@ -17,6 +17,7 @@ import (
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
+	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/wifi"
 	"github.com/johnnelson/dark/internal/theme"
@@ -121,8 +122,19 @@ func main() {
 
 	bluetoothActions := newBluetoothActions(nc)
 	audioActions := newAudioActions(nc)
+	networkActions := newNetworkActions(nc)
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions)
+	// Best-effort: if we can't reach the session bus, the notifier
+	// stays nil and the model's notifyError helper becomes a no-op.
+	// dark still runs perfectly fine without desktop notifications.
+	notifier, err := notify.New("dark")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: notifications disabled:", err)
+		notifier = nil
+	}
+	defer notifier.Close()
+
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, notifier)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 

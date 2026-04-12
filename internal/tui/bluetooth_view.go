@@ -200,14 +200,13 @@ func renderBluetoothDevicesBox(s *core.State, a bluetooth.Adapter, total int, bo
 		title = "Devices · " + a.Name
 	}
 
+	// Errors fire desktop notifications instead of rendering inline.
 	var statusLine string
 	switch {
 	case s.BluetoothBusy:
 		statusLine = statusBusyStyle.Render("working…")
 	case a.Discovering:
 		statusLine = statusBusyStyle.Render("scanning…")
-	case s.BluetoothActionError != "":
-		statusLine = statusErrorStyle.Render("action failed: " + s.BluetoothActionError)
 	}
 
 	sel := -1

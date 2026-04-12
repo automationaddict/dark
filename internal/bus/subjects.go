@@ -67,6 +67,9 @@ const (
 	SubjectAudioSuspendSourceCmd     = "dark.cmd.audio.suspend_source"
 	SubjectAudioLevels               = "dark.audio.levels"
 
-	SubjectNetworkSnapshot    = "dark.network.snapshot"
-	SubjectNetworkSnapshotCmd = "dark.cmd.network.snapshot"
+	SubjectNetworkSnapshot         = "dark.network.snapshot"
+	SubjectNetworkSnapshotCmd      = "dark.cmd.network.snapshot"
+	SubjectNetworkReconfigureCmd   = "dark.cmd.network.reconfigure"
+	SubjectNetworkConfigureIPv4Cmd = "dark.cmd.network.configure_ipv4"
+	SubjectNetworkResetCmd         = "dark.cmd.network.reset"
 )

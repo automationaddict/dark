@@ -203,16 +203,15 @@ func renderNetworksBox(s *core.State, a wifi.Adapter, total int, border lipgloss
 		title = "Networks · " + a.Name
 	}
 
+	// Errors no longer render inline — they fire desktop notifications
+	// via the model's notifyError helper. Only the busy/scanning
+	// indicators stay here because they're transient state, not failures.
 	var statusLine string
 	switch {
 	case s.WifiBusy:
 		statusLine = statusBusyStyle.Render("working…")
 	case s.WifiScanning:
 		statusLine = statusBusyStyle.Render("scanning…")
-	case s.WifiActionError != "":
-		statusLine = statusErrorStyle.Render("action failed: " + s.WifiActionError)
-	case s.WifiScanError != "":
-		statusLine = statusErrorStyle.Render("scan failed: " + s.WifiScanError)
 	}
 
 	focused := s.WifiFocus == core.WifiFocusNetworks

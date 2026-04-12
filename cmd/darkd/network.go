@@ -10,10 +10,19 @@ import (
 	netsvc "github.com/johnnelson/dark/internal/services/network"
 )
 
-// wireNetwork registers the network reply handler and returns a
+type networkActionRequest struct {
+	Interface string             `json:"interface,omitempty"`
+	IPv4      *netsvc.IPv4Config `json:"ipv4,omitempty"`
+}
+
+type networkActionResponse struct {
+	Snapshot netsvc.Snapshot `json:"snapshot"`
+	Error    string          `json:"error,omitempty"`
+}
+
+// wireNetwork registers the network NATS handlers and returns a
 // publisher closure the daemon's main ticker uses for periodic
-// snapshot pushes. Tier 1 is read-only so there are no action
-// handlers — just snapshot delivery.
+// snapshot pushes.
 func wireNetwork(nc *nats.Conn, svc *netsvc.Service) func() {
 	if _, err := nc.Subscribe(bus.SubjectNetworkSnapshotCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(snapshotNetwork(svc))
@@ -21,6 +30,26 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service) func() {
 	}); err != nil {
 		log.Fatalf("subscribe network snapshot cmd: %v", err)
 	}
+
+	register := func(subject string, handler func(*netsvc.Service, networkActionRequest) networkActionResponse) {
+		if _, err := nc.Subscribe(subject, func(m *nats.Msg) {
+			var req networkActionRequest
+			_ = json.Unmarshal(m.Data, &req)
+			resp := handler(svc, req)
+			data, _ := json.Marshal(resp)
+			_ = m.Respond(data)
+			if resp.Error == "" {
+				snapData, _ := json.Marshal(resp.Snapshot)
+				_ = nc.Publish(bus.SubjectNetworkSnapshot, snapData)
+			}
+		}); err != nil {
+			log.Fatalf("subscribe %s: %v", subject, err)
+		}
+	}
+
+	register(bus.SubjectNetworkReconfigureCmd, handleNetworkReconfigure)
+	register(bus.SubjectNetworkConfigureIPv4Cmd, handleNetworkConfigureIPv4)
+	register(bus.SubjectNetworkResetCmd, handleNetworkReset)
 
 	return func() {
 		data, err := json.Marshal(snapshotNetwork(svc))
@@ -32,6 +61,48 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service) func() {
 			log.Printf("publish network: %v", err)
 		}
 	}
+}
+
+func handleNetworkReconfigure(svc *netsvc.Service, req networkActionRequest) networkActionResponse {
+	if svc == nil {
+		return networkActionResponse{Error: "network service unavailable"}
+	}
+	if req.Interface == "" {
+		return networkActionResponse{Error: "missing interface name"}
+	}
+	if err := svc.Reconfigure(req.Interface); err != nil {
+		return networkActionResponse{Error: err.Error()}
+	}
+	return networkActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleNetworkConfigureIPv4(svc *netsvc.Service, req networkActionRequest) networkActionResponse {
+	if svc == nil {
+		return networkActionResponse{Error: "network service unavailable"}
+	}
+	if req.Interface == "" {
+		return networkActionResponse{Error: "missing interface name"}
+	}
+	if req.IPv4 == nil {
+		return networkActionResponse{Error: "missing ipv4 config"}
+	}
+	if err := svc.ConfigureIPv4(req.Interface, *req.IPv4); err != nil {
+		return networkActionResponse{Error: err.Error()}
+	}
+	return networkActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleNetworkReset(svc *netsvc.Service, req networkActionRequest) networkActionResponse {
+	if svc == nil {
+		return networkActionResponse{Error: "network service unavailable"}
+	}
+	if req.Interface == "" {
+		return networkActionResponse{Error: "missing interface name"}
+	}
+	if err := svc.ResetInterface(req.Interface); err != nil {
+		return networkActionResponse{Error: err.Error()}
+	}
+	return networkActionResponse{Snapshot: svc.Snapshot()}
 }
 
 func snapshotNetwork(svc *netsvc.Service) netsvc.Snapshot {

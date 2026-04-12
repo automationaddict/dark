@@ -3,6 +3,7 @@ version: '3'
 vars:
   TUI_BIN: ./tmp/dark
   DAEMON_BIN: ./tmp/darkd
+  HELPER_BIN: ./tmp/dark-helper
   DAEMON_LOG: ./tmp/darkd.log
 
 tasks:
@@ -13,11 +14,18 @@ tasks:
     silent: true
 
   build:
-    desc: Build both binaries (darkd + dark) into ./tmp
+    desc: Build all binaries (darkd + dark + dark-helper) into ./tmp
     cmds:
       - mkdir -p tmp
       - go build -o {{.DAEMON_BIN}} ./cmd/darkd
       - go build -o {{.TUI_BIN}} ./cmd/dark
+      - go build -o {{.HELPER_BIN}} ./cmd/dark-helper
+
+  build:helper:
+    desc: Build only the privileged helper binary
+    cmds:
+      - mkdir -p tmp
+      - go build -o {{.HELPER_BIN}} ./cmd/dark-helper
 
   build:tui:
     desc: Build only the TUI binary

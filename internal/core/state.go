@@ -64,6 +64,10 @@ type State struct {
 	Network              network.Snapshot
 	NetworkLoaded        bool
 	NetworkSelected      int
+	NetworkRoutesOpen    bool
+	NetworkRouteSelected int
+	NetworkBusy          bool
+	NetworkActionError   string
 
 	Audio                 audio.Snapshot
 	AudioLoaded           bool
@@ -258,6 +262,7 @@ func (s *State) FocusSidebar() {
 	s.BluetoothDetailsOpen = false
 	s.BluetoothDeviceInfoOpen = false
 	s.AudioDeviceInfoOpen = false
+	s.NetworkRoutesOpen = false
 }
 
 // OpenWifiDetails drills into the currently highlighted adapter and shows

@@ -34,3 +34,51 @@ func (s *State) SelectedNetworkInterface() (network.Interface, bool) {
 	}
 	return s.Network.Interfaces[s.NetworkSelected], true
 }
+
+// OpenNetworkRoutes drills into the routes-management view for the
+// highlighted interface. Only valid when the interface has a dark-
+// managed config (otherwise there's nothing to manage routes against
+// — the user needs to set up basic IPv4 first via h or e).
+func (s *State) OpenNetworkRoutes() bool {
+	iface, ok := s.SelectedNetworkInterface()
+	if !ok || iface.Managed == nil {
+		return false
+	}
+	s.NetworkRoutesOpen = true
+	s.NetworkRouteSelected = 0
+	return true
+}
+
+// CloseNetworkRoutes backs out of the routes drill-in.
+func (s *State) CloseNetworkRoutes() {
+	s.NetworkRoutesOpen = false
+}
+
+// MoveNetworkRouteSelection walks the route highlight up or down
+// within the highlighted interface's dark-managed route list.
+func (s *State) MoveNetworkRouteSelection(delta int) {
+	iface, ok := s.SelectedNetworkInterface()
+	if !ok || iface.Managed == nil {
+		return
+	}
+	n := len(iface.Managed.Routes)
+	if n == 0 {
+		return
+	}
+	s.NetworkRouteSelected = (s.NetworkRouteSelected + delta + n) % n
+}
+
+// SelectedNetworkRoute returns the currently highlighted route on the
+// selected interface's dark-managed route list, plus the route's
+// index within that list. Returns false when there's no current
+// selection (no routes, no managed config, or no selected interface).
+func (s *State) SelectedNetworkRoute() (network.RouteConfig, int, bool) {
+	iface, ok := s.SelectedNetworkInterface()
+	if !ok || iface.Managed == nil || len(iface.Managed.Routes) == 0 {
+		return network.RouteConfig{}, 0, false
+	}
+	if s.NetworkRouteSelected >= len(iface.Managed.Routes) {
+		s.NetworkRouteSelected = 0
+	}
+	return iface.Managed.Routes[s.NetworkRouteSelected], s.NetworkRouteSelected, true
+}
