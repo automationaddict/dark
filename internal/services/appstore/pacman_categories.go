@@ -10,12 +10,13 @@ import (
 
 const categoriesScript = "appstore/categories.lua"
 
-// categoryMaps holds the two lookup tables loaded from Lua: the
-// per-package overrides (highest priority) and the XDG-to-sidebar
-// mapping used to interpret .desktop Categories= fields.
+// categoryMaps holds the lookup tables loaded from Lua: the
+// per-package category overrides, the XDG-to-sidebar mapping, and
+// the curated Featured list.
 type categoryMaps struct {
 	packages map[string]string // package name → sidebar ID
 	xdgMap   map[string]string // XDG category → sidebar ID
+	featured []string          // ordered package names for the Featured view
 }
 
 // loadCategoryMaps loads categories.lua and extracts the two globals.
@@ -45,9 +46,15 @@ func loadCategoryMaps(engine *scripting.Engine, logger *slog.Logger) categoryMap
 			cm.xdgMap = scripting.TableToStringMap(t)
 		}
 	}
+	if v := engine.GetGlobal("featured"); v != lua.LNil {
+		if t, ok := v.(*lua.LTable); ok {
+			cm.featured = scripting.TableToStringSlice(t)
+		}
+	}
 	logger.Info("appstore: loaded category maps from Lua",
 		"curated_packages", len(cm.packages),
-		"xdg_entries", len(cm.xdgMap))
+		"xdg_entries", len(cm.xdgMap),
+		"featured", len(cm.featured))
 	return cm
 }
 

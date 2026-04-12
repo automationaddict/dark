@@ -17,36 +17,6 @@ const (
 	pacmanCatalogCacheFile = "pacman_catalog.json"
 )
 
-// featuredAllowlist is the phase-1 curated list of packages the
-// Featured category renders when the backend hasn't yet learned
-// anything smarter. Entries are filtered against the actual catalog so
-// we never show ghosts, and the order here is the order they appear.
-//
-// TODO(appstore): replace this with real data in phase 2 once we have
-// appstream metadata and can pull categories + icons.
-var featuredAllowlist = []string{
-	"firefox",
-	"chromium",
-	"thunderbird",
-	"code",
-	"ghostty",
-	"alacritty",
-	"kitty",
-	"gimp",
-	"inkscape",
-	"blender",
-	"krita",
-	"vlc",
-	"mpv",
-	"obs-studio",
-	"audacity",
-	"libreoffice-fresh",
-	"signal-desktop",
-	"telegram-desktop",
-	"discord",
-	"steam",
-}
-
 // pacmanBackend is the appstore Backend backed by the host pacman
 // installation plus optional expac for fast batch metadata.
 type pacmanBackend struct {
@@ -59,6 +29,7 @@ type pacmanBackend struct {
 	index          map[string]int // lower(name) -> catalog position
 	installed      map[string]struct{}
 	catCounts      map[string]int // sidebar ID → count of packages
+	featured       []string       // curated package names from Lua
 	lastLoad       time.Time
 	expacAvailable bool
 }
@@ -253,6 +224,7 @@ func (p *pacmanBackend) ensureCatalog() {
 			cm := loadCategoryMaps(p.engine, p.logger)
 			desktop := desktopCategories(p.logger)
 			p.catCounts = assignCategories(cached, cm, desktop)
+			p.featured = cm.featured
 			p.installCatalogLocked(cached)
 			p.lastLoad = time.Now()
 			p.refreshInstalledLocked()
@@ -294,8 +266,10 @@ func (p *pacmanBackend) buildCatalogLocked() ([]Package, error) {
 	cm := loadCategoryMaps(p.engine, p.logger)
 	desktop := desktopCategories(p.logger)
 	p.catCounts = assignCategories(cat, cm, desktop)
+	p.featured = cm.featured
 	p.logger.Info("appstore: categories assigned",
 		"categorized", countCategorized(cat),
+		"featured", len(cm.featured),
 		"counts", p.catCounts)
 	return cat, nil
 }
@@ -351,8 +325,8 @@ func (p *pacmanBackend) filterInstalledLocked() []Package {
 }
 
 func (p *pacmanBackend) featuredLocked() []Package {
-	out := make([]Package, 0, len(featuredAllowlist))
-	for _, name := range featuredAllowlist {
+	out := make([]Package, 0, len(p.featured))
+	for _, name := range p.featured {
 		if idx, ok := p.index[name]; ok {
 			out = append(out, p.catalog[idx])
 		}

@@ -1,10 +1,12 @@
--- categories.lua — maps packages to dark App Store sidebar categories.
+-- categories.lua — maps packages to dark App Store sidebar categories
+-- and defines the curated Featured list.
 --
 -- This script is loaded by the daemon at catalog-build time. It exposes
--- two globals that the appstore backend reads:
+-- three globals that the appstore backend reads:
 --
 --   xdg_map      XDG/freedesktop category string → dark sidebar ID
 --   packages     package name → dark sidebar ID (highest-priority override)
+--   featured     ordered list of package names for the Featured sidebar view
 --
 -- Users can override this file at:
 --   $XDG_CONFIG_HOME/dark/scripts/appstore/categories.lua
@@ -444,4 +446,41 @@ packages = {
     ["nethack"]              = "games",
     ["angband"]              = "games",
     ["cataclysm-dda"]        = "games",
+}
+
+-----------------------------------------------------------------------
+-- Featured packages
+--
+-- The ordered list of packages the "Featured" sidebar view renders.
+-- Entries are filtered against the actual catalog at load time so
+-- listing a package that isn't in your repos is harmless — it
+-- silently drops out. The order here is the display order.
+-----------------------------------------------------------------------
+
+featured = {
+    "firefox",
+    "chromium",
+    "thunderbird",
+    "code",
+    "ghostty",
+    "alacritty",
+    "kitty",
+    "gimp",
+    "inkscape",
+    "blender",
+    "krita",
+    "vlc",
+    "mpv",
+    "obs-studio",
+    "audacity",
+    "libreoffice-fresh",
+    "signal-desktop",
+    "telegram-desktop",
+    "discord",
+    "steam",
+    "keepassxc",
+    "obsidian",
+    "neovim",
+    "btop",
+    "fastfetch",
 }
