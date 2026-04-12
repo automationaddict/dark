@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
 	"github.com/johnnelson/dark/internal/bus"
+	"github.com/johnnelson/dark/internal/core"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/tui"
 )
@@ -114,7 +114,7 @@ func newAudioActions(nc *nats.Conn) tui.AudioActions {
 
 func audioKillRequest(nc *nats.Conn, subject string, index uint32) tui.AudioActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"index": index})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.AudioActionResultMsg{Err: err.Error()}
 	}
@@ -123,7 +123,7 @@ func audioKillRequest(nc *nats.Conn, subject string, index uint32) tui.AudioActi
 
 func audioSuspendRequest(nc *nats.Conn, subject string, index uint32, suspend bool) tui.AudioActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"index": index, "suspend": suspend})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.AudioActionResultMsg{Err: err.Error()}
 	}
@@ -132,7 +132,7 @@ func audioSuspendRequest(nc *nats.Conn, subject string, index uint32, suspend bo
 
 func audioStreamVolumeRequest(nc *nats.Conn, subject string, index uint32, pct int) tui.AudioActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"index": index, "volume": pct})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.AudioActionResultMsg{Err: err.Error()}
 	}
@@ -141,7 +141,7 @@ func audioStreamVolumeRequest(nc *nats.Conn, subject string, index uint32, pct i
 
 func audioStreamMuteRequest(nc *nats.Conn, subject string, index uint32, mute bool) tui.AudioActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"index": index, "mute": mute})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.AudioActionResultMsg{Err: err.Error()}
 	}
@@ -150,7 +150,7 @@ func audioStreamMuteRequest(nc *nats.Conn, subject string, index uint32, mute bo
 
 func audioStreamMoveRequest(nc *nats.Conn, subject string, streamIndex, targetIndex uint32) tui.AudioActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"index": streamIndex, "target_index": targetIndex})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.AudioActionResultMsg{Err: err.Error()}
 	}
@@ -159,7 +159,7 @@ func audioStreamMoveRequest(nc *nats.Conn, subject string, streamIndex, targetIn
 
 func audioProfileRequest(nc *nats.Conn, cardIndex uint32, profile string) tui.AudioActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"index": cardIndex, "profile": profile})
-	reply, err := nc.Request(bus.SubjectAudioCardProfileCmd, payload, 10*time.Second)
+	reply, err := nc.Request(bus.SubjectAudioCardProfileCmd, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.AudioActionResultMsg{Err: err.Error()}
 	}
@@ -168,7 +168,7 @@ func audioProfileRequest(nc *nats.Conn, cardIndex uint32, profile string) tui.Au
 
 func audioPortRequest(nc *nats.Conn, subject string, deviceIndex uint32, port string) tui.AudioActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"index": deviceIndex, "port": port})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.AudioActionResultMsg{Err: err.Error()}
 	}
@@ -196,7 +196,7 @@ func audioIndexRequest(nc *nats.Conn, subject string, index uint32, volume int, 
 		"mute":   mute,
 		"name":   name,
 	})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.AudioActionResultMsg{Err: err.Error()}
 	}
@@ -214,7 +214,7 @@ func audioIndexRequest(nc *nats.Conn, subject string, index uint32, volume int, 
 }
 
 func requestInitialAudio(nc *nats.Conn) (audiosvc.Snapshot, bool) {
-	reply, err := nc.Request(bus.SubjectAudioDevicesCmd, nil, 1*time.Second)
+	reply, err := nc.Request(bus.SubjectAudioDevicesCmd, nil, core.TimeoutFast)
 	if err != nil {
 		return audiosvc.Snapshot{}, false
 	}

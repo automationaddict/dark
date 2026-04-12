@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
 	"github.com/johnnelson/dark/internal/bus"
+	"github.com/johnnelson/dark/internal/core"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/tui"
 )
@@ -96,7 +96,7 @@ func newBluetoothActions(nc *nats.Conn) tui.BluetoothActions {
 
 func btAliasRequest(nc *nats.Conn, adapter, alias string) tui.BluetoothActionResultMsg {
 	payload, _ := json.Marshal(map[string]string{"adapter": adapter, "alias": alias})
-	reply, err := nc.Request(bus.SubjectBluetoothAliasCmd, payload, 10*time.Second)
+	reply, err := nc.Request(bus.SubjectBluetoothAliasCmd, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.BluetoothActionResultMsg{Err: err.Error()}
 	}
@@ -105,7 +105,7 @@ func btAliasRequest(nc *nats.Conn, adapter, alias string) tui.BluetoothActionRes
 
 func btTimeoutRequest(nc *nats.Conn, adapter string, seconds uint32) tui.BluetoothActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"adapter": adapter, "seconds": seconds})
-	reply, err := nc.Request(bus.SubjectBluetoothDiscoverableTimeoutCmd, payload, 10*time.Second)
+	reply, err := nc.Request(bus.SubjectBluetoothDiscoverableTimeoutCmd, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.BluetoothActionResultMsg{Err: err.Error()}
 	}
@@ -114,7 +114,7 @@ func btTimeoutRequest(nc *nats.Conn, adapter string, seconds uint32) tui.Bluetoo
 
 func btFilterRequest(nc *nats.Conn, adapter string, filter btsvc.DiscoveryFilter) tui.BluetoothActionResultMsg {
 	payload, _ := json.Marshal(map[string]any{"adapter": adapter, "filter": filter})
-	reply, err := nc.Request(bus.SubjectBluetoothDiscoveryFilterCmd, payload, 10*time.Second)
+	reply, err := nc.Request(bus.SubjectBluetoothDiscoveryFilterCmd, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.BluetoothActionResultMsg{Err: err.Error()}
 	}
@@ -123,7 +123,7 @@ func btFilterRequest(nc *nats.Conn, adapter string, filter btsvc.DiscoveryFilter
 
 func btPairRequest(nc *nats.Conn, device, pin string) tui.BluetoothActionResultMsg {
 	payload, _ := json.Marshal(map[string]string{"device": device, "pin": pin})
-	reply, err := nc.Request(bus.SubjectBluetoothPairCmd, payload, 60*time.Second)
+	reply, err := nc.Request(bus.SubjectBluetoothPairCmd, payload, core.TimeoutPair)
 	if err != nil {
 		return tui.BluetoothActionResultMsg{Err: err.Error()}
 	}
@@ -132,7 +132,7 @@ func btPairRequest(nc *nats.Conn, device, pin string) tui.BluetoothActionResultM
 
 func btPathRequest(nc *nats.Conn, subject, adapter, device string) tui.BluetoothActionResultMsg {
 	payload, _ := json.Marshal(map[string]string{"adapter": adapter, "device": device})
-	reply, err := nc.Request(subject, payload, 40*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutConnect)
 	if err != nil {
 		return tui.BluetoothActionResultMsg{Err: err.Error()}
 	}
@@ -145,7 +145,7 @@ func btBoolRequest(nc *nats.Conn, subject, adapter, device string, flag bool) tu
 		"device":  device,
 		"on":      flag,
 	})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.BluetoothActionResultMsg{Err: err.Error()}
 	}
@@ -170,7 +170,7 @@ func decodeBluetoothReply(data []byte) tui.BluetoothActionResultMsg {
 // Bluetooth section has data on the first frame. Errors are swallowed
 // since the periodic publish will backfill.
 func requestInitialBluetooth(nc *nats.Conn) (btsvc.Snapshot, bool) {
-	reply, err := nc.Request(bus.SubjectBluetoothAdaptersCmd, nil, 1*time.Second)
+	reply, err := nc.Request(bus.SubjectBluetoothAdaptersCmd, nil, core.TimeoutFast)
 	if err != nil {
 		return btsvc.Snapshot{}, false
 	}

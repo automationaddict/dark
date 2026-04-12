@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/services/notify"
 )
 
@@ -18,7 +19,7 @@ type daemonNotifier struct {
 	lastAt  time.Time
 }
 
-const daemonNotifyDebounce = 30 * time.Second
+	// Uses core.NotifyDebounce from config.go.
 
 // newDaemonNotifier creates a best-effort notifier for the daemon
 // process. If the session bus is unreachable, returns a stub that
@@ -64,7 +65,7 @@ func (d *daemonNotifier) Error(section, message string) {
 		return
 	}
 	d.mu.Lock()
-	if d.lastMsg == message && time.Since(d.lastAt) < daemonNotifyDebounce {
+	if d.lastMsg == message && time.Since(d.lastAt) < core.NotifyDebounce {
 		d.mu.Unlock()
 		return
 	}

@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/johnnelson/dark/internal/core"
+
 	"github.com/nats-io/nats.go"
 
 	"github.com/johnnelson/dark/internal/bus"
@@ -110,7 +112,7 @@ func handleBluetoothPower(svc *btsvc.Service, req bluetoothActionRequest) blueto
 	if err := svc.SetPowered(req.Adapter, *req.On); err != nil {
 		return bluetoothActionResponse{Error: err.Error()}
 	}
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(core.BlueZPowerWait)
 	return bluetoothActionResponse{Snapshot: svc.Snapshot()}
 }
 

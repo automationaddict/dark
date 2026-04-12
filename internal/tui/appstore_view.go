@@ -58,7 +58,7 @@ func (m *Model) submitAppstoreSearch() (tea.Cmd, bool) {
 	q := appstore.SearchQuery{
 		Text:       text,
 		IncludeAUR: m.state.AppstoreIncludeAUR,
-		Limit:      200,
+		Limit:      core.AppstoreSearchLimit,
 	}
 	m.state.MarkAppstoreBusy()
 	m.state.AppstoreFocus = core.AppstoreFocusResults
@@ -79,7 +79,7 @@ func (m Model) loadAppstoreCategoryCmd() tea.Cmd {
 	q := appstore.SearchQuery{
 		Category:   cat.ID,
 		IncludeAUR: m.state.AppstoreIncludeAUR && cat.ID == "aur",
-		Limit:      150,
+		Limit:      core.AppstoreCategoryLimit,
 	}
 	m.state.MarkAppstoreBusy()
 	return m.appstore.Search(q)

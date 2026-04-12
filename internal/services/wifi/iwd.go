@@ -10,6 +10,11 @@ import (
 )
 
 const (
+	iwdScanPollInterval = 300 * time.Millisecond // poll scanning state after triggering a scan
+	iwdAPTransitionWait = 400 * time.Millisecond // wait for iwd to switch mode to AP
+)
+
+const (
 	iwdBusName  = "net.connman.iwd"
 	iwdIfDevice = "net.connman.iwd.Device"
 	iwdIfStatn  = "net.connman.iwd.Station"
@@ -269,7 +274,7 @@ func (b *iwdBackend) TriggerScan(ifaceName string, timeout time.Duration) error 
 		if !scanning {
 			return nil
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(iwdScanPollInterval)
 	}
 	return fmt.Errorf("iwd scan: timeout after %s", timeout)
 }
@@ -477,7 +482,7 @@ func (b *iwdBackend) StartAP(ifaceName, ssid, passphrase string) error {
 		}
 		// iwd takes a moment to tear down the station and bring up
 		// the AccessPoint interface on the same device path.
-		time.Sleep(400 * time.Millisecond)
+		time.Sleep(iwdAPTransitionWait)
 	}
 
 	call := b.conn.Object(iwdBusName, devPath).Call(iwdIfAP+".Start", 0, ssid, passphrase)

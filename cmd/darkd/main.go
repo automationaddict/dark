@@ -12,6 +12,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/johnnelson/dark/internal/bus"
+	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/lock"
 	"github.com/johnnelson/dark/internal/logging"
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
@@ -193,36 +194,25 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	heartbeat := time.NewTicker(1 * time.Second)
+	heartbeat := time.NewTicker(core.TickHeartbeat)
 	defer heartbeat.Stop()
 
-	sysTick := time.NewTicker(2 * time.Second)
+	sysTick := time.NewTicker(core.TickSysInfo)
 	defer sysTick.Stop()
 
-	wifiTick := time.NewTicker(30 * time.Second)
+	wifiTick := time.NewTicker(core.TickWifi)
 	defer wifiTick.Stop()
 
-	bluetoothTick := time.NewTicker(15 * time.Second)
+	bluetoothTick := time.NewTicker(core.TickBluetooth)
 	defer bluetoothTick.Stop()
 
-	// Audio publishes reactively from the Pulse subscription event
-	// stream wired up in wireAudio. This safety-net tick is just for
-	// the rare case where we miss an event or reconnect.
-	audioTick := time.NewTicker(30 * time.Second)
+	audioTick := time.NewTicker(core.TickAudio)
 	defer audioTick.Stop()
 
-	// Network has no event source today (Tier 1 is read-only kernel
-	// scrapes); 10 seconds is fast enough that newly-plugged-in
-	// ethernet cables and traffic counter rates feel responsive
-	// without burning the CPU on sysfs scans.
-	networkTick := time.NewTicker(10 * time.Second)
+	networkTick := time.NewTicker(core.TickNetwork)
 	defer networkTick.Stop()
 
-	// Appstore state barely changes at runtime — the repo list is
-	// refreshed by the user via the UI, not by external events. A
-	// 60s tick is plenty to pick up installs/removals the user did
-	// in another terminal and to keep the installed-set view honest.
-	appstoreTick := time.NewTicker(60 * time.Second)
+	appstoreTick := time.NewTicker(core.TickAppstore)
 	defer appstoreTick.Stop()
 
 	// Publish initial snapshots immediately so any subscriber that
@@ -250,7 +240,7 @@ func main() {
 			}
 			slog.Info("shutting down", "signal", sig.String())
 			go func() {
-				time.Sleep(5 * time.Second)
+				time.Sleep(core.ShutdownTimeout)
 				slog.Error("shutdown timeout — force exit")
 				os.Exit(1)
 			}()
@@ -341,8 +331,7 @@ func handleAPStart(svc *wifisvc.Service, req wifiActionRequest) wifiActionRespon
 	if err := svc.StartAP(req.Adapter, req.SSID, req.Passphrase); err != nil {
 		return wifiActionResponse{Error: err.Error()}
 	}
-	// Give iwd a beat to publish the AP state before we read it back.
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(core.IWDAPSnapshotWait)
 	return wifiActionResponse{Snapshot: svc.Snapshot()}
 }
 
@@ -356,7 +345,7 @@ func handleAPStop(svc *wifisvc.Service, req wifiActionRequest) wifiActionRespons
 	if err := svc.StopAP(req.Adapter); err != nil {
 		return wifiActionResponse{Error: err.Error()}
 	}
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(core.IWDAPSnapshotWait)
 	return wifiActionResponse{Snapshot: svc.Snapshot()}
 }
 
@@ -417,7 +406,7 @@ func handlePower(svc *wifisvc.Service, req wifiActionRequest) wifiActionResponse
 	}
 	// Give iwd a moment to settle before reading back; Powered transitions
 	// are fast but the downstream Device/Station state updates are async.
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(core.IWDPowerSettleWait)
 	return wifiActionResponse{Snapshot: svc.Snapshot()}
 }
 

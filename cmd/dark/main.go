@@ -266,13 +266,13 @@ func main() {
 
 	// Request current snapshots up front so each tab has data on the
 	// first frame instead of waiting for the next periodic publish.
-	if reply, err := nc.Request(bus.SubjectSystemInfoCmd, nil, 1*time.Second); err == nil {
+	if reply, err := nc.Request(bus.SubjectSystemInfoCmd, nil, core.TimeoutFast); err == nil {
 		var info sysinfo.SystemInfo
 		if err := json.Unmarshal(reply.Data, &info); err == nil {
 			state.SetSysInfo(info)
 		}
 	}
-	if reply, err := nc.Request(bus.SubjectWifiAdaptersCmd, nil, 1*time.Second); err == nil {
+	if reply, err := nc.Request(bus.SubjectWifiAdaptersCmd, nil, core.TimeoutFast); err == nil {
 		var snap wifi.Snapshot
 		if err := json.Unmarshal(reply.Data, &snap); err == nil {
 			state.SetWifi(snap)
@@ -302,7 +302,7 @@ func main() {
 	// syscall.Exec replaces the process immediately.
 	if !state.RestartRequested {
 		go func() {
-			time.Sleep(5 * time.Second)
+			time.Sleep(core.ShutdownTimeout)
 			fmt.Fprintln(os.Stderr, "dark: shutdown timeout — force exit")
 			os.Exit(1)
 		}()
@@ -324,7 +324,7 @@ func wifiConnectRequest(nc *nats.Conn, subject, adapter, ssid, passphrase string
 		"ssid":       ssid,
 		"passphrase": passphrase,
 	})
-	reply, err := nc.Request(subject, payload, 25*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutLong)
 	if err != nil {
 		return tui.WifiActionResultMsg{Err: err.Error()}
 	}
@@ -349,7 +349,7 @@ func wifiBoolRequest(nc *nats.Conn, subject, adapter, ssid string, flag bool) tu
 		"ssid":    ssid,
 		"powered": flag,
 	})
-	reply, err := nc.Request(subject, payload, 10*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.WifiActionResultMsg{Err: err.Error()}
 	}
@@ -370,7 +370,7 @@ func wifiBoolRequest(nc *nats.Conn, subject, adapter, ssid string, flag bool) tu
 // refreshed snapshot from the reply. Used by every action command.
 func wifiRequest(nc *nats.Conn, subject, adapter, ssid string) (wifi.Snapshot, error) {
 	payload, _ := json.Marshal(map[string]string{"adapter": adapter, "ssid": ssid})
-	reply, err := nc.Request(subject, payload, 20*time.Second)
+	reply, err := nc.Request(subject, payload, core.TimeoutConnect)
 	if err != nil {
 		return wifi.Snapshot{}, err
 	}

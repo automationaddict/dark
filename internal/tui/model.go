@@ -914,14 +914,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "+", "=":
-		if cmd := m.triggerAudioVolumeDelta(5); cmd != nil {
+		if cmd := m.triggerAudioVolumeDelta(core.VolumeStepPercent); cmd != nil {
 			return m, cmd
 		}
 		if m.state.ActiveTab == core.TabSettings {
 			m.state.ResizeSidebar(1)
 		}
 	case "-", "_":
-		if cmd := m.triggerAudioVolumeDelta(-5); cmd != nil {
+		if cmd := m.triggerAudioVolumeDelta(-core.VolumeStepPercent); cmd != nil {
 			return m, cmd
 		}
 		if m.state.ActiveTab == core.TabSettings {

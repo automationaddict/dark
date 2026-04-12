@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
 	"github.com/johnnelson/dark/internal/bus"
+	"github.com/johnnelson/dark/internal/core"
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	"github.com/johnnelson/dark/internal/tui"
 )
@@ -42,7 +42,7 @@ func newAppstoreActions(nc *nats.Conn) tui.AppstoreActions {
 // are folded into the Err field on the message.
 func appstoreSearchRequest(nc *nats.Conn, q appstoresvc.SearchQuery) tui.AppstoreSearchResultMsg {
 	payload, _ := json.Marshal(q)
-	reply, err := nc.Request(bus.SubjectAppstoreSearchCmd, payload, 15*time.Second)
+	reply, err := nc.Request(bus.SubjectAppstoreSearchCmd, payload, core.TimeoutSlow)
 	if err != nil {
 		return tui.AppstoreSearchResultMsg{Err: err.Error()}
 	}
@@ -61,7 +61,7 @@ func appstoreSearchRequest(nc *nats.Conn, q appstoresvc.SearchQuery) tui.Appstor
 
 func appstoreDetailRequest(nc *nats.Conn, req appstoresvc.DetailRequest) tui.AppstoreDetailResultMsg {
 	payload, _ := json.Marshal(req)
-	reply, err := nc.Request(bus.SubjectAppstoreDetailCmd, payload, 15*time.Second)
+	reply, err := nc.Request(bus.SubjectAppstoreDetailCmd, payload, core.TimeoutSlow)
 	if err != nil {
 		return tui.AppstoreDetailResultMsg{Err: err.Error()}
 	}
@@ -79,7 +79,7 @@ func appstoreDetailRequest(nc *nats.Conn, req appstoresvc.DetailRequest) tui.App
 }
 
 func appstoreRefreshRequest(nc *nats.Conn) tui.AppstoreRefreshResultMsg {
-	reply, err := nc.Request(bus.SubjectAppstoreRefreshCmd, nil, 30*time.Second)
+	reply, err := nc.Request(bus.SubjectAppstoreRefreshCmd, nil, core.TimeoutRefresh)
 	if err != nil {
 		return tui.AppstoreRefreshResultMsg{Err: err.Error()}
 	}
@@ -101,7 +101,7 @@ func appstoreRefreshRequest(nc *nats.Conn) tui.AppstoreRefreshResultMsg {
 // the periodic publish on a 60s ticker will backfill and the TUI
 // handles an unloaded appstore state gracefully.
 func requestInitialAppstore(nc *nats.Conn) (appstoresvc.Snapshot, bool) {
-	reply, err := nc.Request(bus.SubjectAppstoreCatalogCmd, nil, 2*time.Second)
+	reply, err := nc.Request(bus.SubjectAppstoreCatalogCmd, nil, core.TimeoutFast)
 	if err != nil {
 		return appstoresvc.Snapshot{}, false
 	}

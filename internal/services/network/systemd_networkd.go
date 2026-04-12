@@ -17,6 +17,10 @@ const (
 	networkdManagerPath = dbus.ObjectPath("/org/freedesktop/network1")
 	networkdMgrIface    = "org.freedesktop.network1.Manager"
 	networkdLinkIface   = "org.freedesktop.network1.Link"
+
+	networkdConfigDir  = "/etc/systemd/network"
+	networkdFilePrefix = "50-dark-"
+	networkdFileSuffix = ".network"
 )
 
 // systemdNetworkdBackend talks to systemd-networkd over the system
@@ -437,7 +441,7 @@ func isIPv6Address(s string) bool {
 // (ConfigureIPv4), the deleter (ResetInterface), and the parser
 // (Augment) all agree on where to look.
 func darkNetworkFilePath(iface string) string {
-	return filepath.Join("/etc/systemd/network", fmt.Sprintf("50-dark-%s.network", iface))
+	return filepath.Join(networkdConfigDir, fmt.Sprintf("%s%s%s", networkdFilePrefix, iface, networkdFileSuffix))
 }
 
 // ResetInterface deletes the dark-managed `.network` file for the

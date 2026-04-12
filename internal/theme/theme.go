@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const themeColorsPath = ".config/omarchy/current/theme/colors.toml"
+
 // Palette holds the colors dark draws from. Everything is sourced from
 // Omarchy's current theme (~/.config/omarchy/current/theme/colors.toml);
 // hardcoded values are only used as a last-resort fallback.
@@ -82,7 +84,7 @@ func omarchyColorsPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "omarchy", "current", "theme", "colors.toml"), nil
+	return filepath.Join(home, themeColorsPath), nil
 }
 
 // parseKV parses the flat `key = "value"` lines Omarchy uses in colors.toml.

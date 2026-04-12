@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/johnnelson/dark/internal/core"
+
 	"github.com/nats-io/nats.go"
 
 	"github.com/johnnelson/dark/internal/bus"
@@ -105,7 +107,7 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 	// (which is normal during connect/disconnect) doesn't pin the bus.
 	if events := svc.Events(); events != nil {
 		go func() {
-			const debounce = 75 * time.Millisecond
+			debounce := core.AudioEventDebounce
 			var timer *time.Timer
 			for range events {
 				if timer == nil {
@@ -122,7 +124,7 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 	// device snapshot publisher so the meter ticks even when no
 	// property changes are happening.
 	go func() {
-		ticker := time.NewTicker(50 * time.Millisecond)
+		ticker := time.NewTicker(core.AudioMeterTickRate)
 		defer ticker.Stop()
 		for range ticker.C {
 			data, err := json.Marshal(svc.Levels())

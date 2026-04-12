@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
 	"github.com/johnnelson/dark/internal/bus"
+	"github.com/johnnelson/dark/internal/core"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/tui"
 )
@@ -15,7 +15,7 @@ import (
 // requestInitialNetwork fetches a network snapshot up front so the
 // Network section has data on the first frame.
 func requestInitialNetwork(nc *nats.Conn) (netsvc.Snapshot, bool) {
-	reply, err := nc.Request(bus.SubjectNetworkSnapshotCmd, nil, 1*time.Second)
+	reply, err := nc.Request(bus.SubjectNetworkSnapshotCmd, nil, core.TimeoutFast)
 	if err != nil {
 		return netsvc.Snapshot{}, false
 	}
@@ -53,7 +53,7 @@ func networkResetRequest(nc *nats.Conn, iface string) tui.NetworkActionResultMsg
 	payload, _ := json.Marshal(map[string]string{"interface": iface})
 	// Long timeout — the helper still goes through pkexec which can
 	// sit waiting for the user to type their password.
-	reply, err := nc.Request(bus.SubjectNetworkResetCmd, payload, 120*time.Second)
+	reply, err := nc.Request(bus.SubjectNetworkResetCmd, payload, core.TimeoutPkexec)
 	if err != nil {
 		return tui.NetworkActionResultMsg{Err: err.Error()}
 	}
@@ -62,7 +62,7 @@ func networkResetRequest(nc *nats.Conn, iface string) tui.NetworkActionResultMsg
 
 func networkReconfigureRequest(nc *nats.Conn, iface string) tui.NetworkActionResultMsg {
 	payload, _ := json.Marshal(map[string]string{"interface": iface})
-	reply, err := nc.Request(bus.SubjectNetworkReconfigureCmd, payload, 15*time.Second)
+	reply, err := nc.Request(bus.SubjectNetworkReconfigureCmd, payload, core.TimeoutSlow)
 	if err != nil {
 		return tui.NetworkActionResultMsg{Err: err.Error()}
 	}
@@ -76,7 +76,7 @@ func networkConfigureIPv4Request(nc *nats.Conn, iface string, cfg netsvc.IPv4Con
 	})
 	// Long timeout — pkexec might be sitting on a polkit dialog waiting
 	// for the user to type their password.
-	reply, err := nc.Request(bus.SubjectNetworkConfigureIPv4Cmd, payload, 120*time.Second)
+	reply, err := nc.Request(bus.SubjectNetworkConfigureIPv4Cmd, payload, core.TimeoutPkexec)
 	if err != nil {
 		return tui.NetworkActionResultMsg{Err: err.Error()}
 	}
