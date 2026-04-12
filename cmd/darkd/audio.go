@@ -2,7 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -38,7 +39,7 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 		data, _ := json.Marshal(snapshotAudio(svc))
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe audio devices cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectAudioDevicesCmd, "error", err); os.Exit(1)
 	}
 
 	register := func(subject string, handler func(*audiosvc.Service, audioActionRequest) audioActionResponse) {
@@ -62,7 +63,7 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 				}
 			}
 		}); err != nil {
-			log.Fatalf("subscribe %s: %v", subject, err)
+			slog.Error("subscribe failed", "subject", subject, "error", err); os.Exit(1)
 		}
 	}
 
@@ -89,11 +90,11 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 	publish := func() {
 		data, err := json.Marshal(snapshotAudio(svc))
 		if err != nil {
-			log.Printf("marshal audio: %v", err)
+			slog.Error("marshal failed", "service", "audio", "error", err)
 			return
 		}
 		if err := nc.Publish(bus.SubjectAudioDevices, data); err != nil {
-			log.Printf("publish audio: %v", err)
+			slog.Error("publish failed", "service", "audio", "error", err)
 		}
 	}
 

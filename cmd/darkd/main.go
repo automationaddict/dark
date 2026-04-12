@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/johnnelson/dark/internal/bus"
 	"github.com/johnnelson/dark/internal/lock"
+	"github.com/johnnelson/dark/internal/logging"
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
@@ -48,8 +49,7 @@ type heartbeatMsg struct {
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-	log.SetPrefix("darkd ")
+	logging.Setup("darkd")
 
 	lk, err := lock.Acquire("darkd")
 	if err != nil {
@@ -86,7 +86,7 @@ func main() {
 		if err := wifiService.StartAgent(); err != nil {
 			dn.Warn("Wi-Fi", fmt.Sprintf("iwd agent failed: %v — unknown-network connects will fail", err))
 		} else {
-			log.Printf("wifi: iwd agent registered")
+			slog.Info("agent registered", "service", "wifi", "agent", "iwd")
 		}
 	}
 
@@ -99,7 +99,7 @@ func main() {
 		if err := bluetoothService.StartAgent(); err != nil {
 			dn.Warn("Bluetooth", fmt.Sprintf("bluez agent failed: %v — pairing prompts will not be handled", err))
 		} else {
-			log.Printf("bluetooth: bluez agent registered")
+			slog.Info("agent registered", "service", "bluetooth", "agent", "bluez")
 		}
 	}
 
@@ -109,7 +109,7 @@ func main() {
 	}
 	if audioService != nil {
 		defer audioService.Close()
-		log.Printf("audio: pulse/pipewire-pulse client connected")
+		slog.Info("service connected", "service", "audio", "backend", "pulse")
 	}
 
 	networkService, err := netsvc.NewService()
@@ -125,8 +125,7 @@ func main() {
 	defer appstoreService.Close()
 	appstoreLog.Info("appstore: service ready")
 
-	log.Printf("listening on %s", srv.ClientURL())
-	log.Printf("discovery file: %s", bus.DiscoveryPath())
+	slog.Info("listening", "url", srv.ClientURL(), "discovery", bus.DiscoveryPath())
 
 	// Reply handler for on-demand sysinfo requests so a freshly launched
 	// TUI doesn't have to wait for the next periodic publish to render.
@@ -134,7 +133,7 @@ func main() {
 		data, _ := json.Marshal(sysinfo.Gather(binPath))
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe sysinfo cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectSystemInfoCmd, "error", err); os.Exit(1)
 	}
 
 	// Wifi snapshot responder. We reuse the long-lived Service built at
@@ -143,7 +142,7 @@ func main() {
 		data, _ := json.Marshal(snapshotWifi(wifiService))
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe wifi adapters cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectWifiAdaptersCmd, "error", err); os.Exit(1)
 	}
 
 	// Wifi action responders. Each one parses a request, delegates to a
@@ -170,7 +169,7 @@ func main() {
 				}
 			}
 		}); err != nil {
-			log.Fatalf("subscribe %s: %v", subject, err)
+			slog.Error("subscribe failed", "subject", subject, "error", err); os.Exit(1)
 		}
 	}
 
@@ -239,7 +238,7 @@ func main() {
 	for {
 		select {
 		case <-sigs:
-			log.Println("shutting down")
+			slog.Info("shutting down")
 			return
 		case t := <-heartbeat.C:
 			seq++
@@ -410,21 +409,21 @@ func handlePower(svc *wifisvc.Service, req wifiActionRequest) wifiActionResponse
 func publishSysInfo(nc *nats.Conn, binPath string) {
 	data, err := json.Marshal(sysinfo.Gather(binPath))
 	if err != nil {
-		log.Printf("marshal sysinfo: %v", err)
+		slog.Error("marshal failed", "service", "sysinfo", "error", err)
 		return
 	}
 	if err := nc.Publish(bus.SubjectSystemInfo, data); err != nil {
-		log.Printf("publish sysinfo: %v", err)
+		slog.Error("publish failed", "service", "sysinfo", "error", err)
 	}
 }
 
 func publishWifi(nc *nats.Conn, svc *wifisvc.Service) {
 	data, err := json.Marshal(snapshotWifi(svc))
 	if err != nil {
-		log.Printf("marshal wifi: %v", err)
+		slog.Error("marshal failed", "service", "wifi", "error", err)
 		return
 	}
 	if err := nc.Publish(bus.SubjectWifiAdapters, data); err != nil {
-		log.Printf("publish wifi: %v", err)
+		slog.Error("publish failed", "service", "wifi", "error", err)
 	}
 }

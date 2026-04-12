@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"log/slog"
 	"os"
 
@@ -12,26 +11,13 @@ import (
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 )
 
-// appstoreLogger builds the package-local slog logger the appstore
-// service and its NATS handlers use. Logging for the rest of the daemon
-// still flows through the global log.Printf; a separate migration task
-// will consolidate them later. Keeping slog local here means the
-// appstore code is unaffected by that migration when it lands.
+// appstoreLogger returns a child of the global slog default with the
+// "service" field set to "appstore". The log level is controlled by
+// DARK_LOG_LEVEL (the same env var as the rest of the daemon) — the
+// old DARK_APPSTORE_LOG override is no longer needed since everything
+// shares one handler now.
 func appstoreLogger() *slog.Logger {
-	level := slog.LevelInfo
-	if v := os.Getenv("DARK_APPSTORE_LOG"); v != "" {
-		switch v {
-		case "debug":
-			level = slog.LevelDebug
-		case "warn":
-			level = slog.LevelWarn
-		case "error":
-			level = slog.LevelError
-		}
-	}
-	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: level,
-	})).With("component", "appstore")
+	return slog.Default().With("service", "appstore")
 }
 
 // wireAppstore registers the five NATS handlers for the appstore
@@ -46,7 +32,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		data, _ := json.Marshal(svc.Snapshot())
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe appstore catalog cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreCatalogCmd, "error", err); os.Exit(1)
 	}
 
 	if _, err := nc.Subscribe(bus.SubjectAppstoreSearchCmd, func(m *nats.Msg) {
@@ -65,7 +51,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		data, _ := json.Marshal(resp)
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe appstore search cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreSearchCmd, "error", err); os.Exit(1)
 	}
 
 	if _, err := nc.Subscribe(bus.SubjectAppstoreDetailCmd, func(m *nats.Msg) {
@@ -84,7 +70,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		data, _ := json.Marshal(resp)
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe appstore detail cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreDetailCmd, "error", err); os.Exit(1)
 	}
 
 	if _, err := nc.Subscribe(bus.SubjectAppstoreRefreshCmd, func(m *nats.Msg) {
@@ -104,7 +90,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 			}
 		}
 	}); err != nil {
-		log.Fatalf("subscribe appstore refresh cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreRefreshCmd, "error", err); os.Exit(1)
 	}
 
 	return func() {

@@ -2,7 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -33,7 +34,7 @@ func wireBluetooth(nc *nats.Conn, svc *btsvc.Service, dn *daemonNotifier) func()
 		data, _ := json.Marshal(snapshotBluetooth(svc))
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe bluetooth adapters cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectBluetoothAdaptersCmd, "error", err); os.Exit(1)
 	}
 
 	register := func(subject string, handler func(*btsvc.Service, bluetoothActionRequest) bluetoothActionResponse) {
@@ -57,7 +58,7 @@ func wireBluetooth(nc *nats.Conn, svc *btsvc.Service, dn *daemonNotifier) func()
 				}
 			}
 		}); err != nil {
-			log.Fatalf("subscribe %s: %v", subject, err)
+			slog.Error("subscribe failed", "subject", subject, "error", err); os.Exit(1)
 		}
 	}
 
@@ -80,11 +81,11 @@ func wireBluetooth(nc *nats.Conn, svc *btsvc.Service, dn *daemonNotifier) func()
 	return func() {
 		data, err := json.Marshal(snapshotBluetooth(svc))
 		if err != nil {
-			log.Printf("marshal bluetooth: %v", err)
+			slog.Error("marshal failed", "service", "bluetooth", "error", err)
 			return
 		}
 		if err := nc.Publish(bus.SubjectBluetoothAdapters, data); err != nil {
-			log.Printf("publish bluetooth: %v", err)
+			slog.Error("publish failed", "service", "bluetooth", "error", err)
 		}
 	}
 }

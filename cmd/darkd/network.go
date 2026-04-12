@@ -2,7 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/nats-io/nats.go"
 
@@ -28,7 +29,7 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service, dn *daemonNotifier) func() 
 		data, _ := json.Marshal(snapshotNetwork(svc))
 		_ = m.Respond(data)
 	}); err != nil {
-		log.Fatalf("subscribe network snapshot cmd: %v", err)
+		slog.Error("subscribe failed", "subject", bus.SubjectNetworkSnapshotCmd, "error", err); os.Exit(1)
 	}
 
 	register := func(subject string, handler func(*netsvc.Service, networkActionRequest) networkActionResponse) {
@@ -52,7 +53,7 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service, dn *daemonNotifier) func() 
 				}
 			}
 		}); err != nil {
-			log.Fatalf("subscribe %s: %v", subject, err)
+			slog.Error("subscribe failed", "subject", subject, "error", err); os.Exit(1)
 		}
 	}
 
@@ -63,11 +64,11 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service, dn *daemonNotifier) func() 
 	return func() {
 		data, err := json.Marshal(snapshotNetwork(svc))
 		if err != nil {
-			log.Printf("marshal network: %v", err)
+			slog.Error("marshal failed", "service", "network", "error", err)
 			return
 		}
 		if err := nc.Publish(bus.SubjectNetworkSnapshot, data); err != nil {
-			log.Printf("publish network: %v", err)
+			slog.Error("publish failed", "service", "network", "error", err)
 		}
 	}
 }

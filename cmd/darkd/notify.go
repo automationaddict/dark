@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -27,7 +27,7 @@ const daemonNotifyDebounce = 30 * time.Second
 func newDaemonNotifier() *daemonNotifier {
 	n, err := notify.New("darkd")
 	if err != nil {
-		log.Printf("notifications disabled: %v", err)
+		slog.Warn("notifications disabled", "error", err)
 		return &daemonNotifier{}
 	}
 	return &daemonNotifier{n: n}
@@ -43,7 +43,7 @@ func (d *daemonNotifier) Close() {
 // non-fatal condition (e.g., a service backend couldn't connect).
 // Always fires — no debounce — because startup warnings happen once.
 func (d *daemonNotifier) Warn(section, message string) {
-	log.Printf("%s: %s", section, message)
+	slog.Warn(message, "service", section)
 	if d == nil || d.n == nil {
 		return
 	}
@@ -59,7 +59,7 @@ func (d *daemonNotifier) Warn(section, message string) {
 // Debounced: the same message within 30 seconds is suppressed so a
 // repeated publish failure doesn't flood the notification daemon.
 func (d *daemonNotifier) Error(section, message string) {
-	log.Printf("%s: %s", section, message)
+	slog.Error(message, "service", section)
 	if d == nil || d.n == nil {
 		return
 	}
