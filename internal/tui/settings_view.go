@@ -15,22 +15,48 @@ func renderSettings(s *core.State, width, height int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
 }
 
-func renderSidebar(s *core.State, height int) string {
+// sidebarEntry is one item in a sidebar list. Both F1 (settings
+// sections) and F2 (appstore categories) use this so the sidebar
+// rendering code is shared — same styles, same width, same function.
+type sidebarEntry struct {
+	Icon    string
+	Label   string
+	Enabled bool
+}
+
+// renderSidebarGeneric renders a sidebar from a list of entries with
+// one entry highlighted. Used by both F1 and F2 so the rendering is
+// identical. Disabled entries are dimmed but use the same container
+// style so their dimensions match enabled entries exactly.
+func renderSidebarGeneric(s *core.State, entries []sidebarEntry, selected int, height int) string {
 	itemWidth := s.SidebarItemWidth
 	item := sidebarItem.Width(itemWidth)
 	active := sidebarItemActive.Width(itemWidth)
+	dim := lipgloss.NewStyle().Foreground(colorDim)
 
 	var rows []string
-	for i, sec := range s.Sections() {
-		line := sec.Icon + "  " + sec.Label
-		if i == s.SettingsFocus {
+	for i, e := range entries {
+		line := e.Icon + "  " + e.Label
+		if i == selected {
 			rows = append(rows, active.Render(line))
 		} else {
+			if !e.Enabled {
+				line = dim.Render(line)
+			}
 			rows = append(rows, item.Render(line))
 		}
 	}
 	body := strings.Join(rows, "\n")
 	return sidebarStyle.Height(height).Render(body)
+}
+
+func renderSidebar(s *core.State, height int) string {
+	sections := s.Sections()
+	entries := make([]sidebarEntry, len(sections))
+	for i, sec := range sections {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	return renderSidebarGeneric(s, entries, s.SettingsFocus, height)
 }
 
 func renderSettingsContent(s *core.State, width, height int) string {
