@@ -40,7 +40,7 @@ func renderTabBar(s *core.State, width int) string {
 		}
 	}
 
-	var top, mid strings.Builder
+	var top, mid, bot strings.Builder
 
 	for i, c := range cells {
 		if i == 0 {
@@ -50,6 +50,7 @@ func renderTabBar(s *core.State, width int) string {
 				top.WriteString(bf.Render("┌"))
 			}
 			mid.WriteString(bf.Render("│"))
+			bot.WriteString(bf.Render("└"))
 		} else {
 			prev := cells[i-1]
 			switch {
@@ -63,6 +64,7 @@ func renderTabBar(s *core.State, width int) string {
 				top.WriteString(bf.Render("┬"))
 			}
 			mid.WriteString(bf.Render("│"))
+			bot.WriteString(bf.Render("┴"))
 		}
 
 		if c.active {
@@ -71,6 +73,7 @@ func renderTabBar(s *core.State, width int) string {
 			top.WriteString(bf.Render(strings.Repeat("─", c.w)))
 		}
 		mid.WriteString(c.label)
+		bot.WriteString(bf.Render(strings.Repeat("─", c.w)))
 	}
 
 	last := cells[len(cells)-1]
@@ -80,11 +83,12 @@ func renderTabBar(s *core.State, width int) string {
 		top.WriteString(bf.Render("┬"))
 	}
 	mid.WriteString(bf.Render("│"))
+	bot.WriteString(bf.Render("┘"))
 
 	topW := lipgloss.Width(top.String())
 	if topW < width {
 		top.WriteString(bf.Render(strings.Repeat("─", width-topW)))
 	}
 
-	return top.String() + "\n" + mid.String()
+	return top.String() + "\n" + mid.String() + "\n" + bot.String()
 }
