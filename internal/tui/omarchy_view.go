@@ -22,6 +22,8 @@ func renderOmarchyTab(s *core.State, width, height int) string {
 	switch s.ActiveOmarchySection().ID {
 	case "weblinks":
 		content = renderWebLinks(s, contentWidth, height)
+	case "tuilinks":
+		content = renderTUILinks(s, contentWidth, height)
 	default:
 		content = renderContentPane(contentWidth, height,
 			placeholderStyle.Render("Not implemented yet."))
@@ -53,73 +55,163 @@ func renderWebLinks(s *core.State, width, height int) string {
 	if urlW < 20 {
 		urlW = 20
 	}
-	tableW := numW + nameW + urlW + 4
-
-	bf := lipgloss.NewStyle().Foreground(colorBorder)
-	sep := bf.Render("│")
-
-	topBorder := bf.Render("┌" + strings.Repeat("─", numW) + "┬" +
-		strings.Repeat("─", nameW) + "┬" +
-		strings.Repeat("─", urlW) + "┐")
-
-	headerDivider := bf.Render("├" + strings.Repeat("─", numW) + "┼" +
-		strings.Repeat("─", nameW) + "┼" +
-		strings.Repeat("─", urlW) + "┤")
-
-	bottomBorder := bf.Render("└" + strings.Repeat("─", numW) + "┴" +
-		strings.Repeat("─", nameW) + "┴" +
-		strings.Repeat("─", urlW) + "┘")
-
-	_ = tableW
-
-	header := sep +
-		tableHeaderStyle.Render(fmt.Sprintf(" %-*s", numW-1, "#")) + sep +
-		tableHeaderStyle.Render(fmt.Sprintf(" %-*s", nameW-1, "Name")) + sep +
-		tableHeaderStyle.Render(fmt.Sprintf(" %-*s", urlW-1, "URL")) + sep
 
 	selectedCell := lipgloss.NewStyle().
 		Foreground(colorBg).
 		Background(colorAccent)
 
-	var rows []string
+	var data [][]string
 	for i, app := range s.WebLinks {
-		name := truncateStr(app.Name, nameW-2)
-		url := truncateStr(app.URL, urlW-2)
-		num := fmt.Sprintf("%d", i+1)
-
-		cell := tableCellStyle
-		if i == s.OmarchyFocusIdx && s.ContentFocused {
-			cell = selectedCell
-		}
-
-		row := sep +
-			cell.Render(fmt.Sprintf(" %-*s", numW-1, num)) + sep +
-			cell.Render(fmt.Sprintf(" %-*s", nameW-1, name)) + sep +
-			cell.Render(fmt.Sprintf(" %-*s", urlW-1, url)) + sep
-		rows = append(rows, row)
+		data = append(data, []string{
+			fmt.Sprintf("%d", i+1),
+			app.Name,
+			app.URL,
+		})
 	}
+
+	table := renderTable(
+		[]string{"#", "Name", "URL"},
+		[]int{numW, nameW, urlW},
+		data,
+		s.WebLinkIdx, s.ContentFocused, selectedCell,
+	)
 
 	hint := lipgloss.NewStyle().Foreground(colorDim).Render(
 		"enter open · a add · e edit · d delete")
 
 	body := lipgloss.JoinVertical(lipgloss.Left,
-		title, "",
-		topBorder,
-		header,
-		headerDivider,
-		strings.Join(rows, "\n"),
-		bottomBorder,
-		"", hint)
+		title, "", table, "", hint)
 
 	return renderContentPane(width, height, body)
 }
 
+func renderTUILinks(s *core.State, width, height int) string {
+	if !s.TUILinksLoaded {
+		return renderContentPane(width, height,
+			placeholderStyle.Render("Loading TUI links…"))
+	}
+
+	if len(s.TUILinks) == 0 {
+		return renderContentPane(width, height,
+			placeholderStyle.Render("No TUI apps installed."))
+	}
+
+	innerWidth := width - 6
+	if innerWidth < 30 {
+		innerWidth = 30
+	}
+
+	title := contentTitle.Render("TUI Links")
+
+	numW := 5
+	nameW := 20
+	styleW := 8
+	cmdW := innerWidth - numW - nameW - styleW - 5
+	if cmdW < 20 {
+		cmdW = 20
+	}
+
+	selectedCell := lipgloss.NewStyle().
+		Foreground(colorBg).
+		Background(colorAccent)
+
+	var data [][]string
+	for i, app := range s.TUILinks {
+		data = append(data, []string{
+			fmt.Sprintf("%d", i+1),
+			app.Name,
+			app.Command,
+			app.Style,
+		})
+	}
+
+	table := renderTable(
+		[]string{"#", "Name", "Command", "Style"},
+		[]int{numW, nameW, cmdW, styleW},
+		data,
+		s.TUILinkIdx, s.ContentFocused, selectedCell,
+	)
+
+	hint := lipgloss.NewStyle().Foreground(colorDim).Render(
+		"enter launch · a add · e edit · d delete")
+
+	body := lipgloss.JoinVertical(lipgloss.Left,
+		title, "", table, "", hint)
+
+	return renderContentPane(width, height, body)
+}
+
+func renderTable(headers []string, colWidths []int, data [][]string, selectedIdx int, focused bool, selectedStyle lipgloss.Style) string {
+	bf := lipgloss.NewStyle().Foreground(colorBorder)
+	sep := bf.Render("│")
+
+	buildBorder := func(left, mid, right, fill string) string {
+		var b strings.Builder
+		b.WriteString(left)
+		for i, w := range colWidths {
+			b.WriteString(strings.Repeat(fill, w))
+			if i < len(colWidths)-1 {
+				b.WriteString(mid)
+			}
+		}
+		b.WriteString(right)
+		return bf.Render(b.String())
+	}
+
+	topBorder := buildBorder("┌", "┬", "┐", "─")
+	headerDivider := buildBorder("├", "┼", "┤", "─")
+	bottomBorder := buildBorder("└", "┴", "┘", "─")
+
+	var header strings.Builder
+	header.WriteString(sep)
+	for i, h := range headers {
+		header.WriteString(tableHeaderStyle.Render(padCell(h, colWidths[i])))
+		header.WriteString(sep)
+	}
+
+	var rows []string
+	for ri, row := range data {
+		cell := tableCellStyle
+		if ri == selectedIdx && focused {
+			cell = selectedStyle
+		}
+
+		var line strings.Builder
+		line.WriteString(sep)
+		for ci, val := range row {
+			w := colWidths[ci]
+			truncated := truncateStr(val, w-2)
+			line.WriteString(cell.Render(padCell(truncated, w)))
+			line.WriteString(sep)
+		}
+		rows = append(rows, line.String())
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topBorder,
+		header.String(),
+		headerDivider,
+		strings.Join(rows, "\n"),
+		bottomBorder)
+}
+
+func padCell(s string, width int) string {
+	visW := lipgloss.Width(s)
+	content := " " + s
+	pad := width - visW - 1
+	if pad > 0 {
+		content += strings.Repeat(" ", pad)
+	}
+	return content
+}
+
 func truncateStr(s string, max int) string {
-	if len(s) <= max {
+	runes := []rune(s)
+	if len(runes) <= max {
 		return s
 	}
-	if max <= 3 {
-		return s[:max]
+	if max <= 1 {
+		return string(runes[:max])
 	}
-	return s[:max-1] + "…"
+	return string(runes[:max-1]) + "…"
 }

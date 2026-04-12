@@ -19,6 +19,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
+	"github.com/johnnelson/dark/internal/services/tuilink"
 	"github.com/johnnelson/dark/internal/services/weblink"
 	"github.com/johnnelson/dark/internal/services/wifi"
 )
@@ -80,6 +81,9 @@ type WifiMsg wifi.Snapshot
 // WebLinksMsg carries the list of installed web apps, loaded from .desktop files.
 type WebLinksMsg []weblink.WebApp
 
+// TUILinksMsg carries the list of installed TUI apps, loaded from .desktop files.
+type TUILinksMsg []tuilink.TUIApp
+
 // BusStatusMsg flips the connected/disconnected indicator. Sent from the
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
@@ -119,13 +123,20 @@ func (m *Model) notifyError(section, message string) {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, loadWebLinksCmd())
+	return tea.Batch(m.spinner.Tick, loadWebLinksCmd(), loadTUILinksCmd())
 }
 
 func loadWebLinksCmd() tea.Cmd {
 	return func() tea.Msg {
 		apps, _ := weblink.ListWebApps()
 		return WebLinksMsg(apps)
+	}
+}
+
+func loadTUILinksCmd() tea.Cmd {
+	return func() tea.Msg {
+		apps, _ := tuilink.ListTUIApps()
+		return TUILinksMsg(apps)
 	}
 }
 
@@ -147,6 +158,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case WebLinksMsg:
 		m.state.SetWebLinks([]weblink.WebApp(msg))
+		return m, nil
+
+	case TUILinksMsg:
+		m.state.SetTUILinks([]tuilink.TUIApp(msg))
 		return m, nil
 
 	case WifiMsg:
@@ -780,7 +795,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		switch {
 		case m.state.ActiveTab == core.TabF3:
-			return m, m.triggerWebLinkOpen()
+			return m, m.triggerOmarchyEnter()
 		case m.state.ActiveTab == core.TabF2:
 			// Enter in results → open detail for highlighted package.
 			if m.state.AppstoreFocus == core.AppstoreFocusResults && !m.state.AppstoreDetailOpen {
@@ -874,7 +889,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "d":
 		if m.state.ActiveTab == core.TabF3 {
-			return m, m.triggerWebLinkRemove()
+			return m, m.triggerOmarchyDelete()
 		}
 		if cmd := m.triggerWifiDisconnect(); cmd != nil {
 			return m, cmd
@@ -910,7 +925,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		if m.state.ActiveTab == core.TabF3 {
-			return m, m.triggerWebLinkAdd()
+			return m, m.triggerOmarchyAdd()
 		}
 	case "h":
 		if cmd := m.triggerWifiConnectHidden(); cmd != nil {
@@ -924,7 +939,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		if m.state.ActiveTab == core.TabF3 {
-			return m, m.triggerWebLinkEdit()
+			return m, m.triggerOmarchyEdit()
 		}
 		if cmd := m.triggerNetworkEditStatic(); cmd != nil {
 			return m, cmd

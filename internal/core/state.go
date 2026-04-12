@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/johnnelson/dark/internal/help"
 	"github.com/johnnelson/dark/internal/services/appstore"
+	"github.com/johnnelson/dark/internal/services/tuilink"
 	"github.com/johnnelson/dark/internal/services/weblink"
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
@@ -115,10 +116,13 @@ type State struct {
 	AppstoreBusy          bool
 	AppstoreIncludeAUR    bool
 
-	WebLinks        []weblink.WebApp
-	WebLinksLoaded  bool
+	WebLinks          []weblink.WebApp
+	WebLinksLoaded    bool
+	WebLinkIdx        int
+	TUILinks          []tuilink.TUIApp
+	TUILinksLoaded    bool
+	TUILinkIdx        int
 	OmarchySidebarIdx int
-	OmarchyFocusIdx   int
 
 	ContentFocused bool
 
