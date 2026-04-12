@@ -60,7 +60,7 @@ func renderWifi(s *core.State, width, height int) string {
 	tableSection := renderAdaptersTable(adapters, selected, focused)
 
 	adaptersBorder := colorBorder
-	if focused && !detailsOpen {
+	if focused && s.WifiFocus == core.WifiFocusAdapters {
 		adaptersBorder = colorAccent
 	}
 	adaptersBox := groupBoxSections("Adapters", []string{tableSection}, innerWidth, adaptersBorder)
@@ -547,14 +547,14 @@ func renderWifiFocusHint(s *core.State, focused, detailsOpen bool, adapterCount 
 	}
 	var text string
 	switch {
-	case focused && detailsOpen && s.WifiFocus == core.WifiFocusKnown:
+	case focused && s.WifiFocus == core.WifiFocusKnown:
 		text = "tab · j/k · c connect · f forget · a auto · d disconnect · h hidden · p AP · w toggle · esc"
-	case focused && detailsOpen:
-		text = "tab · j/k · c connect · s scan · h hidden · d disconnect · p AP · w toggle · esc"
+	case focused && s.WifiFocus == core.WifiFocusAdapters:
+		text = "tab · j/k select adapter · s scan · h hidden · p AP · w toggle · esc"
 	case focused:
-		text = "j/k select · enter drill in · h hidden · p AP · w toggle · esc"
+		text = "tab · j/k · c connect · s scan · h hidden · d disconnect · p AP · w toggle · esc"
 	default:
-		text = "enter to select · w toggle radio · h hidden · p start/stop hotspot"
+		text = "enter · w toggle radio · h hidden · p start/stop hotspot"
 	}
 	return statusBarStyle.Render(text)
 }

@@ -20,10 +20,12 @@ const (
 )
 
 // WifiFocus identifies which sub-table owns j/k and the action keys
-// while the Wi-Fi drill-in view is open. Tab cycles between them.
+// while the Wi-Fi section has content focus. Tab cycles between all
+// three: Adapters → Networks → Known Networks.
 type WifiFocus string
 
 const (
+	WifiFocusAdapters WifiFocus = "adapters"
 	WifiFocusNetworks WifiFocus = "networks"
 	WifiFocusKnown    WifiFocus = "known"
 )
@@ -55,6 +57,7 @@ type State struct {
 	BluetoothLoaded         bool
 	BluetoothSelected       int
 	BluetoothDevSelected    int
+	BluetoothFocus          BluetoothFocus
 	BluetoothDetailsOpen    bool
 	BluetoothDeviceInfoOpen bool
 	BluetoothBusy           bool
@@ -234,12 +237,37 @@ func (s *State) FocusContent() {
 	case "wifi":
 		if len(s.Wifi.Adapters) > 0 {
 			s.ContentFocused = true
-			s.WifiDetailsOpen = false
+			s.WifiDetailsOpen = true
+			if s.WifiFocus == "" {
+				s.WifiFocus = WifiFocusNetworks
+			}
+			s.WifiNetworkSelected = 0
+			s.WifiKnownSelected = 0
+			if adapter := s.Wifi.Adapters[s.WifiSelected]; len(adapter.Networks) > 0 {
+				for i, n := range adapter.Networks {
+					if n.Connected {
+						s.WifiNetworkSelected = i
+						break
+					}
+				}
+			}
 		}
 	case "bluetooth":
 		if len(s.Bluetooth.Adapters) > 0 {
 			s.ContentFocused = true
-			s.BluetoothDetailsOpen = false
+			s.BluetoothDetailsOpen = true
+			if s.BluetoothFocus == "" {
+				s.BluetoothFocus = BluetoothFocusDevices
+			}
+			s.BluetoothDevSelected = 0
+			if adapter := s.Bluetooth.Adapters[s.BluetoothSelected]; len(adapter.Devices) > 0 {
+				for i, d := range adapter.Devices {
+					if d.Connected {
+						s.BluetoothDevSelected = i
+						break
+					}
+				}
+			}
 		}
 	case "sound":
 		if len(s.Audio.Sinks) > 0 || len(s.Audio.Sources) > 0 {
@@ -285,16 +313,18 @@ func (s *State) OpenWifiDetails() {
 	}
 }
 
-// CycleWifiFocus tabs between the Networks and Known Networks sub-tables
-// while the drill-in view is open. No-op when details are closed.
+// CycleWifiFocus cycles through Adapters → Networks → Known Networks.
 func (s *State) CycleWifiFocus() {
 	if !s.WifiDetailsOpen {
 		return
 	}
-	if s.WifiFocus == WifiFocusNetworks {
-		s.WifiFocus = WifiFocusKnown
-	} else {
+	switch s.WifiFocus {
+	case WifiFocusAdapters:
 		s.WifiFocus = WifiFocusNetworks
+	case WifiFocusNetworks:
+		s.WifiFocus = WifiFocusKnown
+	default:
+		s.WifiFocus = WifiFocusAdapters
 	}
 }
 

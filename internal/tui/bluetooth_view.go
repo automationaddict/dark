@@ -41,7 +41,7 @@ func renderBluetooth(s *core.State, width, height int) string {
 	toggle := renderBluetoothToggle(selAdapter, s.BluetoothBusy)
 
 	adaptersBorder := colorBorder
-	if focused && !detailsOpen {
+	if focused && s.BluetoothFocus == core.BluetoothFocusAdapters {
 		adaptersBorder = colorAccent
 	}
 	adaptersBox := groupBoxSections("Adapters",
@@ -59,17 +59,21 @@ func renderBluetooth(s *core.State, width, height int) string {
 			[]string{renderBluetoothAdapterDetails(selAdapter)}, innerWidth, colorBorder)
 		blocks = append(blocks, "", detailsBox)
 
+		devicesBorder := colorBorder
+		if focused && s.BluetoothFocus == core.BluetoothFocusDevices {
+			devicesBorder = colorAccent
+		}
 		if s.BluetoothDeviceInfoOpen {
 			dev, ok := s.SelectedBluetoothDevice()
 			if ok {
 				infoBox := renderBluetoothDeviceInfoBox(dev, innerWidth)
 				blocks = append(blocks, "", infoBox)
 			} else {
-				devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, colorAccent)
+				devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, devicesBorder)
 				blocks = append(blocks, "", devicesBox)
 			}
 		} else {
-			devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, colorAccent)
+			devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, devicesBorder)
 			blocks = append(blocks, "", devicesBox)
 		}
 	}
@@ -383,12 +387,12 @@ func renderBluetoothFocusHint(s *core.State, focused, detailsOpen bool, adapterC
 	switch {
 	case focused && s.BluetoothDeviceInfoOpen:
 		text = "esc back · c connect · d disconnect · t trust · b block · u unpair · w toggle"
-	case focused && detailsOpen:
-		text = "j/k · enter info · c/d · p/x pair/cancel · u unpair · t trust · b block · s scan · F filter · y/a disc/pair · r/R rename/reset · T timeout · w · esc"
+	case focused && s.BluetoothFocus == core.BluetoothFocusAdapters:
+		text = "tab · j/k select adapter · s scan · y/a disc/pair · r/R rename/reset · T timeout · F filter · w toggle · esc"
 	case focused:
-		text = "j/k · enter · s scan · F filter · y/a disc/pair · r/R rename/reset · T timeout · w · esc"
+		text = "tab · j/k · enter info · c/d · p/x pair/cancel · u unpair · t trust · b block · s scan · y/a · r/R · w · esc"
 	default:
-		text = "enter · w toggle · s scan · F filter · y/a disc/pair · r/R rename/reset · T timeout"
+		text = "enter · w toggle · s scan · y/a disc/pair · r/R rename/reset · T timeout"
 	}
 	return statusBarStyle.Render(text)
 }

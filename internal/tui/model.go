@@ -506,19 +506,20 @@ func (m *Model) moveSelection(delta int) {
 	if m.state.ContentFocused {
 		switch m.state.ActiveSection().ID {
 		case "wifi":
-			switch {
-			case !m.state.WifiDetailsOpen:
+			switch m.state.WifiFocus {
+			case core.WifiFocusAdapters:
 				m.state.MoveWifiSelection(delta)
-			case m.state.WifiFocus == core.WifiFocusKnown:
+			case core.WifiFocusKnown:
 				m.state.MoveWifiKnownSelection(delta)
 			default:
 				m.state.MoveWifiNetworkSelection(delta)
 			}
 		case "bluetooth":
-			if m.state.BluetoothDetailsOpen {
-				m.state.MoveBluetoothDeviceSelection(delta)
-			} else {
+			switch m.state.BluetoothFocus {
+			case core.BluetoothFocusAdapters:
 				m.state.MoveBluetoothSelection(delta)
+			default:
+				m.state.MoveBluetoothDeviceSelection(delta)
 			}
 		case "sound":
 			m.state.MoveAudioSelection(delta)
@@ -608,6 +609,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q":
 		return m, tea.Quit
 	case "esc":
+		// Deepest drill-ins close first, then content focus, then quit.
 		if m.state.NetworkRoutesOpen {
 			m.state.CloseNetworkRoutes()
 			return m, nil
@@ -620,14 +622,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.CloseAudioDeviceInfo()
 			return m, nil
 		}
-		if m.state.WifiDetailsOpen {
-			m.state.CloseWifiDetails()
-			return m, nil
-		}
-		if m.state.BluetoothDetailsOpen {
-			m.state.CloseBluetoothDetails()
-			return m, nil
-		}
+		// Wi-Fi and Bluetooth details are always visible when content
+		// is focused (no intermediate close level). Esc goes straight
+		// from content to sidebar. FocusSidebar resets the detail flags.
 		if m.state.ContentFocused {
 			m.state.FocusSidebar()
 			return m, nil
@@ -639,15 +636,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch m.state.ActiveSection().ID {
-		case "wifi":
-			if !m.state.WifiDetailsOpen {
-				m.state.OpenWifiDetails()
-			}
 		case "bluetooth":
-			switch {
-			case !m.state.BluetoothDetailsOpen:
-				m.state.OpenBluetoothDetails()
-			case !m.state.BluetoothDeviceInfoOpen:
+			if !m.state.BluetoothDeviceInfoOpen {
 				m.state.OpenBluetoothDeviceInfo()
 			}
 		case "sound":
@@ -695,8 +685,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down", "j":
 		m.moveSelection(1)
 	case "tab":
-		if m.inWifiDetails() {
+		if m.inWifiContent() {
 			m.state.CycleWifiFocus()
+		}
+		if m.inBluetoothContent() && !m.state.BluetoothDeviceInfoOpen {
+			m.state.CycleBluetoothFocus()
 		}
 		if m.inSoundContent() {
 			m.state.CycleAudioFocus()

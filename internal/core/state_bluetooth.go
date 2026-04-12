@@ -2,6 +2,15 @@ package core
 
 import "github.com/johnnelson/dark/internal/services/bluetooth"
 
+// BluetoothFocus identifies which sub-table owns j/k in the Bluetooth
+// section. Tab cycles between them.
+type BluetoothFocus string
+
+const (
+	BluetoothFocusAdapters BluetoothFocus = "adapters"
+	BluetoothFocusDevices  BluetoothFocus = "devices"
+)
+
 // SetBluetooth replaces the cached bluetooth snapshot with one received
 // from darkd. Selection indices are clamped to the new list sizes so an
 // unpair or a removed device doesn't leave an out-of-bounds cursor.
@@ -31,6 +40,15 @@ func (s *State) autoExpandSingleBluetoothAdapter() {
 	s.ContentFocused = true
 	s.BluetoothDetailsOpen = true
 	s.BluetoothDevSelected = 0
+}
+
+// CycleBluetoothFocus tabs between Adapters and Devices sub-tables.
+func (s *State) CycleBluetoothFocus() {
+	if s.BluetoothFocus == BluetoothFocusAdapters {
+		s.BluetoothFocus = BluetoothFocusDevices
+	} else {
+		s.BluetoothFocus = BluetoothFocusAdapters
+	}
 }
 
 // MoveBluetoothSelection walks the adapter row highlight.
