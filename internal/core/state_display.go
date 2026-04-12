@@ -14,12 +14,28 @@ const (
 func (s *State) SetDisplay(snap display.Snapshot) {
 	s.Display = snap
 	s.DisplayLoaded = true
+	s.NightLightActive = snap.NightLightActive
+	if snap.NightLightTemp > 0 {
+		s.NightLightTemp = snap.NightLightTemp
+	} else if s.NightLightTemp == 0 {
+		s.NightLightTemp = 4500
+	}
+	if snap.NightLightGamma > 0 {
+		s.NightLightGamma = snap.NightLightGamma
+	} else if s.NightLightGamma == 0 {
+		s.NightLightGamma = 100
+	}
 	if s.DisplayFocus == "" {
 		s.DisplayFocus = DisplayFocusMonitors
 	}
 	if s.DisplayMonitorIdx >= len(snap.Monitors) {
 		s.DisplayMonitorIdx = 0
 	}
+}
+
+func (s *State) SetNightLight(active bool, temp int) {
+	s.NightLightActive = active
+	s.NightLightTemp = temp
 }
 
 // MoveDisplaySelection walks the selected monitor row, wrapping at ends.
@@ -63,7 +79,8 @@ func (s *State) OpenDisplayLayout() {
 	if !s.ContentFocused || s.ActiveSection().ID != "display" {
 		return
 	}
-	if len(s.Display.Monitors) < 1 {
+	if len(s.Display.Monitors) < 2 {
+		s.DisplayActionError = "layout view requires multiple monitors"
 		return
 	}
 	s.DisplayLayoutOpen = true

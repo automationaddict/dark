@@ -84,6 +84,9 @@ type State struct {
 	DisplayLayoutOpen    bool
 	DisplayBusy          bool
 	DisplayActionError   string
+	NightLightActive     bool
+	NightLightTemp       int
+	NightLightGamma      int
 
 	Audio                 audio.Snapshot
 	AudioLoaded           bool

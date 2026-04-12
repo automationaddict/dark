@@ -1,6 +1,9 @@
 package display
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // Monitor is one output head reported by Hyprland. Fields map to the
 // JSON output of `hyprctl monitors -j`.
@@ -21,8 +24,10 @@ type Monitor struct {
 	Focused     bool    `json:"focused"`
 	DpmsStatus  bool    `json:"dpmsStatus"`
 	Vrr         bool    `json:"vrr"`
-	Disabled    bool    `json:"disabled"`
-	MirrorOf    string  `json:"mirrorOf,omitempty"`
+	Disabled       bool `json:"disabled"`
+	PhysicalWidth  int  `json:"physicalWidth,omitempty"`
+	PhysicalHeight int  `json:"physicalHeight,omitempty"`
+	MirrorOf       string `json:"mirrorOf,omitempty"`
 
 	ActiveWorkspace struct {
 		ID   int    `json:"id"`
@@ -68,9 +73,39 @@ func (m Monitor) TransformLabel() string {
 	}
 }
 
-// Snapshot is the display domain payload published on the bus.
+func (m Monitor) PhysicalSizeInches() (float64, float64) {
+	return float64(m.PhysicalWidth) / 25.4, float64(m.PhysicalHeight) / 25.4
+}
+
+func (m Monitor) DPI() int {
+	if m.PhysicalWidth <= 0 {
+		return 0
+	}
+	wInches := float64(m.PhysicalWidth) / 25.4
+	return int(math.Round(float64(m.Width) / wInches))
+}
+
+func (m Monitor) DiagonalInches() float64 {
+	if m.PhysicalWidth <= 0 || m.PhysicalHeight <= 0 {
+		return 0
+	}
+	wIn := float64(m.PhysicalWidth) / 25.4
+	hIn := float64(m.PhysicalHeight) / 25.4
+	return math.Sqrt(wIn*wIn + hIn*hIn)
+}
+
 type Snapshot struct {
-	Monitors []Monitor `json:"monitors"`
+	Monitors         []Monitor `json:"monitors"`
+	Brightness       int       `json:"brightness"`
+	MaxBrightness    int       `json:"max_brightness"`
+	KbdBrightness    int       `json:"kbd_brightness"`
+	KbdMaxBright     int       `json:"kbd_max_brightness"`
+	HasBacklight     bool      `json:"has_backlight"`
+	HasKbdLight      bool      `json:"has_kbd_light"`
+	NightLightActive bool      `json:"night_light_active"`
+	NightLightTemp   int       `json:"night_light_temp"`
+	NightLightGamma  int       `json:"night_light_gamma"`
+	Profiles         []string  `json:"profiles,omitempty"`
 }
 
 // Service owns the chosen Backend and is the single entry point the
@@ -162,6 +197,62 @@ func (s *Service) Identify() error {
 		return ErrBackendUnavailable
 	}
 	return s.backend.Identify()
+}
+
+func (s *Service) SetBrightness(pct int) error {
+	if s.backend == nil {
+		return ErrBackendUnavailable
+	}
+	return s.backend.SetBrightness(pct)
+}
+
+func (s *Service) SetKbdBrightness(pct int) error {
+	if s.backend == nil {
+		return ErrBackendUnavailable
+	}
+	return s.backend.SetKbdBrightness(pct)
+}
+
+func (s *Service) SetNightLight(enable bool, tempK int, gamma int) error {
+	if s.backend == nil {
+		return ErrBackendUnavailable
+	}
+	return s.backend.SetNightLight(enable, tempK, gamma)
+}
+
+func (s *Service) SetGamma(pct int) error {
+	if s.backend == nil {
+		return ErrBackendUnavailable
+	}
+	return s.backend.SetGamma(pct)
+}
+
+func (s *Service) SaveProfile(name string) error {
+	if s.backend == nil {
+		return ErrBackendUnavailable
+	}
+	return s.backend.SaveProfile(name)
+}
+
+func (s *Service) ApplyProfile(name string) error {
+	if s.backend == nil {
+		return ErrBackendUnavailable
+	}
+	return s.backend.ApplyProfile(name)
+}
+
+func (s *Service) DeleteProfile(name string) error {
+	if s.backend == nil {
+		return ErrBackendUnavailable
+	}
+	return s.backend.DeleteProfile(name)
+}
+
+func (s *Service) Events() <-chan struct{} {
+	if s.backend == nil {
+		return nil
+	}
+	return s.backend.Events()
 }
 
 var ErrBackendUnavailable = fmt.Errorf("display backend unavailable")

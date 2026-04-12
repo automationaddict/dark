@@ -17,4 +17,13 @@ type Backend interface {
 	SetMirror(name, mirrorOf string) error
 	ToggleEnabled(name string) error
 	Identify() error
+
+	SetBrightness(pct int) error
+	SetKbdBrightness(pct int) error
+	SetNightLight(enable bool, tempK int, gamma int) error
+	SetGamma(pct int) error
+	SaveProfile(name string) error
+	ApplyProfile(name string) error
+	DeleteProfile(name string) error
+	Events() <-chan struct{}
 }

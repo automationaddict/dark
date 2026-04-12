@@ -874,6 +874,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.CycleAudioFocus()
 		}
 	case "s":
+		if m.inDisplayContent() {
+			m.triggerDisplayScaleDialog()
+			return m, nil
+		}
 		if cmd := m.triggerWifiScan(); cmd != nil {
 			return m, cmd
 		}
@@ -1044,6 +1048,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "X":
+		if m.inDisplayContent() {
+			m.triggerDisplayDeleteProfile()
+			return m, nil
+		}
 		if m.state.ActiveTab == core.TabF2 {
 			return m, m.triggerAppstoreRemove()
 		}
@@ -1059,6 +1067,24 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "A":
 		if m.state.ActiveTab == core.TabF2 {
 			m.state.AppstoreIncludeAUR = !m.state.AppstoreIncludeAUR
+			return m, nil
+		}
+	case "g":
+		if cmd := m.triggerDisplayGammaDelta(-5); cmd != nil {
+			return m, cmd
+		}
+	case "G":
+		if cmd := m.triggerDisplayGammaDelta(5); cmd != nil {
+			return m, cmd
+		}
+	case "S":
+		if m.inDisplayContent() {
+			m.triggerDisplaySaveProfile()
+			return m, nil
+		}
+	case "P":
+		if m.inDisplayContent() {
+			m.triggerDisplayApplyProfile()
 			return m, nil
 		}
 	case "v":
@@ -1092,6 +1118,31 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if cmd := m.triggerAudioMuteToggle(); cmd != nil {
 			return m, cmd
+		}
+	case "[":
+		if cmd := m.triggerDisplayBrightnessDelta(-5); cmd != nil {
+			return m, cmd
+		}
+	case "]":
+		if cmd := m.triggerDisplayBrightnessDelta(5); cmd != nil {
+			return m, cmd
+		}
+	case "{":
+		if cmd := m.triggerDisplayKbdBrightnessDelta(-5); cmd != nil {
+			return m, cmd
+		}
+	case "}":
+		if cmd := m.triggerDisplayKbdBrightnessDelta(5); cmd != nil {
+			return m, cmd
+		}
+	case "n":
+		if cmd := m.triggerDisplayNightLightToggle(); cmd != nil {
+			return m, cmd
+		}
+	case "N":
+		if m.inDisplayContent() && !m.state.DisplayInfoOpen && !m.state.DisplayLayoutOpen {
+			m.triggerDisplayNightLightTempDialog()
+			return m, nil
 		}
 	}
 	return m, nil

@@ -75,6 +75,55 @@ func newDisplayActions(nc *nats.Conn) tui.DisplayActions {
 				return displayRequest(nc, bus.SubjectDisplayIdentifyCmd, map[string]any{})
 			}
 		},
+		SetBrightness: func(pct int) tea.Cmd {
+			return func() tea.Msg {
+				return displayRequest(nc, bus.SubjectDisplayBrightnessCmd, map[string]any{
+					"pct": pct,
+				})
+			}
+		},
+		SetKbdBrightness: func(pct int) tea.Cmd {
+			return func() tea.Msg {
+				return displayRequest(nc, bus.SubjectDisplayKbdBrightnessCmd, map[string]any{
+					"pct": pct,
+				})
+			}
+		},
+		SetNightLight: func(enable bool, tempK int, gamma int) tea.Cmd {
+			return func() tea.Msg {
+				return displayRequest(nc, bus.SubjectDisplayNightLightCmd, map[string]any{
+					"enable": enable, "temperature": tempK, "gamma": gamma,
+				})
+			}
+		},
+		SetGamma: func(pct int) tea.Cmd {
+			return func() tea.Msg {
+				return displayRequest(nc, bus.SubjectDisplayGammaCmd, map[string]any{
+					"pct": pct,
+				})
+			}
+		},
+		SaveProfile: func(name string) tea.Cmd {
+			return func() tea.Msg {
+				return displayRequest(nc, bus.SubjectDisplaySaveProfileCmd, map[string]any{
+					"profile": name,
+				})
+			}
+		},
+		ApplyProfile: func(name string) tea.Cmd {
+			return func() tea.Msg {
+				return displayRequest(nc, bus.SubjectDisplayApplyProfileCmd, map[string]any{
+					"profile": name,
+				})
+			}
+		},
+		DeleteProfile: func(name string) tea.Cmd {
+			return func() tea.Msg {
+				return displayRequest(nc, bus.SubjectDisplayDeleteProfileCmd, map[string]any{
+					"profile": name,
+				})
+			}
+		},
 	}
 }
 

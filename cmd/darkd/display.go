@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/nats-io/nats.go"
 
 	"github.com/johnnelson/dark/internal/bus"
+	"github.com/johnnelson/dark/internal/core"
 	displaysvc "github.com/johnnelson/dark/internal/services/display"
 )
 
@@ -23,6 +25,11 @@ type displayActionRequest struct {
 	On          *bool   `json:"on,omitempty"`
 	Mode        int     `json:"mode,omitempty"`
 	MirrorOf    string  `json:"mirror_of,omitempty"`
+	Pct         int     `json:"pct,omitempty"`
+	Enable      *bool   `json:"enable,omitempty"`
+	Temperature int     `json:"temperature,omitempty"`
+	Gamma       int     `json:"gamma,omitempty"`
+	Profile     string  `json:"profile,omitempty"`
 }
 
 type displayActionResponse struct {
@@ -73,6 +80,13 @@ func wireDisplay(nc *nats.Conn, svc *displaysvc.Service, dn *daemonNotifier) fun
 	register(bus.SubjectDisplayVrrCmd, handleDisplayVrr)
 	register(bus.SubjectDisplayMirrorCmd, handleDisplayMirror)
 	register(bus.SubjectDisplayToggleCmd, handleDisplayToggle)
+	register(bus.SubjectDisplayBrightnessCmd, handleDisplayBrightness)
+	register(bus.SubjectDisplayKbdBrightnessCmd, handleDisplayKbdBrightness)
+	register(bus.SubjectDisplayNightLightCmd, handleDisplayNightLight)
+	register(bus.SubjectDisplayGammaCmd, handleDisplayGamma)
+	register(bus.SubjectDisplaySaveProfileCmd, handleDisplaySaveProfile)
+	register(bus.SubjectDisplayApplyProfileCmd, handleDisplayApplyProfile)
+	register(bus.SubjectDisplayDeleteProfileCmd, handleDisplayDeleteProfile)
 
 	if _, err := nc.Subscribe(bus.SubjectDisplayIdentifyCmd, func(m *nats.Msg) {
 		var resp displayActionResponse
@@ -96,6 +110,20 @@ func wireDisplay(nc *nats.Conn, svc *displaysvc.Service, dn *daemonNotifier) fun
 		if err := nc.Publish(bus.SubjectDisplayMonitors, data); err != nil {
 			dn.Error("Displays", "publish failed: "+err.Error())
 		}
+	}
+
+	if events := svc.Events(); events != nil {
+		go func() {
+			debounce := core.DisplayEventDebounce
+			var timer *time.Timer
+			for range events {
+				if timer == nil {
+					timer = time.AfterFunc(debounce, publish)
+				} else {
+					timer.Reset(debounce)
+				}
+			}
+		}()
 	}
 
 	return publish
@@ -200,4 +228,71 @@ func handleDisplayToggle(svc *displaysvc.Service, req displayActionRequest) disp
 		return displayActionResponse{Error: err.Error()}
 	}
 	return persistAndRespond(svc, req.Name)
+}
+
+func handleDisplayBrightness(svc *displaysvc.Service, req displayActionRequest) displayActionResponse {
+	if err := svc.SetBrightness(req.Pct); err != nil {
+		return displayActionResponse{Error: err.Error()}
+	}
+	return displayActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleDisplayKbdBrightness(svc *displaysvc.Service, req displayActionRequest) displayActionResponse {
+	if err := svc.SetKbdBrightness(req.Pct); err != nil {
+		return displayActionResponse{Error: err.Error()}
+	}
+	return displayActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleDisplayNightLight(svc *displaysvc.Service, req displayActionRequest) displayActionResponse {
+	enable := req.Enable != nil && *req.Enable
+	temp := req.Temperature
+	if temp == 0 {
+		temp = 4500
+	}
+	gamma := req.Gamma
+	if gamma == 0 {
+		gamma = 100
+	}
+	if err := svc.SetNightLight(enable, temp, gamma); err != nil {
+		return displayActionResponse{Error: err.Error()}
+	}
+	return displayActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleDisplayGamma(svc *displaysvc.Service, req displayActionRequest) displayActionResponse {
+	if err := svc.SetGamma(req.Pct); err != nil {
+		return displayActionResponse{Error: err.Error()}
+	}
+	return displayActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleDisplaySaveProfile(svc *displaysvc.Service, req displayActionRequest) displayActionResponse {
+	if req.Profile == "" {
+		return displayActionResponse{Error: "missing profile name"}
+	}
+	if err := svc.SaveProfile(req.Profile); err != nil {
+		return displayActionResponse{Error: err.Error()}
+	}
+	return displayActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleDisplayApplyProfile(svc *displaysvc.Service, req displayActionRequest) displayActionResponse {
+	if req.Profile == "" {
+		return displayActionResponse{Error: "missing profile name"}
+	}
+	if err := svc.ApplyProfile(req.Profile); err != nil {
+		return displayActionResponse{Error: err.Error()}
+	}
+	return displayActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleDisplayDeleteProfile(svc *displaysvc.Service, req displayActionRequest) displayActionResponse {
+	if req.Profile == "" {
+		return displayActionResponse{Error: "missing profile name"}
+	}
+	if err := svc.DeleteProfile(req.Profile); err != nil {
+		return displayActionResponse{Error: err.Error()}
+	}
+	return displayActionResponse{Snapshot: svc.Snapshot()}
 }

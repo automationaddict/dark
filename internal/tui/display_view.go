@@ -52,6 +52,13 @@ func renderDisplay(s *core.State, width, height int) string {
 		monBox := renderDisplayMonitorBox(s, innerWidth, focused)
 		blocks = append(blocks, monBox)
 
+		if s.Display.HasBacklight || s.Display.HasKbdLight || s.DisplayLoaded {
+			extras := renderDisplayExtras(s, innerWidth)
+			if extras != "" {
+				blocks = append(blocks, extras)
+			}
+		}
+
 		if s.DisplayBusy {
 			blocks = append(blocks, "", statusBusyStyle.Render("working…"))
 		}
@@ -235,6 +242,15 @@ func renderDisplayInfoBox(mon display.Monitor, total int) string {
 		[2]string{"Position", fmt.Sprintf("%d, %d", mon.X, mon.Y)},
 	)
 
+	if mon.PhysicalWidth > 0 {
+		wIn, hIn := mon.PhysicalSizeInches()
+		diag := mon.DiagonalInches()
+		rows = append(rows,
+			[2]string{"Physical Size", fmt.Sprintf("%.1f\" × %.1f\" (%.1f\" diagonal)", wIn, hIn, diag)},
+			[2]string{"DPI", fmt.Sprintf("%d", mon.DPI())},
+		)
+	}
+
 	dpms := "On"
 	if !mon.DpmsStatus {
 		dpms = "Off (DPMS)"
@@ -304,6 +320,51 @@ func renderDisplayInfoBox(mon display.Monitor, total int) string {
 	return groupBoxSections(title, sections, total, colorAccent)
 }
 
+func renderDisplayExtras(s *core.State, total int) string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var lines []string
+
+	if s.Display.HasBacklight {
+		bar := brightnessBar(s.Display.Brightness)
+		lines = append(lines, fmt.Sprintf("  ☀ Brightness  %s  %d%%", bar, s.Display.Brightness))
+	}
+	if s.Display.HasKbdLight {
+		bar := brightnessBar(s.Display.KbdBrightness)
+		lines = append(lines, fmt.Sprintf("  ⌨ Keyboard    %s  %d%%", bar, s.Display.KbdBrightness))
+	}
+
+	if s.NightLightActive {
+		nlInfo := fmt.Sprintf("  🌙 Night Light  %s  %s",
+			accent.Render(fmt.Sprintf("%dK", s.NightLightTemp)),
+			accent.Render("(active)"))
+		if s.NightLightGamma != 0 && s.NightLightGamma != 100 {
+			nlInfo += fmt.Sprintf("  gamma %s", accent.Render(fmt.Sprintf("%d%%", s.NightLightGamma)))
+		}
+		lines = append(lines, nlInfo)
+	} else {
+		lines = append(lines, "  🌙 Night Light  "+dim.Render("off"))
+	}
+
+	if s.NightLightGamma != 0 && s.NightLightGamma != 100 && !s.NightLightActive {
+		lines = append(lines, fmt.Sprintf("  γ  Gamma  %s", accent.Render(fmt.Sprintf("%d%%", s.NightLightGamma))))
+	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+	return strings.Join(lines, "\n")
+}
+
+func brightnessBar(pct int) string {
+	const width = 10
+	filled := pct * width / 100
+	if filled > width {
+		filled = width
+	}
+	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+}
+
 func renderDisplayHints() string {
 	dim := lipgloss.NewStyle().Foreground(colorDim)
 	accent := lipgloss.NewStyle().Foreground(colorAccent)
@@ -319,6 +380,14 @@ func renderDisplayHints() string {
 	hints = append(hints, accent.Render("+/-")+" scale")
 	hints = append(hints, accent.Render("v")+" vrr")
 	hints = append(hints, accent.Render("p")+" position")
+	hints = append(hints, accent.Render("s")+" scale")
+	hints = append(hints, accent.Render("[/]")+" brightness")
+	hints = append(hints, accent.Render("{/}")+" kbd light")
+	hints = append(hints, accent.Render("n")+" night light")
+	hints = append(hints, accent.Render("g/G")+" gamma")
+	hints = append(hints, accent.Render("S")+" save profile")
+	hints = append(hints, accent.Render("P")+" load profile")
+	hints = append(hints, accent.Render("X")+" delete profile")
 
 	return dim.Render("  " + strings.Join(hints, "  "))
 }

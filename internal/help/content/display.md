@@ -40,6 +40,10 @@ From display content focus:
 - `p` — open position dialog to set the monitor's X/Y coordinates in the virtual desktop
 - `l` — open the visual arrangement view to see and rearrange monitor positions graphically
 - `i` — identify monitors by flashing a number on each physical screen for 3 seconds
+- `[` / `]` — decrease / increase screen brightness by 5%
+- `{` / `}` — decrease / increase keyboard backlight by 5%
+- `n` — toggle night light (warm color temperature via hyprsunset)
+- `N` — open dialog to set night light color temperature in Kelvin
 - `esc` — return focus to the sidebar (or close the current panel)
 
 ## The Mode Picker
@@ -86,6 +90,23 @@ Two ways to turn off a screen:
 
 Use DPMS when you want to temporarily blank a screen (like turning off a TV when not watching). Use disable when you want to fully remove an output from the layout.
 
+## Brightness
+
+When a backlight device is detected (typically `amdgpu_bl1` on AMD laptops, `intel_backlight` on Intel), a brightness slider appears below the monitors box. Use `[` and `]` to adjust screen brightness in 5% steps. The current percentage is shown next to the bar.
+
+If a keyboard backlight is detected (`rgb:kbd_backlight`), a second slider appears for it. Use `{` and `}` to adjust keyboard brightness in 5% steps.
+
+Brightness is controlled via `brightnessctl` under the hood. Changes take effect immediately and don't require persistence — the hardware remembers its last brightness level.
+
+## Night Light
+
+Night light applies a warm color temperature shift to reduce blue light, useful for evening use. It's powered by `hyprsunset`, Hyprland's built-in color temperature tool.
+
+- Press `n` to toggle night light on or off. When turning on, it uses the last-set temperature (default 4500K).
+- Press `N` (shift+n) to open a dialog where you can set a specific color temperature in Kelvin. Lower values are warmer (more orange): 3000K is very warm, 4500K is moderate, 6500K is neutral daylight.
+
+The night light status is shown below the brightness slider when the display section has content focus. It reads `active` when hyprsunset is running and shows the current temperature.
+
 ## Config Persistence
 
 When you change a monitor's resolution, scale, rotation, position, or VRR, dark writes the updated configuration to `~/.config/hypr/monitors.conf` so your settings survive Hyprland restarts. The file uses standard Hyprland monitor syntax:
@@ -100,10 +121,12 @@ Runtime-only changes like DPMS toggle and identify are not persisted — they're
 
 ## Data source
 
-Everything on this page comes from `darkd`, which shells out to `hyprctl monitors -j` to read the current state. Commands that modify settings use `hyprctl keyword monitor` or `hyprctl dispatch dpms` under the hood. The daemon publishes monitor snapshots on `dark.display.monitors` every 10 seconds, with immediate republish after any action command.
+Everything on this page comes from `darkd`, which shells out to `hyprctl monitors -j` to read the current state. Commands that modify settings use `hyprctl keyword monitor` or `hyprctl dispatch dpms` under the hood. Brightness uses `brightnessctl` and night light uses `hyprsunset`.
+
+The daemon connects to Hyprland's IPC event socket (`.socket2.sock`) and listens for `monitoradded`, `monitorremoved`, and `configreloaded` events. When a monitor is plugged in or removed, dark picks up the change within ~200ms — no polling delay. A safety-net snapshot publish still happens every 10 seconds in case an event is missed.
 
 ## Limitations
 
-- Hyprland doesn't expose a display change event subscription the way PulseAudio does, so detecting external changes (like plugging in a monitor from another tool) relies on the 10-second polling tick.
 - The arrangement view positions monitors by nudging in 10-pixel increments. For pixel-perfect placement, use the position dialog (`p` key).
 - Mirror mode requires at least two monitors. Mirroring forces both outputs to the same resolution.
+- Night light temperature is not persisted across Hyprland restarts — you'd need to add `exec-once = hyprsunset -t 4500` to your autostart config for that.

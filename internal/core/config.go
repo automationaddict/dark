@@ -57,7 +57,8 @@ const (
 // --- Daemon-side timing ---
 
 const (
-	AudioEventDebounce  = 75 * time.Millisecond  // coalesce pulse events before snapshot
+	AudioEventDebounce   = 75 * time.Millisecond  // coalesce pulse events before snapshot
+	DisplayEventDebounce = 200 * time.Millisecond
 	AudioMeterTickRate  = 50 * time.Millisecond  // 20 Hz VU meter publish
 	NotifyDebounce      = 30 * time.Second       // suppress duplicate daemon notifications
 	// IWDScanPollInterval and IWDAPTransitionWait live in
