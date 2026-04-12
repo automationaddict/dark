@@ -93,6 +93,13 @@ func validateNetworkdPath(path string) error {
 	if strings.Contains(rel, "/") {
 		return fmt.Errorf("path %q must be directly under %s", cleaned, networkdConfigDir)
 	}
+	// Reject filenames that are just the extension with no actual
+	// name before it — dark never generates these and accepting
+	// them widens the attack surface for no reason.
+	name := strings.TrimSuffix(rel, networkFileSuffix)
+	if name == "" {
+		return fmt.Errorf("path %q has no filename before %s", cleaned, networkFileSuffix)
+	}
 	return nil
 }
 
