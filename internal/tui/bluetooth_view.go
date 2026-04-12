@@ -35,7 +35,6 @@ func renderBluetooth(s *core.State, width, height int) string {
 		selected = 0
 	}
 	focused := s.ContentFocused
-	detailsOpen := s.BluetoothDetailsOpen
 	selAdapter := adapters[selected]
 
 	toggle := renderBluetoothToggle(selAdapter, s.BluetoothBusy)
@@ -50,35 +49,33 @@ func renderBluetooth(s *core.State, width, height int) string {
 
 	blocks := []string{toggle, "", adaptersBox}
 
-	if detailsOpen {
-		detailsTitle := "Details"
-		if selAdapter.Name != "" {
-			detailsTitle = "Details · " + selAdapter.Name
-		}
-		detailsBox := groupBoxSections(detailsTitle,
-			[]string{renderBluetoothAdapterDetails(selAdapter)}, innerWidth, colorBorder)
-		blocks = append(blocks, "", detailsBox)
+	detailsTitle := "Details"
+	if selAdapter.Name != "" {
+		detailsTitle = "Details · " + selAdapter.Name
+	}
+	detailsBox := groupBoxSections(detailsTitle,
+		[]string{renderBluetoothAdapterDetails(selAdapter)}, innerWidth, colorBorder)
+	blocks = append(blocks, "", detailsBox)
 
-		devicesBorder := colorBorder
-		if focused && s.BluetoothFocus == core.BluetoothFocusDevices {
-			devicesBorder = colorAccent
-		}
-		if s.BluetoothDeviceInfoOpen {
-			dev, ok := s.SelectedBluetoothDevice()
-			if ok {
-				infoBox := renderBluetoothDeviceInfoBox(dev, innerWidth)
-				blocks = append(blocks, "", infoBox)
-			} else {
-				devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, devicesBorder)
-				blocks = append(blocks, "", devicesBox)
-			}
+	devicesBorder := colorBorder
+	if focused && s.BluetoothFocus == core.BluetoothFocusDevices {
+		devicesBorder = colorAccent
+	}
+	if s.BluetoothDeviceInfoOpen {
+		dev, ok := s.SelectedBluetoothDevice()
+		if ok {
+			infoBox := renderBluetoothDeviceInfoBox(dev, innerWidth)
+			blocks = append(blocks, "", infoBox)
 		} else {
 			devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, devicesBorder)
 			blocks = append(blocks, "", devicesBox)
 		}
+	} else {
+		devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, devicesBorder)
+		blocks = append(blocks, "", devicesBox)
 	}
 
-	blocks = append(blocks, renderBluetoothFocusHint(s, focused, detailsOpen, len(adapters)))
+	blocks = append(blocks, renderBluetoothFocusHint(s, focused, true, len(adapters)))
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
 
 	return contentStyle.Width(width).Height(height).Render(body)

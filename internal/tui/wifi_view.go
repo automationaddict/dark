@@ -55,7 +55,6 @@ func renderWifi(s *core.State, width, height int) string {
 		selected = 0
 	}
 	focused := s.ContentFocused
-	detailsOpen := s.WifiDetailsOpen
 
 	tableSection := renderAdaptersTable(adapters, selected, focused)
 
@@ -65,40 +64,38 @@ func renderWifi(s *core.State, width, height int) string {
 	}
 	adaptersBox := groupBoxSections("Adapters", []string{tableSection}, innerWidth, adaptersBorder)
 
-	toggleLine := renderWifiToggle(adapters[selected], s.WifiBusy)
+	selAdapter := adapters[selected]
+	toggleLine := renderWifiToggle(selAdapter, s.WifiBusy)
 	blocks := []string{toggleLine, "", adaptersBox}
 
-	if detailsOpen {
-		selAdapter := adapters[selected]
-		detailsTitle := "Details"
-		if selAdapter.Name != "" {
-			detailsTitle = "Details · " + selAdapter.Name
-		}
-		detailsBox := groupBoxSections(detailsTitle,
-			[]string{renderAdapterDetailsInline(selAdapter, s.RSSIHistory[selAdapter.Name])}, innerWidth, colorBorder)
-		blocks = append(blocks, "", detailsBox)
+	detailsTitle := "Details"
+	if selAdapter.Name != "" {
+		detailsTitle = "Details · " + selAdapter.Name
+	}
+	detailsBox := groupBoxSections(detailsTitle,
+		[]string{renderAdapterDetailsInline(selAdapter, s.RSSIHistory[selAdapter.Name])}, innerWidth, colorBorder)
+	blocks = append(blocks, "", detailsBox)
 
-		networksBorder := colorBorder
-		if s.WifiFocus == core.WifiFocusNetworks {
-			networksBorder = colorAccent
-		}
-		networksBox := renderNetworksBox(s, selAdapter, innerWidth, networksBorder)
-		blocks = append(blocks, "", networksBox)
+	networksBorder := colorBorder
+	if focused && s.WifiFocus == core.WifiFocusNetworks {
+		networksBorder = colorAccent
+	}
+	networksBox := renderNetworksBox(s, selAdapter, innerWidth, networksBorder)
+	blocks = append(blocks, "", networksBox)
 
-		knownBorder := colorBorder
-		if s.WifiFocus == core.WifiFocusKnown {
-			knownBorder = colorAccent
-		}
-		knownBox := renderKnownNetworksBox(s, innerWidth, knownBorder)
-		blocks = append(blocks, "", knownBox)
+	knownBorder := colorBorder
+	if focused && s.WifiFocus == core.WifiFocusKnown {
+		knownBorder = colorAccent
+	}
+	knownBox := renderKnownNetworksBox(s, innerWidth, knownBorder)
+	blocks = append(blocks, "", knownBox)
 
-		if adapterSupportsAP(adapters[selected]) {
-			apBox := renderAccessPointBox(adapters[selected], innerWidth)
-			blocks = append(blocks, "", apBox)
-		}
+	if adapterSupportsAP(adapters[selected]) {
+		apBox := renderAccessPointBox(adapters[selected], innerWidth)
+		blocks = append(blocks, "", apBox)
 	}
 
-	blocks = append(blocks, renderWifiFocusHint(s, focused, detailsOpen, len(adapters)))
+	blocks = append(blocks, renderWifiFocusHint(s, focused, true, len(adapters)))
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
 
 	return contentStyle.Width(width).Height(height).Render(body)
