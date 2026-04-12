@@ -47,7 +47,7 @@ func renderSidebarGeneric(s *core.State, entries []sidebarEntry, selected int, h
 		}
 	}
 	body := strings.Join(rows, "\n")
-	return sidebarStyle.Height(height).Render(body)
+	return renderSidebarPane(height, body)
 }
 
 func renderSidebar(s *core.State, height int) string {
@@ -75,13 +75,14 @@ func renderSettingsContent(s *core.State, width, height int) string {
 	}
 	title := contentTitle.Render(sec.Label)
 	body := placeholderStyle.Render("Nothing wired up yet for " + sec.Label + ".")
-	return contentStyle.
-		Width(width).
-		Height(height).
-		Render(lipgloss.JoinVertical(lipgloss.Left, title, body))
+	return renderContentPane(width, height,
+		lipgloss.JoinVertical(lipgloss.Left, title, body))
 }
 
 func renderEmpty(s *core.State, width, height int) string {
+	sidebar := renderSidebarGeneric(s, nil, -1, height)
+	contentWidth := width - lipgloss.Width(sidebar)
+
 	tabs := core.AllTabs()
 	var label string
 	for _, t := range tabs {
@@ -91,5 +92,6 @@ func renderEmpty(s *core.State, width, height int) string {
 		}
 	}
 	msg := placeholderStyle.Render(label + " — empty for now.")
-	return contentStyle.Width(width).Height(height).Render(msg)
+	content := renderContentPane(contentWidth, height, msg)
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
 }

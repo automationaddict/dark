@@ -39,22 +39,22 @@ func renderAppstoreDetailPane(s *core.State, width, height int) string {
 	if len(d.Depends) > 0 {
 		lines = append(lines, "")
 		lines = append(lines, detailLabelStyle.Render("Depends On"))
-		lines = append(lines, wrapList(d.Depends, width-6))
+		lines = append(lines, wrapList(d.Depends, width-6)...)
 	}
 	if len(d.OptDepends) > 0 {
 		lines = append(lines, "")
 		lines = append(lines, detailLabelStyle.Render("Optional"))
-		lines = append(lines, wrapList(d.OptDepends, width-6))
+		lines = append(lines, wrapList(d.OptDepends, width-6)...)
 	}
 	if len(d.MakeDepends) > 0 {
 		lines = append(lines, "")
 		lines = append(lines, detailLabelStyle.Render("Make Deps"))
-		lines = append(lines, wrapList(d.MakeDepends, width-6))
+		lines = append(lines, wrapList(d.MakeDepends, width-6)...)
 	}
 	if len(d.Conflicts) > 0 {
 		lines = append(lines, "")
 		lines = append(lines, detailLabelStyle.Render("Conflicts"))
-		lines = append(lines, wrapList(d.Conflicts, width-6))
+		lines = append(lines, wrapList(d.Conflicts, width-6)...)
 	}
 
 	viewH := height - 2
@@ -199,8 +199,7 @@ func wrapText(s string, max int) []string {
 // etc.) into a single comma-separated string that soft-wraps on word
 // boundaries. Returned as one string with embedded newlines so the
 // caller can append it directly to the body slice.
-func wrapList(items []string, max int) string {
+func wrapList(items []string, max int) []string {
 	joined := strings.Join(items, ", ")
-	lines := wrapText(joined, max)
-	return strings.Join(lines, "\n")
+	return wrapText(joined, max)
 }

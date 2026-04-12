@@ -12,7 +12,7 @@ import (
 
 func renderBluetooth(s *core.State, width, height int) string {
 	if !s.BluetoothLoaded {
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			placeholderStyle.Render("loading bluetooth adapters…"),
 		)
 	}
@@ -20,7 +20,7 @@ func renderBluetooth(s *core.State, width, height int) string {
 	if len(adapters) == 0 {
 		title := contentTitle.Render("Bluetooth")
 		body := placeholderStyle.Render("No bluetooth adapters detected.")
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			lipgloss.JoinVertical(lipgloss.Left, title, body),
 		)
 	}
@@ -78,7 +78,7 @@ func renderBluetooth(s *core.State, width, height int) string {
 	blocks = append(blocks, renderBluetoothFocusHint(s, focused, true, len(adapters)))
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
 
-	return contentStyle.Width(width).Height(height).Render(body)
+	return renderContentPane(width, height,body)
 }
 
 func renderBluetoothToggle(a bluetooth.Adapter, busy bool) string {

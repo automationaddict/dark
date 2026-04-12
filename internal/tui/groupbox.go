@@ -51,6 +51,7 @@ func groupBoxSections(title string, sections []string, total int, borderColor li
 			lines = append(lines, tee)
 		}
 		for _, raw := range strings.Split(section, "\n") {
+			raw = lipgloss.NewStyle().MaxWidth(contentW).Render(raw)
 			pad := contentW - lipgloss.Width(raw)
 			if pad < 0 {
 				pad = 0

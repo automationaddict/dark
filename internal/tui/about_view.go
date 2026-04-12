@@ -65,7 +65,7 @@ func renderAbout(s *core.State, width, height int) string {
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, rendered...)
-	return contentStyle.Width(width).Height(height).Render(body)
+	return renderContentPane(width, height, body)
 }
 
 func cardInner(title string, fields [][2]string) string {

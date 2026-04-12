@@ -14,7 +14,7 @@ import (
 func renderHelpPanel(s *core.State, height int) string {
 	doc := s.HelpDoc
 	if doc == nil {
-		return helpPanelStyle.Width(s.HelpWidth).Height(height).Render(
+		return helpPanelStyle.Width(s.HelpWidth).MaxWidth(s.HelpWidth).Height(height).MaxHeight(height).Render(
 			helpPanelErrorStyle.Render("no help available"),
 		)
 	}
@@ -45,7 +45,7 @@ func renderHelpPanel(s *core.State, height int) string {
 		footer,
 	)
 
-	return helpPanelStyle.Width(s.HelpWidth).Height(height).Render(stack)
+	return helpPanelStyle.Width(s.HelpWidth).MaxWidth(s.HelpWidth).Height(height).MaxHeight(height).Render(stack)
 }
 
 func renderHelpHeader(doc *help.Document, width int) string {

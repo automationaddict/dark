@@ -12,14 +12,14 @@ import (
 
 func renderNetwork(s *core.State, width, height int) string {
 	if !s.NetworkLoaded {
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			placeholderStyle.Render("loading network state…"),
 		)
 	}
 	if len(s.Network.Interfaces) == 0 {
 		title := contentTitle.Render("Network")
 		body := placeholderStyle.Render("No network interfaces detected.")
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			lipgloss.JoinVertical(lipgloss.Left, title, body),
 		)
 	}
@@ -75,7 +75,7 @@ func renderNetwork(s *core.State, width, height int) string {
 	blocks = append(blocks, renderNetworkFocusHint(s, focused, len(s.Network.Interfaces)))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return contentStyle.Width(width).Height(height).Render(body)
+	return renderContentPane(width, height,body)
 }
 
 // renderNetworkRoutesDrillIn replaces the regular Network view with
@@ -87,7 +87,7 @@ func renderNetworkRoutesDrillIn(s *core.State, width, height, innerWidth int) st
 	iface, ok := s.SelectedNetworkInterface()
 	if !ok {
 		s.NetworkRoutesOpen = false
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			placeholderStyle.Render("interface no longer present"),
 		)
 	}
@@ -106,7 +106,7 @@ func renderNetworkRoutesDrillIn(s *core.State, width, height, innerWidth int) st
 	hint := statusBarStyle.Render("a add · d delete · esc back")
 
 	rendered := lipgloss.JoinVertical(lipgloss.Left, box, "", hint)
-	return contentStyle.Width(width).Height(height).Render(rendered)
+	return renderContentPane(width, height,rendered)
 }
 
 // renderNetworkManagedRoutesTable builds the route table inside the

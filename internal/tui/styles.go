@@ -327,3 +327,19 @@ func ApplyPalette(p theme.Palette) {
 		Foreground(colorDim).
 		Italic(true)
 }
+
+// renderContentPane renders body inside contentStyle with exact dimensions.
+// Height pads short content; MaxHeight truncates tall content.
+func renderContentPane(width, height int, body string) string {
+	return contentStyle.
+		Width(width).MaxWidth(width).
+		Height(height).MaxHeight(height).
+		Render(body)
+}
+
+// renderSidebarPane renders body inside sidebarStyle with exact height.
+func renderSidebarPane(height int, body string) string {
+	return sidebarStyle.
+		Height(height).MaxHeight(height).
+		Render(body)
+}

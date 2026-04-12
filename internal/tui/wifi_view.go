@@ -31,7 +31,7 @@ func wifiColumns() []wifiColumn {
 
 func renderWifi(s *core.State, width, height int) string {
 	if !s.WifiLoaded {
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			placeholderStyle.Render("loading wireless adapters…"),
 		)
 	}
@@ -39,7 +39,7 @@ func renderWifi(s *core.State, width, height int) string {
 	if len(adapters) == 0 {
 		title := contentTitle.Render("Wi-Fi")
 		body := placeholderStyle.Render("No wireless adapters detected.")
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			lipgloss.JoinVertical(lipgloss.Left, title, body),
 		)
 	}
@@ -98,7 +98,7 @@ func renderWifi(s *core.State, width, height int) string {
 	blocks = append(blocks, renderWifiFocusHint(s, focused, true, len(adapters)))
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
 
-	return contentStyle.Width(width).Height(height).Render(body)
+	return renderContentPane(width, height, body)
 }
 
 // renderAdaptersTable builds the header + data rows for the Adapters table.

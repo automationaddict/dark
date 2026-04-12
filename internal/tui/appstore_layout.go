@@ -32,7 +32,7 @@ func renderAppStoreTab(s *core.State, width, height int) string {
 // thing to the correct height.
 func renderAppStoreContent(s *core.State, width, height int) string {
 	if !s.AppstoreLoaded {
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			placeholderStyle.Render("Loading package catalog…"))
 	}
 
@@ -65,5 +65,5 @@ func renderAppStoreContent(s *core.State, width, height int) string {
 
 	blocks := []string{searchBar, "", mainPane, "", status}
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return contentStyle.Width(width).Height(height).Render(body)
+	return renderContentPane(width, height,body)
 }

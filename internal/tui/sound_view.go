@@ -12,14 +12,14 @@ import (
 
 func renderSound(s *core.State, width, height int) string {
 	if !s.AudioLoaded {
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			placeholderStyle.Render("loading audio devices…"),
 		)
 	}
 	if len(s.Audio.Sinks) == 0 && len(s.Audio.Sources) == 0 {
 		title := contentTitle.Render("Sound")
 		body := placeholderStyle.Render("No audio devices detected.")
-		return contentStyle.Width(width).Height(height).Render(
+		return renderContentPane(width, height,
 			lipgloss.JoinVertical(lipgloss.Left, title, body),
 		)
 	}
@@ -110,7 +110,7 @@ func renderSound(s *core.State, width, height int) string {
 	blocks = append(blocks, renderAudioFocusHint(s, focused))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return contentStyle.Width(width).Height(height).Render(body)
+	return renderContentPane(width, height,body)
 }
 
 // renderAudioDeviceInfoBox is the second-level drill: full property
