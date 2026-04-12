@@ -16,6 +16,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/display"
+	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/power"
@@ -63,6 +64,7 @@ type Model struct {
 	network   NetworkActions
 	display   DisplayActions
 	power     PowerActions
+	input     InputActions
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
 	dialog    *Dialog
@@ -90,7 +92,7 @@ type TUILinksMsg []tuilink.TUIApp
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -102,6 +104,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		network:   network,
 		display:   displayAct,
 		power:     powerAct,
+		input:     inputAct,
 		notifier:  notifier,
 		appstore:  appstore,
 		spinner:   sp,
@@ -221,6 +224,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.DisplayActionError = ""
 		m.state.SetDisplay(msg.Snapshot)
+		return m, nil
+
+	case InputMsg:
+		m.state.SetInputDevices(inputsvc.Snapshot(msg))
+		return m, nil
+
+	case InputActionResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Input", msg.Err)
+			return m, nil
+		}
+		m.state.SetInputDevices(msg.Snapshot)
 		return m, nil
 
 	case PowerMsg:
@@ -670,6 +685,8 @@ func (m *Model) moveSelection(delta int) {
 			} else {
 				m.state.MoveNetworkSelection(delta)
 			}
+		case "power", "input":
+			m.state.ScrollContent(delta)
 		}
 		return
 	}
@@ -872,6 +889,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.CycleAudioFocus()
 		}
 	case "s":
+		if m.inInputContent() {
+			if cmd := m.triggerInputSensitivityDelta(0.05); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDisplayContent() {
 			m.triggerDisplayScaleDialog()
 			return m, nil
@@ -1087,6 +1109,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "S":
+		if m.inInputContent() {
+			if cmd := m.triggerInputSensitivityDelta(-0.05); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDisplayContent() {
 			m.triggerDisplaySaveProfile()
 			return m, nil
@@ -1100,7 +1127,17 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerDisplayVrrToggle(); cmd != nil {
 			return m, cmd
 		}
+	case "L":
+		if m.inInputContent() {
+			m.triggerInputKBLayoutDialog()
+			return m, nil
+		}
 	case "+", "=":
+		if m.inInputContent() {
+			if cmd := m.triggerInputRepeatRateDelta(5); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayScaleUp(); cmd != nil {
 			return m, cmd
 		}
@@ -1111,6 +1148,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.ResizeSidebar(1)
 		}
 	case "-", "_":
+		if m.inInputContent() {
+			if cmd := m.triggerInputRepeatRateDelta(-5); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayScaleDown(); cmd != nil {
 			return m, cmd
 		}
@@ -1119,6 +1161,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.state.ActiveTab == core.TabSettings {
 			m.state.ResizeSidebar(-1)
+		}
+	case "<":
+		if cmd := m.triggerAudioBalanceDelta(-5); cmd != nil {
+			return m, cmd
+		}
+	case ">":
+		if cmd := m.triggerAudioBalanceDelta(5); cmd != nil {
+			return m, cmd
 		}
 	case "m":
 		if m.inDisplayContent() {
@@ -1129,10 +1179,20 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "[":
+		if m.inInputContent() {
+			if cmd := m.triggerInputRepeatDelayDelta(-50); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayBrightnessDelta(-5); cmd != nil {
 			return m, cmd
 		}
 	case "]":
+		if m.inInputContent() {
+			if cmd := m.triggerInputRepeatDelayDelta(50); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayBrightnessDelta(5); cmd != nil {
 			return m, cmd
 		}
@@ -1145,6 +1205,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "n":
+		if m.inInputContent() {
+			if cmd := m.triggerInputNaturalScrollToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayNightLightToggle(); cmd != nil {
 			return m, cmd
 		}

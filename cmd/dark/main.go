@@ -18,6 +18,7 @@ import (
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	displaysvc "github.com/johnnelson/dark/internal/services/display"
+	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
 	powersvc "github.com/johnnelson/dark/internal/services/power"
@@ -123,6 +124,7 @@ func main() {
 	audioActions := newAudioActions(nc)
 	displayActions := newDisplayActions(nc)
 	networkActions := newNetworkActions(nc)
+	inputActions := newInputActions(nc)
 	powerActions := newPowerActions(nc)
 	appstoreActions := newAppstoreActions(nc)
 
@@ -136,7 +138,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, notifier, appstoreActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, notifier, appstoreActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -254,6 +256,20 @@ func main() {
 	}
 	defer displaySub.Unsubscribe()
 
+	inputSub, err := nc.Subscribe(bus.SubjectInputSnapshot, func(m *nats.Msg) {
+		var snap inputsvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Input", err)
+			return
+		}
+		p.Send(tui.InputMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe input:", err)
+		os.Exit(1)
+	}
+	defer inputSub.Unsubscribe()
+
 	powerSub, err := nc.Subscribe(bus.SubjectPowerSnapshot, func(m *nats.Msg) {
 		var snap powersvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
@@ -321,6 +337,12 @@ func main() {
 	}
 	if snap, ok := requestInitialNetwork(nc); ok {
 		state.SetNetwork(snap)
+	}
+	if reply, err := nc.Request(bus.SubjectInputSnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap inputsvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetInputDevices(snap)
+		}
 	}
 	if reply, err := nc.Request(bus.SubjectPowerSnapshotCmd, nil, core.TimeoutFast); err == nil {
 		var snap powersvc.Snapshot

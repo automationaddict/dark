@@ -256,6 +256,7 @@ func sinkInfoToDevice(s *proto.GetSinkInfoReply, defaultName string) Device {
 		Volume:       volumeToPercent(avg),
 		VolumeRaw:    avg,
 		Channels:     len(s.ChannelVolumes),
+		Balance:      computeBalance(s.ChannelVolumes),
 		IsDefault:    s.SinkName == defaultName,
 		State:        sinkStateString(s.State),
 		ActivePort:   s.ActivePortName,
@@ -283,6 +284,7 @@ func sourceInfoToDevice(s *proto.GetSourceInfoReply, defaultName string) Device 
 		Volume:      volumeToPercent(avg),
 		VolumeRaw:   avg,
 		Channels:    len(s.ChannelVolumes),
+		Balance:     computeBalance(s.ChannelVolumes),
 		IsDefault:   s.SourceName == defaultName,
 		State:       sinkStateString(s.State),
 		ActivePort:  s.ActivePortName,
@@ -379,6 +381,66 @@ func percentToVolumes(pct int, channels int) proto.ChannelVolumes {
 	return out
 }
 
+// computeBalance derives a -100..+100 balance from a stereo ChannelVolumes.
+// -100 = full left, 0 = center, +100 = full right. Mono returns 0.
+func computeBalance(cv proto.ChannelVolumes) int {
+	if len(cv) < 2 {
+		return 0
+	}
+	left := float64(cv[0])
+	right := float64(cv[1])
+	sum := left + right
+	if sum == 0 {
+		return 0
+	}
+	// balance = (right - left) / max(left, right) * 100
+	max := left
+	if right > max {
+		max = right
+	}
+	return int((right - left) / max * 100)
+}
+
+// balanceToVolumes builds a ChannelVolumes with the given overall volume
+// percentage and balance (-100..+100). The louder channel gets the full
+// volume; the quieter channel is scaled down proportionally.
+func balanceToVolumes(pct, balance, channels int) proto.ChannelVolumes {
+	if channels <= 0 {
+		channels = 2
+	}
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 150 {
+		pct = 150
+	}
+	raw := uint32(uint64(pct) * uint64(proto.VolumeNorm) / 100)
+	out := make(proto.ChannelVolumes, channels)
+
+	if channels < 2 || balance == 0 {
+		for i := range out {
+			out[i] = raw
+		}
+		return out
+	}
+
+	var leftScale, rightScale float64
+	if balance < 0 {
+		leftScale = 1.0
+		rightScale = 1.0 + float64(balance)/100.0
+	} else {
+		leftScale = 1.0 - float64(balance)/100.0
+		rightScale = 1.0
+	}
+
+	out[0] = uint32(float64(raw) * leftScale)
+	out[1] = uint32(float64(raw) * rightScale)
+	for i := 2; i < channels; i++ {
+		out[i] = raw
+	}
+	return out
+}
+
 // sinkStateString maps the raw state enum PulseAudio returns to a
 // short label. Values: 0=running, 1=idle, 2=suspended, 3=invalid,
 // 4=init, 5=unlinked.
@@ -420,6 +482,25 @@ func (b *pulseBackend) SetSinkVolume(index uint32, pct int) error {
 	return nil
 }
 
+func (b *pulseBackend) SetSinkBalance(index uint32, balance int) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	reply := &proto.GetSinkInfoReply{}
+	if err := b.client.Request(&proto.GetSinkInfo{SinkIndex: index}, reply); err != nil {
+		return fmt.Errorf("get sink info: %w", err)
+	}
+	pct := volumeToPercent(avgVolume(reply.ChannelVolumes))
+	channels := len(reply.ChannelVolumes)
+	req := &proto.SetSinkVolume{
+		SinkIndex:      index,
+		ChannelVolumes: balanceToVolumes(pct, balance, channels),
+	}
+	if err := b.client.Request(req, nil); err != nil {
+		return fmt.Errorf("set sink balance: %w", err)
+	}
+	return nil
+}
+
 func (b *pulseBackend) SetSinkMute(index uint32, mute bool) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -453,6 +534,25 @@ func (b *pulseBackend) SetSourceMute(index uint32, mute bool) error {
 	req := &proto.SetSourceMute{SourceIndex: index, Mute: mute}
 	if err := b.client.Request(req, nil); err != nil {
 		return fmt.Errorf("set source mute: %w", err)
+	}
+	return nil
+}
+
+func (b *pulseBackend) SetSourceBalance(index uint32, balance int) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	reply := &proto.GetSourceInfoReply{}
+	if err := b.client.Request(&proto.GetSourceInfo{SourceIndex: index}, reply); err != nil {
+		return fmt.Errorf("get source info: %w", err)
+	}
+	pct := volumeToPercent(avgVolume(reply.ChannelVolumes))
+	channels := len(reply.ChannelVolumes)
+	req := &proto.SetSourceVolume{
+		SourceIndex:    index,
+		ChannelVolumes: balanceToVolumes(pct, balance, channels),
+	}
+	if err := b.client.Request(req, nil); err != nil {
+		return fmt.Errorf("set source balance: %w", err)
 	}
 	return nil
 }

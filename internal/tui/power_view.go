@@ -51,6 +51,12 @@ func renderPower(s *core.State, width, height int) string {
 		blocks = append(blocks, periph)
 	}
 
+	blocks = append(blocks, renderPowerButtons(s.Power, innerWidth))
+
+	if idle := renderPowerIdle(s.Power, innerWidth); idle != "" {
+		blocks = append(blocks, idle)
+	}
+
 	if sleep := renderPowerSleep(s.Power, innerWidth); sleep != "" {
 		blocks = append(blocks, sleep)
 	}
@@ -60,7 +66,7 @@ func renderPower(s *core.State, width, height int) string {
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderContentPane(width, height, body)
+	return renderScrollableContentPane(s, width, height, body)
 }
 
 func renderPowerBattery(p power.Snapshot, total int) string {
@@ -148,6 +154,19 @@ func renderPowerBattery(p power.Snapshot, total int) string {
 	return groupBoxSections("Battery", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
+func profileIcon(name string) string {
+	switch name {
+	case "performance":
+		return "󰓅"
+	case "balanced":
+		return "󰾅"
+	case "power-saver":
+		return "󰌪"
+	default:
+		return "󰂄"
+	}
+}
+
 func renderPowerProfile(p power.Snapshot, total int) string {
 	if len(p.Profiles) == 0 {
 		return ""
@@ -155,10 +174,11 @@ func renderPowerProfile(p power.Snapshot, total int) string {
 
 	var parts []string
 	for _, prof := range p.Profiles {
+		icon := profileIcon(prof)
 		if prof == p.Profile {
-			parts = append(parts, lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("▸ "+prof))
+			parts = append(parts, lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("▸ "+icon+"  "+prof))
 		} else {
-			parts = append(parts, lipgloss.NewStyle().Foreground(colorDim).Render("  "+prof))
+			parts = append(parts, lipgloss.NewStyle().Foreground(colorDim).Render("  "+icon+"  "+prof))
 		}
 	}
 
@@ -225,7 +245,13 @@ func renderPowerThermals(p power.Snapshot, total int) string {
 		return ""
 	}
 
-	lw := 30
+	lw := 18
+	// Find max label width for alignment
+	for _, t := range p.Thermals {
+		if w := lipgloss.Width(t.Label); w+2 > lw {
+			lw = w + 2
+		}
+	}
 	label := detailLabelStyle.Width(lw)
 
 	var lines []string
@@ -283,7 +309,7 @@ func renderPowerFans(p power.Snapshot, total int) string {
 		return ""
 	}
 
-	lw := 24
+	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
 
@@ -304,7 +330,7 @@ func renderPowerPeripherals(p power.Snapshot, total int) string {
 		return ""
 	}
 
-	lw := 30
+	lw := 18
 	label := detailLabelStyle.Width(lw)
 
 	var lines []string
@@ -321,6 +347,86 @@ func renderPowerPeripherals(p power.Snapshot, total int) string {
 	}
 
 	return groupBoxSections("Peripherals", []string{strings.Join(lines, "\n")}, total, colorBorder)
+}
+
+func renderPowerButtons(p power.Snapshot, total int) string {
+	lw := 18
+	label := detailLabelStyle.Width(lw)
+	value := detailValueStyle
+
+	btn := p.Buttons
+	var lines []string
+
+	lines = append(lines, label.Render("Power Button")+value.Render(btn.PowerKeyAction))
+	lines = append(lines, label.Render("Lid Close")+value.Render(btn.LidSwitch))
+	lines = append(lines, label.Render("Lid + AC")+value.Render(btn.LidSwitchPower))
+	lines = append(lines, label.Render("Lid + Dock")+value.Render(btn.LidSwitchDocked))
+
+	pctStatus := lipgloss.NewStyle().Foreground(colorDim).Render("hidden")
+	if btn.ShowBatteryPct {
+		pctStatus = lipgloss.NewStyle().Foreground(colorGreen).Render("visible")
+	}
+	lines = append(lines, label.Render("Battery %")+pctStatus)
+
+	return groupBoxSections("System Buttons", []string{strings.Join(lines, "\n")}, total, colorBorder)
+}
+
+func formatTimeout(sec int) string {
+	if sec <= 0 {
+		return "disabled"
+	}
+	if sec < 60 {
+		return fmt.Sprintf("%ds", sec)
+	}
+	m := sec / 60
+	s := sec % 60
+	if s == 0 {
+		return fmt.Sprintf("%dmin", m)
+	}
+	return fmt.Sprintf("%dmin %ds", m, s)
+}
+
+func renderPowerIdle(p power.Snapshot, total int) string {
+	idle := p.Idle
+
+	lw := 18
+	label := detailLabelStyle.Width(lw)
+	value := detailValueStyle
+
+	var lines []string
+
+	status := lipgloss.NewStyle().Foreground(colorGreen).Bold(true).Render("running")
+	if !idle.Running {
+		status = lipgloss.NewStyle().Foreground(colorRed).Render("stopped")
+	}
+	lines = append(lines, label.Render("Idle Daemon")+status)
+
+	if idle.KbdBacklightSec > 0 {
+		lines = append(lines, label.Render("Kbd Light Off")+
+			value.Render(formatTimeout(idle.KbdBacklightSec)))
+	}
+
+	if idle.ScreensaverSec > 0 {
+		lines = append(lines, label.Render("Screensaver")+
+			value.Render(formatTimeout(idle.ScreensaverSec)))
+	}
+
+	if idle.LockSec > 0 {
+		lines = append(lines, label.Render("Screen Lock")+
+			value.Render(formatTimeout(idle.LockSec)))
+	}
+
+	if idle.DPMSOffSec > 0 {
+		lines = append(lines, label.Render("Screen Off")+
+			value.Render(formatTimeout(idle.DPMSOffSec)))
+	}
+
+	if !idle.Running && idle.ScreensaverSec == 0 && idle.LockSec == 0 {
+		lines = append(lines, lipgloss.NewStyle().Foreground(colorDim).Italic(true).
+			Render("  hypridle not configured"))
+	}
+
+	return groupBoxSections("Screen & Idle", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
 func renderPowerSleep(p power.Snapshot, total int) string {

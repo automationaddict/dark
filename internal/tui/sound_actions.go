@@ -12,8 +12,10 @@ import (
 type AudioActions struct {
 	SetSinkVolume         func(index uint32, pct int) tea.Cmd
 	SetSinkMute           func(index uint32, mute bool) tea.Cmd
+	SetSinkBalance        func(index uint32, balance int) tea.Cmd
 	SetSourceVolume       func(index uint32, pct int) tea.Cmd
 	SetSourceMute         func(index uint32, mute bool) tea.Cmd
+	SetSourceBalance      func(index uint32, balance int) tea.Cmd
 	SetDefaultSink        func(name string) tea.Cmd
 	SetDefaultSource      func(name string) tea.Cmd
 	SetCardProfile        func(cardIndex uint32, profile string) tea.Cmd
@@ -100,6 +102,35 @@ func (m *Model) triggerAudioVolumeDelta(delta int) tea.Cmd {
 		return nil
 	}
 	return m.audio.SetSourceVolume(dev.Index, target)
+}
+
+func (m *Model) triggerAudioBalanceDelta(delta int) tea.Cmd {
+	if !m.inSoundContent() || m.state.AudioBusy {
+		return nil
+	}
+	dev, isSink, ok := m.state.SelectedAudioDevice()
+	if !ok || dev.Channels < 2 {
+		return nil
+	}
+	bal := dev.Balance + delta
+	if bal < -100 {
+		bal = -100
+	}
+	if bal > 100 {
+		bal = 100
+	}
+	m.state.AudioBusy = true
+	m.state.AudioActionError = ""
+	if isSink {
+		if m.audio.SetSinkBalance == nil {
+			return nil
+		}
+		return m.audio.SetSinkBalance(dev.Index, bal)
+	}
+	if m.audio.SetSourceBalance == nil {
+		return nil
+	}
+	return m.audio.SetSourceBalance(dev.Index, bal)
 }
 
 func clampVolume(v int) int {

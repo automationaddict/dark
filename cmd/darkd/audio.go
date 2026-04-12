@@ -71,8 +71,10 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 
 	register(bus.SubjectAudioSinkVolumeCmd, handleAudioSinkVolume)
 	register(bus.SubjectAudioSinkMuteCmd, handleAudioSinkMute)
+	register(bus.SubjectAudioSinkBalanceCmd, handleAudioSinkBalance)
 	register(bus.SubjectAudioSourceVolumeCmd, handleAudioSourceVolume)
 	register(bus.SubjectAudioSourceMuteCmd, handleAudioSourceMute)
+	register(bus.SubjectAudioSourceBalanceCmd, handleAudioSourceBalance)
 	register(bus.SubjectAudioDefaultSinkCmd, handleAudioDefaultSink)
 	register(bus.SubjectAudioDefaultSourceCmd, handleAudioDefaultSource)
 	register(bus.SubjectAudioCardProfileCmd, handleAudioCardProfile)
@@ -163,6 +165,26 @@ func handleAudioSinkMute(svc *audiosvc.Service, req audioActionRequest) audioAct
 		return audioActionResponse{Error: "missing mute flag"}
 	}
 	if err := svc.SetSinkMute(req.Index, *req.Mute); err != nil {
+		return audioActionResponse{Error: err.Error()}
+	}
+	return audioActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleAudioSinkBalance(svc *audiosvc.Service, req audioActionRequest) audioActionResponse {
+	if svc == nil {
+		return audioActionResponse{Error: "audio service unavailable"}
+	}
+	if err := svc.SetSinkBalance(req.Index, req.Volume); err != nil {
+		return audioActionResponse{Error: err.Error()}
+	}
+	return audioActionResponse{Snapshot: svc.Snapshot()}
+}
+
+func handleAudioSourceBalance(svc *audiosvc.Service, req audioActionRequest) audioActionResponse {
+	if svc == nil {
+		return audioActionResponse{Error: "audio service unavailable"}
+	}
+	if err := svc.SetSourceBalance(req.Index, req.Volume); err != nil {
 		return audioActionResponse{Error: err.Error()}
 	}
 	return audioActionResponse{Snapshot: svc.Snapshot()}

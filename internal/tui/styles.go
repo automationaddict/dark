@@ -1,8 +1,12 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/theme"
 )
 
@@ -335,6 +339,43 @@ func renderContentPane(width, height int, body string) string {
 		Width(width).MaxWidth(width).
 		Height(height).MaxHeight(height).
 		Render(body)
+}
+
+// renderScrollableContentPane renders body with vertical scrolling support.
+// It slices the body lines by the scroll offset and updates state.ContentScrollMax.
+func renderScrollableContentPane(s *core.State, width, height int, body string) string {
+	lines := strings.Split(body, "\n")
+	// contentStyle has Padding(1, 3) = 2 vertical padding rows
+	viewH := height - 2
+	if viewH < 1 {
+		viewH = 1
+	}
+	maxScroll := len(lines) - viewH
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	s.ContentScrollMax = maxScroll
+	if s.ContentScroll > maxScroll {
+		s.ContentScroll = maxScroll
+	}
+
+	start := s.ContentScroll
+	end := start + viewH
+	if end > len(lines) {
+		end = len(lines)
+	}
+	visible := strings.Join(lines[start:end], "\n")
+
+	if maxScroll > 0 {
+		scrollHint := lipgloss.NewStyle().Foreground(colorDim).Render(
+			fmt.Sprintf(" ↕ %d/%d", s.ContentScroll+1, maxScroll+1))
+		visible = visible + "\n" + scrollHint
+	}
+
+	return contentStyle.
+		Width(width).MaxWidth(width).
+		Height(height).MaxHeight(height).
+		Render(visible)
 }
 
 // renderSidebarPane renders body inside sidebarStyle with exact height.

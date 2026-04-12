@@ -8,6 +8,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/display"
+	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/power"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
@@ -36,9 +37,11 @@ const (
 )
 
 type State struct {
-	ActiveTab        TabID
-	SettingsFocus    int
-	SidebarItemWidth int
+	ActiveTab          TabID
+	SettingsFocus      int
+	SidebarItemWidth   int
+	ContentScroll      int
+	ContentScrollMax   int
 	Rebuilding       bool
 	BuildError       string
 	RestartRequested bool
@@ -104,6 +107,9 @@ type State struct {
 	Power       power.Snapshot
 	PowerLoaded bool
 
+	InputDevices       inputsvc.Snapshot
+	InputDevicesLoaded bool
+
 	Appstore              appstore.Snapshot
 	AppstoreLoaded        bool
 	AppstoreCategoryIdx   int
@@ -168,6 +174,11 @@ func NewState(start TabID, binPath string) *State {
 // bus subscriber goroutine via tea.Program.Send.
 func (s *State) SetBusConnected(ok bool) {
 	s.BusConnected = ok
+}
+
+func (s *State) SetInputDevices(snap inputsvc.Snapshot) {
+	s.InputDevices = snap
+	s.InputDevicesLoaded = true
 }
 
 func (s *State) SetPower(snap power.Snapshot) {
@@ -303,6 +314,10 @@ func (s *State) FocusContent() {
 		}
 	case "power":
 		if s.PowerLoaded {
+			s.ContentFocused = true
+		}
+	case "input":
+		if s.InputDevicesLoaded {
 			s.ContentFocused = true
 		}
 	case "network":
@@ -580,6 +595,16 @@ func (s *State) refreshSearchMatches() {
 	s.HelpMatchIdx = 0
 }
 
+func (s *State) ScrollContent(delta int) {
+	s.ContentScroll += delta
+	if s.ContentScroll < 0 {
+		s.ContentScroll = 0
+	}
+	if s.ContentScroll > s.ContentScrollMax {
+		s.ContentScroll = s.ContentScrollMax
+	}
+}
+
 func (s *State) ResizeSidebar(delta int) {
 	w := s.SidebarItemWidth + delta
 	if w < SidebarItemWidthMin {
@@ -605,4 +630,5 @@ func (s *State) MoveSettingsFocus(delta int) {
 		return
 	}
 	s.SettingsFocus = (s.SettingsFocus + delta + n) % n
+	s.ContentScroll = 0
 }

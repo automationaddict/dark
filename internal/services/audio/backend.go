@@ -14,8 +14,10 @@ type Backend interface {
 
 	SetSinkVolume(index uint32, pct int) error
 	SetSinkMute(index uint32, mute bool) error
+	SetSinkBalance(index uint32, balance int) error
 	SetSourceVolume(index uint32, pct int) error
 	SetSourceMute(index uint32, mute bool) error
+	SetSourceBalance(index uint32, balance int) error
 	SetDefaultSink(name string) error
 	SetDefaultSource(name string) error
 	SetCardProfile(cardIndex uint32, profile string) error

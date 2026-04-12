@@ -205,6 +205,7 @@ func main() {
 	publishAudio := wireAudio(nc, audioService, dn)
 	publishDisplay := wireDisplay(nc, displayService, dn)
 	publishNetwork := wireNetwork(nc, networkService, dn)
+	publishInput := wireInput(nc, dn)
 	publishPower := wirePower(nc, dn)
 	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog, dn)
 
@@ -243,6 +244,7 @@ func main() {
 	publishAudio()
 	publishDisplay()
 	publishNetwork()
+	publishInput()
 	publishPower()
 	publishAppstore()
 
@@ -258,6 +260,7 @@ func main() {
 				publishAudio()
 				publishDisplay()
 				publishNetwork()
+				publishInput()
 				publishPower()
 				publishAppstore()
 				continue

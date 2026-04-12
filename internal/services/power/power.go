@@ -1,6 +1,7 @@
 package power
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,8 +26,26 @@ type Snapshot struct {
 	Fans         []Fan        `json:"fans"`
 	GPU          GPUInfo      `json:"gpu"`
 	Peripherals  []Peripheral `json:"peripherals"`
-	SleepStates  []string     `json:"sleep_states"`
-	MemSleep     string       `json:"mem_sleep"`
+	SleepStates  []string       `json:"sleep_states"`
+	MemSleep     string         `json:"mem_sleep"`
+	Idle         IdleConfig     `json:"idle"`
+	Buttons      SystemButtons  `json:"buttons"`
+}
+
+type IdleConfig struct {
+	Running          bool `json:"running"`
+	ScreensaverSec   int  `json:"screensaver_sec"`
+	LockSec          int  `json:"lock_sec"`
+	DPMSOffSec       int  `json:"dpms_off_sec"`
+	KbdBacklightSec  int  `json:"kbd_backlight_sec"`
+}
+
+type SystemButtons struct {
+	PowerKeyAction string `json:"power_key_action"`
+	LidSwitch      string `json:"lid_switch"`
+	LidSwitchPower string `json:"lid_switch_power"`
+	LidSwitchDocked string `json:"lid_switch_docked"`
+	ShowBatteryPct bool   `json:"show_battery_pct"`
 }
 
 type Battery struct {
@@ -99,6 +118,8 @@ func ReadSnapshot() Snapshot {
 	s.GPU = readGPU()
 	s.Peripherals = readPeripherals()
 	s.SleepStates, s.MemSleep = readSleep()
+	s.Idle = readIdleConfig()
+	s.Buttons = readSystemButtons()
 	return s
 }
 
@@ -419,6 +440,160 @@ func readSleep() ([]string, string) {
 		}
 	}
 	return stateList, active
+}
+
+// --- Idle config from hypridle.conf ---
+
+func readIdleConfig() IdleConfig {
+	cfg := IdleConfig{}
+
+	// Check if hypridle is running
+	entries, _ := os.ReadDir("/proc")
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		comm, err := os.ReadFile(filepath.Join("/proc", e.Name(), "comm"))
+		if err != nil {
+			continue
+		}
+		if strings.TrimSpace(string(comm)) == "hypridle" {
+			cfg.Running = true
+			break
+		}
+	}
+
+	home := os.Getenv("HOME")
+	path := filepath.Join(home, ".config", "hypr", "hypridle.conf")
+	f, err := os.Open(path)
+	if err != nil {
+		return cfg
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	inListener := false
+	var currentTimeout int
+	var currentOnTimeout string
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
+		}
+
+		if strings.HasPrefix(line, "listener") && strings.Contains(line, "{") {
+			inListener = true
+			currentTimeout = 0
+			currentOnTimeout = ""
+			continue
+		}
+
+		if line == "}" && inListener {
+			inListener = false
+			if currentTimeout > 0 {
+				lower := strings.ToLower(currentOnTimeout)
+				switch {
+				case strings.Contains(lower, "screensaver"):
+					cfg.ScreensaverSec = currentTimeout
+				case strings.Contains(lower, "lock"):
+					cfg.LockSec = currentTimeout
+				case strings.Contains(lower, "dpms off"):
+					cfg.DPMSOffSec = currentTimeout
+				case strings.Contains(lower, "kbd_backlight") || strings.Contains(lower, "brightnessctl"):
+					cfg.KbdBacklightSec = currentTimeout
+				}
+			}
+			continue
+		}
+
+		if !inListener {
+			continue
+		}
+
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		val = strings.SplitN(val, "#", 2)[0]
+		val = strings.TrimSpace(val)
+
+		switch key {
+		case "timeout":
+			v, _ := strconv.Atoi(val)
+			currentTimeout = v
+		case "on-timeout":
+			currentOnTimeout = val
+		}
+	}
+
+	return cfg
+}
+
+// --- System buttons from logind.conf + waybar ---
+
+func readSystemButtons() SystemButtons {
+	sb := SystemButtons{
+		PowerKeyAction:  "suspend",
+		LidSwitch:       "suspend",
+		LidSwitchPower:  "suspend",
+		LidSwitchDocked: "ignore",
+	}
+
+	f, err := os.Open("/etc/systemd/logind.conf")
+	if err == nil {
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if strings.HasPrefix(line, "#") || line == "" {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+			switch key {
+			case "HandlePowerKey":
+				sb.PowerKeyAction = val
+			case "HandleLidSwitch":
+				sb.LidSwitch = val
+			case "HandleLidSwitchExternalPower":
+				sb.LidSwitchPower = val
+			case "HandleLidSwitchDocked":
+				sb.LidSwitchDocked = val
+			}
+		}
+	}
+
+	sb.ShowBatteryPct = detectBatteryPctVisible()
+	return sb
+}
+
+func detectBatteryPctVisible() bool {
+	home := os.Getenv("HOME")
+	path := filepath.Join(home, ".config", "waybar", "config.jsonc")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	content := string(data)
+	// The default format shows {capacity}% — if discharging format
+	// omits it, the percentage is effectively hidden during use.
+	// Check if the main format includes {capacity}.
+	if strings.Contains(content, `"format-discharging"`) {
+		for _, line := range strings.Split(content, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.Contains(line, `"format-discharging"`) {
+				return strings.Contains(line, "{capacity}")
+			}
+		}
+	}
+	return true
 }
 
 // --- sysfs helpers ---

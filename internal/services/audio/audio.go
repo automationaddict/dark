@@ -18,6 +18,7 @@ type Device struct {
 	Volume      int    `json:"volume"`   // 0 - 100+ (over-amp goes above 100)
 	VolumeRaw   uint32 `json:"volume_raw"` // raw PulseAudio Volume for round-tripping
 	Channels    int    `json:"channels"` // number of channels so SetVolume can build a correct ChannelVolumes
+	Balance     int    `json:"balance"`  // -100 (full left) to +100 (full right), 0 = center
 	IsDefault   bool   `json:"is_default"`
 	State       string `json:"state,omitempty"`
 
@@ -237,6 +238,13 @@ func (s *Service) SetSinkMute(index uint32, mute bool) error {
 	return s.backend.SetSinkMute(index, mute)
 }
 
+func (s *Service) SetSinkBalance(index uint32, balance int) error {
+	if s.backend == nil {
+		return ErrBackendUnsupported
+	}
+	return s.backend.SetSinkBalance(index, balance)
+}
+
 func (s *Service) SetSourceVolume(index uint32, pct int) error {
 	if s.backend == nil {
 		return ErrBackendUnsupported
@@ -249,6 +257,13 @@ func (s *Service) SetSourceMute(index uint32, mute bool) error {
 		return ErrBackendUnsupported
 	}
 	return s.backend.SetSourceMute(index, mute)
+}
+
+func (s *Service) SetSourceBalance(index uint32, balance int) error {
+	if s.backend == nil {
+		return ErrBackendUnsupported
+	}
+	return s.backend.SetSourceBalance(index, balance)
 }
 
 func (s *Service) SetDefaultSink(name string) error {

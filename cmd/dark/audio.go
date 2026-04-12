@@ -24,6 +24,11 @@ func newAudioActions(nc *nats.Conn) tui.AudioActions {
 				return audioIndexRequest(nc, bus.SubjectAudioSinkMuteCmd, index, 0, &mute, "")
 			}
 		},
+		SetSinkBalance: func(index uint32, balance int) tea.Cmd {
+			return func() tea.Msg {
+				return audioIndexRequest(nc, bus.SubjectAudioSinkBalanceCmd, index, balance, nil, "")
+			}
+		},
 		SetSourceVolume: func(index uint32, pct int) tea.Cmd {
 			return func() tea.Msg {
 				return audioIndexRequest(nc, bus.SubjectAudioSourceVolumeCmd, index, pct, nil, "")
@@ -32,6 +37,11 @@ func newAudioActions(nc *nats.Conn) tui.AudioActions {
 		SetSourceMute: func(index uint32, mute bool) tea.Cmd {
 			return func() tea.Msg {
 				return audioIndexRequest(nc, bus.SubjectAudioSourceMuteCmd, index, 0, &mute, "")
+			}
+		},
+		SetSourceBalance: func(index uint32, balance int) tea.Cmd {
+			return func() tea.Msg {
+				return audioIndexRequest(nc, bus.SubjectAudioSourceBalanceCmd, index, balance, nil, "")
 			}
 		},
 		SetDefaultSink: func(name string) tea.Cmd {

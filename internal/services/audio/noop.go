@@ -13,8 +13,10 @@ func (n *noopBackend) Levels() Levels                     { return Levels{} }
 func (n *noopBackend) Close()                             {}
 func (n *noopBackend) SetSinkVolume(uint32, int) error      { return ErrBackendUnsupported }
 func (n *noopBackend) SetSinkMute(uint32, bool) error       { return ErrBackendUnsupported }
+func (n *noopBackend) SetSinkBalance(uint32, int) error     { return ErrBackendUnsupported }
 func (n *noopBackend) SetSourceVolume(uint32, int) error    { return ErrBackendUnsupported }
 func (n *noopBackend) SetSourceMute(uint32, bool) error     { return ErrBackendUnsupported }
+func (n *noopBackend) SetSourceBalance(uint32, int) error   { return ErrBackendUnsupported }
 func (n *noopBackend) SetDefaultSink(string) error          { return ErrBackendUnsupported }
 func (n *noopBackend) SetDefaultSource(string) error        { return ErrBackendUnsupported }
 func (n *noopBackend) SetCardProfile(uint32, string) error      { return ErrBackendUnsupported }

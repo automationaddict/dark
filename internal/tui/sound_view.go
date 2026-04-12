@@ -155,6 +155,9 @@ func renderAudioDeviceInfoBox(s *core.State, d audio.Device, isSink bool, total 
 
 	sections := []string{strings.Join(propLines, "\n")}
 	sections = append(sections, renderAudioVolumeSlider(s, d, isSink, innerWidth))
+	if balSlider := renderAudioBalanceSlider(d, innerWidth); balSlider != "" {
+		sections = append(sections, balSlider)
+	}
 
 	if card, ok := s.Audio.CardByIndex(d.CardIndex); ok {
 		sections = append(sections, renderAudioCardHeader(card))
@@ -434,6 +437,69 @@ func renderAudioVolumeSlider(s *core.State, d audio.Device, isSink bool, width i
 	meter := renderAudioStereoMeter(levels[0], levels[1], meterWidth)
 
 	return strings.Repeat(" ", indent) + label + filledPart + emptyPart + strings.Repeat(" ", meterGap) + meter
+}
+
+// renderAudioBalanceSlider shows a center-anchored balance indicator.
+// The bar is split in half; the filled portion extends from center
+// toward left or right depending on the balance value.
+func renderAudioBalanceSlider(d audio.Device, width int) string {
+	if d.Channels < 2 {
+		return ""
+	}
+
+	const indent = 3
+	const labelWidth = 5
+	barWidth := width - indent - labelWidth - 2
+	if barWidth < 10 {
+		barWidth = 10
+	}
+
+	bal := d.Balance
+	if bal < -100 {
+		bal = -100
+	}
+	if bal > 100 {
+		bal = 100
+	}
+
+	half := barWidth / 2
+	center := half
+
+	label := placeholderStyle.Render(fmt.Sprintf("%+4d ", bal))
+
+	bar := make([]rune, barWidth)
+	for i := range bar {
+		bar[i] = '┄'
+	}
+
+	if bal < 0 {
+		filled := -bal * half / 100
+		for i := center - filled; i < center; i++ {
+			if i >= 0 {
+				bar[i] = '─'
+			}
+		}
+	} else if bal > 0 {
+		filled := bal * half / 100
+		for i := center; i < center+filled && i < barWidth; i++ {
+			bar[i] = '─'
+		}
+	}
+
+	var rendered strings.Builder
+	for i, r := range bar {
+		ch := string(r)
+		if i == center {
+			rendered.WriteString(lipgloss.NewStyle().Foreground(colorText).Render("│"))
+		} else if r == '─' {
+			rendered.WriteString(audioBarFilledStyle.Render(ch))
+		} else {
+			rendered.WriteString(audioBarEmptyStyle.Render(ch))
+		}
+	}
+
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	return strings.Repeat(" ", indent) + label + dim.Render("L") + rendered.String() + dim.Render("R")
 }
 
 // renderAudioStereoMeter draws a center-anchored stereo VU meter.
