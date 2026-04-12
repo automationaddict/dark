@@ -122,41 +122,40 @@ func renderAppstoreResults(s *core.State, width, height int) string {
 		title = "Search: " + s.AppstoreResults.Query.Text
 	}
 
-	if !s.AppstoreResultsLoaded {
-		body := placeholderStyle.Render(
-			"Press Enter on a category or / to search.")
-		return groupBoxSections(title, []string{body}, width, border)
-	}
-
-	pkgs := s.AppstoreResults.Packages
-	if len(pkgs) == 0 {
-		body := placeholderStyle.Render("No packages found.")
-		return groupBoxSections(title, []string{body}, width, border)
-	}
-
+	// Always produce a fixed-height body so the box dimensions never
+	// change between states. Placeholder, empty, and populated views
+	// all render into the same maxRows-line block. This prevents the
+	// layout shift that occurs when a small placeholder box gets
+	// replaced by a tall results box.
 	maxRows := height - 2
 	if maxRows < 1 {
 		maxRows = 1
 	}
-	innerW := width - 4
-	rows := make([]string, 0, len(pkgs))
 
-	// Simple windowing: keep the selected row on screen. We don't try
-	// to animate or preserve a center offset — the user's focus is
-	// what matters, everything else follows it.
-	start := 0
-	if s.AppstoreResultIdx >= maxRows {
-		start = s.AppstoreResultIdx - maxRows + 1
-	}
-	end := start + maxRows
-	if end > len(pkgs) {
-		end = len(pkgs)
+	rows := make([]string, 0, maxRows)
+
+	if !s.AppstoreResultsLoaded {
+		rows = append(rows, placeholderStyle.Render(
+			"Press Enter on a category or / to search."))
+	} else if len(s.AppstoreResults.Packages) == 0 {
+		rows = append(rows, placeholderStyle.Render("No packages found."))
+	} else {
+		pkgs := s.AppstoreResults.Packages
+		innerW := width - 4
+
+		start := 0
+		if s.AppstoreResultIdx >= maxRows {
+			start = s.AppstoreResultIdx - maxRows + 1
+		}
+		end := start + maxRows
+		if end > len(pkgs) {
+			end = len(pkgs)
+		}
+		for i := start; i < end; i++ {
+			rows = append(rows, renderAppstoreResultRow(pkgs[i], i == s.AppstoreResultIdx, innerW))
+		}
 	}
 
-	for i := start; i < end; i++ {
-		rows = append(rows, renderAppstoreResultRow(pkgs[i], i == s.AppstoreResultIdx, innerW))
-	}
-	// Pad to full height so the box doesn't shrink.
 	for len(rows) < maxRows {
 		rows = append(rows, "")
 	}
