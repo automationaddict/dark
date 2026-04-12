@@ -18,6 +18,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
+	"github.com/johnnelson/dark/internal/services/weblink"
 	"github.com/johnnelson/dark/internal/services/wifi"
 )
 
@@ -74,6 +75,9 @@ type SysInfoMsg sysinfo.SystemInfo
 // WifiMsg is dispatched whenever darkd publishes a wifi adapter snapshot.
 type WifiMsg wifi.Snapshot
 
+// WebLinksMsg carries the list of installed web apps, loaded from .desktop files.
+type WebLinksMsg []weblink.WebApp
+
 // BusStatusMsg flips the connected/disconnected indicator. Sent from the
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
@@ -111,7 +115,16 @@ func (m *Model) notifyError(section, message string) {
 	})
 }
 
-func (m Model) Init() tea.Cmd { return m.spinner.Tick }
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(m.spinner.Tick, loadWebLinksCmd())
+}
+
+func loadWebLinksCmd() tea.Cmd {
+	return func() tea.Msg {
+		apps, _ := weblink.ListWebApps()
+		return WebLinksMsg(apps)
+	}
+}
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -127,6 +140,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case SysInfoMsg:
 		m.state.SetSysInfo(sysinfo.SystemInfo(msg))
+		return m, nil
+
+	case WebLinksMsg:
+		m.state.SetWebLinks([]weblink.WebApp(msg))
 		return m, nil
 
 	case WifiMsg:
@@ -566,6 +583,13 @@ func (m *Model) moveSelection(delta int) {
 			m.state.MoveAppstoreCategory(delta)
 		}
 		return
+	case core.TabF3:
+		if m.state.ContentFocused {
+			m.state.MoveOmarchyFocus(delta)
+		} else {
+			m.state.MoveOmarchySidebar(delta)
+		}
+		return
 	case core.TabSettings:
 	default:
 		return
@@ -705,6 +729,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "enter":
 		if !m.state.ContentFocused {
+			if m.state.ActiveTab == core.TabF3 {
+				m.state.ContentFocused = true
+				return m, nil
+			}
 			if m.state.ActiveTab == core.TabF2 {
 				m.state.ContentFocused = true
 				m.state.AppstoreFocus = core.AppstoreFocusResults
@@ -718,6 +746,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch {
+		case m.state.ActiveTab == core.TabF3:
+			return m, m.triggerWebLinkOpen()
 		case m.state.ActiveTab == core.TabF2:
 			// Enter in results → open detail for highlighted package.
 			if m.state.AppstoreFocus == core.AppstoreFocusResults && !m.state.AppstoreDetailOpen {
@@ -806,6 +836,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "d":
+		if m.state.ActiveTab == core.TabF3 {
+			return m, m.triggerWebLinkRemove()
+		}
 		if cmd := m.triggerWifiDisconnect(); cmd != nil {
 			return m, cmd
 		}
@@ -836,6 +869,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerNetworkRouteAdd(); cmd != nil {
 			return m, cmd
 		}
+		if m.state.ActiveTab == core.TabF3 {
+			return m, m.triggerWebLinkAdd()
+		}
 	case "h":
 		if cmd := m.triggerWifiConnectHidden(); cmd != nil {
 			return m, cmd
@@ -844,6 +880,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "e":
+		if m.state.ActiveTab == core.TabF3 {
+			return m, m.triggerWebLinkEdit()
+		}
 		if cmd := m.triggerNetworkEditStatic(); cmd != nil {
 			return m, cmd
 		}
@@ -991,6 +1030,8 @@ func (m Model) View() string {
 		body = renderSettings(m.state, width, bodyHeight)
 	case core.TabF2:
 		body = renderAppStoreTab(m.state, width, bodyHeight, m.spinner.View())
+	case core.TabF3:
+		body = renderOmarchyTab(m.state, width, bodyHeight)
 	default:
 		body = renderEmpty(m.state, width, bodyHeight)
 	}
