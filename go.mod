@@ -13,6 +13,7 @@ require (
 	github.com/nats-io/nats-server/v2 v2.12.6
 	github.com/nats-io/nats.go v1.50.0
 	github.com/yuin/gopher-lua v1.1.2
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

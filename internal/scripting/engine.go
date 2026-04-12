@@ -55,12 +55,14 @@ func New(logger *slog.Logger) *Engine {
 		SkipOpenLibs: false,
 	})
 	userDir := userScriptDir()
-	return &Engine{
+	e := &Engine{
 		logger:  logger,
 		vm:      vm,
 		userDir: userDir,
 		loaded:  make(map[string]bool),
 	}
+	e.registerYAML()
+	return e
 }
 
 // Close shuts down the Lua VM. Safe to call multiple times.
