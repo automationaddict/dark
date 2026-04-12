@@ -90,11 +90,11 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 	publish := func() {
 		data, err := json.Marshal(snapshotAudio(svc))
 		if err != nil {
-			slog.Error("marshal failed", "service", "audio", "error", err)
+			dn.Error("Sound", "marshal failed: "+err.Error())
 			return
 		}
 		if err := nc.Publish(bus.SubjectAudioDevices, data); err != nil {
-			slog.Error("publish failed", "service", "audio", "error", err)
+			dn.Error("Sound", "publish failed: "+err.Error())
 		}
 	}
 

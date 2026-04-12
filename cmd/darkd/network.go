@@ -64,11 +64,11 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service, dn *daemonNotifier) func() 
 	return func() {
 		data, err := json.Marshal(snapshotNetwork(svc))
 		if err != nil {
-			slog.Error("marshal failed", "service", "network", "error", err)
+			dn.Error("Network", "marshal failed: "+err.Error())
 			return
 		}
 		if err := nc.Publish(bus.SubjectNetworkSnapshot, data); err != nil {
-			slog.Error("publish failed", "service", "network", "error", err)
+			dn.Error("Network", "publish failed: "+err.Error())
 		}
 	}
 }

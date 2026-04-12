@@ -227,8 +227,8 @@ func main() {
 
 	// Publish initial snapshots immediately so any subscriber that
 	// connects in the gap before the first tick still gets pushed data.
-	publishSysInfo(nc, binPath)
-	publishWifi(nc, wifiService)
+	publishSysInfo(nc, binPath, dn)
+	publishWifi(nc, wifiService, dn)
 	publishBluetooth()
 	publishAudio()
 	publishNetwork()
@@ -249,9 +249,9 @@ func main() {
 			})
 			_ = nc.Publish(bus.SubjectDaemonHeartbeat, data)
 		case <-sysTick.C:
-			publishSysInfo(nc, binPath)
+			publishSysInfo(nc, binPath, dn)
 		case <-wifiTick.C:
-			publishWifi(nc, wifiService)
+			publishWifi(nc, wifiService, dn)
 		case <-bluetoothTick.C:
 			publishBluetooth()
 		case <-audioTick.C:
@@ -406,24 +406,24 @@ func handlePower(svc *wifisvc.Service, req wifiActionRequest) wifiActionResponse
 	return wifiActionResponse{Snapshot: svc.Snapshot()}
 }
 
-func publishSysInfo(nc *nats.Conn, binPath string) {
+func publishSysInfo(nc *nats.Conn, binPath string, dn *daemonNotifier) {
 	data, err := json.Marshal(sysinfo.Gather(binPath))
 	if err != nil {
-		slog.Error("marshal failed", "service", "sysinfo", "error", err)
+		dn.Error("System", "marshal failed: "+err.Error())
 		return
 	}
 	if err := nc.Publish(bus.SubjectSystemInfo, data); err != nil {
-		slog.Error("publish failed", "service", "sysinfo", "error", err)
+		dn.Error("System", "publish failed: "+err.Error())
 	}
 }
 
-func publishWifi(nc *nats.Conn, svc *wifisvc.Service) {
+func publishWifi(nc *nats.Conn, svc *wifisvc.Service, dn *daemonNotifier) {
 	data, err := json.Marshal(snapshotWifi(svc))
 	if err != nil {
-		slog.Error("marshal failed", "service", "wifi", "error", err)
+		dn.Error("Wi-Fi", "marshal failed: "+err.Error())
 		return
 	}
 	if err := nc.Publish(bus.SubjectWifiAdapters, data); err != nil {
-		slog.Error("publish failed", "service", "wifi", "error", err)
+		dn.Error("Wi-Fi", "publish failed: "+err.Error())
 	}
 }

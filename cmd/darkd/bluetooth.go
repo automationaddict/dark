@@ -81,11 +81,11 @@ func wireBluetooth(nc *nats.Conn, svc *btsvc.Service, dn *daemonNotifier) func()
 	return func() {
 		data, err := json.Marshal(snapshotBluetooth(svc))
 		if err != nil {
-			slog.Error("marshal failed", "service", "bluetooth", "error", err)
+			dn.Error("Bluetooth", "marshal failed: "+err.Error())
 			return
 		}
 		if err := nc.Publish(bus.SubjectBluetoothAdapters, data); err != nil {
-			slog.Error("publish failed", "service", "bluetooth", "error", err)
+			dn.Error("Bluetooth", "publish failed: "+err.Error())
 		}
 	}
 }
