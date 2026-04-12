@@ -29,7 +29,7 @@ func renderAppstoreSearchBar(s *core.State, width int) string {
 
 	right := appstoreAURBadge(s.AppstoreIncludeAUR)
 	rightW := lipgloss.Width(right)
-	leftW := width - rightW - 4
+	leftW := width - rightW - 6
 	if leftW < 10 {
 		leftW = 10
 	}
