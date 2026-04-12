@@ -23,7 +23,7 @@ type networkActionResponse struct {
 // wireNetwork registers the network NATS handlers and returns a
 // publisher closure the daemon's main ticker uses for periodic
 // snapshot pushes.
-func wireNetwork(nc *nats.Conn, svc *netsvc.Service) func() {
+func wireNetwork(nc *nats.Conn, svc *netsvc.Service, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectNetworkSnapshotCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(snapshotNetwork(svc))
 		_ = m.Respond(data)
@@ -34,13 +34,22 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service) func() {
 	register := func(subject string, handler func(*netsvc.Service, networkActionRequest) networkActionResponse) {
 		if _, err := nc.Subscribe(subject, func(m *nats.Msg) {
 			var req networkActionRequest
-			_ = json.Unmarshal(m.Data, &req)
+			if err := json.Unmarshal(m.Data, &req); err != nil {
+				resp := networkActionResponse{Error: "malformed request: " + err.Error()}
+				data, _ := json.Marshal(resp)
+				_ = m.Respond(data)
+				return
+			}
 			resp := handler(svc, req)
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			if err := m.Respond(data); err != nil {
+				dn.Error("Network", "failed to send response: "+err.Error())
+			}
 			if resp.Error == "" {
 				snapData, _ := json.Marshal(resp.Snapshot)
-				_ = nc.Publish(bus.SubjectNetworkSnapshot, snapData)
+				if err := nc.Publish(bus.SubjectNetworkSnapshot, snapData); err != nil {
+					dn.Error("Network", "failed to publish snapshot: "+err.Error())
+				}
 			}
 		}); err != nil {
 			log.Fatalf("subscribe %s: %v", subject, err)

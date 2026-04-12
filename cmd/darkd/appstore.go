@@ -41,7 +41,7 @@ func appstoreLogger() *slog.Logger {
 // service, encodes a response, and (for mutating calls, which in
 // phase 1 means Refresh only) republishes the refreshed snapshot on
 // the catalog event subject.
-func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger) func() {
+func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectAppstoreCatalogCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(svc.Snapshot())
 		_ = m.Respond(data)
@@ -52,7 +52,10 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger) 
 	if _, err := nc.Subscribe(bus.SubjectAppstoreSearchCmd, func(m *nats.Msg) {
 		var req appstoresvc.SearchQuery
 		if err := json.Unmarshal(m.Data, &req); err != nil {
-			logger.Warn("appstore: malformed search request", "err", err)
+			resp := appstoreSearchResponse{Error: "malformed search request: " + err.Error()}
+			data, _ := json.Marshal(resp)
+			_ = m.Respond(data)
+			return
 		}
 		res, err := svc.Search(req)
 		resp := appstoreSearchResponse{Result: res}
@@ -68,7 +71,10 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger) 
 	if _, err := nc.Subscribe(bus.SubjectAppstoreDetailCmd, func(m *nats.Msg) {
 		var req appstoresvc.DetailRequest
 		if err := json.Unmarshal(m.Data, &req); err != nil {
-			logger.Warn("appstore: malformed detail request", "err", err)
+			resp := appstoreDetailResponse{Error: "malformed detail request: " + err.Error()}
+			data, _ := json.Marshal(resp)
+			_ = m.Respond(data)
+			return
 		}
 		detail, err := svc.Detail(req)
 		resp := appstoreDetailResponse{Detail: detail}
@@ -88,10 +94,14 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger) 
 		}
 		resp.Snapshot = svc.Snapshot()
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		if err := m.Respond(data); err != nil {
+			dn.Error("App Store", "failed to send response: "+err.Error())
+		}
 		if resp.Error == "" {
 			snapData, _ := json.Marshal(resp.Snapshot)
-			_ = nc.Publish(bus.SubjectAppstoreCatalog, snapData)
+			if err := nc.Publish(bus.SubjectAppstoreCatalog, snapData); err != nil {
+				dn.Error("App Store", "failed to publish catalog: "+err.Error())
+			}
 		}
 	}); err != nil {
 		log.Fatalf("subscribe appstore refresh cmd: %v", err)

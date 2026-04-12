@@ -28,7 +28,7 @@ type bluetoothActionResponse struct {
 
 // wireBluetooth registers all bluetooth NATS handlers on nc. It returns
 // a publisher closure the ticker loop uses to push periodic snapshots.
-func wireBluetooth(nc *nats.Conn, svc *btsvc.Service) func() {
+func wireBluetooth(nc *nats.Conn, svc *btsvc.Service, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectBluetoothAdaptersCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(snapshotBluetooth(svc))
 		_ = m.Respond(data)
@@ -39,13 +39,22 @@ func wireBluetooth(nc *nats.Conn, svc *btsvc.Service) func() {
 	register := func(subject string, handler func(*btsvc.Service, bluetoothActionRequest) bluetoothActionResponse) {
 		if _, err := nc.Subscribe(subject, func(m *nats.Msg) {
 			var req bluetoothActionRequest
-			_ = json.Unmarshal(m.Data, &req)
+			if err := json.Unmarshal(m.Data, &req); err != nil {
+				resp := bluetoothActionResponse{Error: "malformed request: " + err.Error()}
+				data, _ := json.Marshal(resp)
+				_ = m.Respond(data)
+				return
+			}
 			resp := handler(svc, req)
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			if err := m.Respond(data); err != nil {
+				dn.Error("Bluetooth", "failed to send response: "+err.Error())
+			}
 			if resp.Error == "" {
 				snapData, _ := json.Marshal(resp.Snapshot)
-				_ = nc.Publish(bus.SubjectBluetoothAdapters, snapData)
+				if err := nc.Publish(bus.SubjectBluetoothAdapters, snapData); err != nil {
+					dn.Error("Bluetooth", "failed to publish snapshot: "+err.Error())
+				}
 			}
 		}); err != nil {
 			log.Fatalf("subscribe %s: %v", subject, err)

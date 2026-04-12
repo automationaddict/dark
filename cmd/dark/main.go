@@ -151,9 +151,24 @@ func main() {
 	// Subscribe to system snapshots and forward them into the bubble tea
 	// program. Bubble tea is goroutine-safe through Program.Send so this
 	// is the standard pattern for piping external events into the model.
+	// warnDecode fires a debounced notification when a subscription
+	// callback can't unmarshal a message from darkd — typically means
+	// the daemon and client are running different builds.
+	warnDecode := func(section string, err error) {
+		if notifier != nil {
+			notifier.Send(notify.Message{
+				Summary: "dark · " + section,
+				Body:    "failed to decode update from daemon — try ctrl+r to rebuild",
+				Urgency: notify.UrgencyNormal,
+				Icon:    "dialog-warning",
+			})
+		}
+	}
+
 	sub, err := nc.Subscribe(bus.SubjectSystemInfo, func(m *nats.Msg) {
 		var info sysinfo.SystemInfo
 		if err := json.Unmarshal(m.Data, &info); err != nil {
+			warnDecode("System", err)
 			return
 		}
 		p.Send(tui.SysInfoMsg(info))
@@ -167,6 +182,7 @@ func main() {
 	wifiSub, err := nc.Subscribe(bus.SubjectWifiAdapters, func(m *nats.Msg) {
 		var snap wifi.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Wi-Fi", err)
 			return
 		}
 		p.Send(tui.WifiMsg(snap))
@@ -180,6 +196,7 @@ func main() {
 	btSub, err := nc.Subscribe(bus.SubjectBluetoothAdapters, func(m *nats.Msg) {
 		var snap btsvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Bluetooth", err)
 			return
 		}
 		p.Send(tui.BluetoothMsg(snap))
@@ -193,6 +210,7 @@ func main() {
 	audioSub, err := nc.Subscribe(bus.SubjectAudioDevices, func(m *nats.Msg) {
 		var snap audiosvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Sound", err)
 			return
 		}
 		p.Send(tui.AudioMsg(snap))
@@ -206,6 +224,8 @@ func main() {
 	audioLevelsSub, err := nc.Subscribe(bus.SubjectAudioLevels, func(m *nats.Msg) {
 		var levels audiosvc.Levels
 		if err := json.Unmarshal(m.Data, &levels); err != nil {
+			// Levels arrive at 20 Hz — never notify for decode failures
+			// on this high-frequency channel; just drop silently.
 			return
 		}
 		p.Send(tui.AudioLevelsMsg(levels))
@@ -219,6 +239,7 @@ func main() {
 	networkSub, err := nc.Subscribe(bus.SubjectNetworkSnapshot, func(m *nats.Msg) {
 		var snap netsvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Network", err)
 			return
 		}
 		p.Send(tui.NetworkMsg(snap))
@@ -232,6 +253,7 @@ func main() {
 	appstoreSub, err := nc.Subscribe(bus.SubjectAppstoreCatalog, func(m *nats.Msg) {
 		var snap appstoresvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("App Store", err)
 			return
 		}
 		p.Send(tui.AppstoreMsg(snap))

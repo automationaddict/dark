@@ -74,14 +74,17 @@ func main() {
 		binPath = os.Args[0]
 	}
 
+	dn := newDaemonNotifier()
+	defer dn.Close()
+
 	wifiService, err := wifisvc.NewService()
 	if err != nil {
-		log.Printf("wifi: %v (falling back to sysfs-only detection)", err)
+		dn.Warn("Wi-Fi", fmt.Sprintf("%v — falling back to sysfs-only detection", err))
 	}
 	if wifiService != nil {
 		defer wifiService.Close()
 		if err := wifiService.StartAgent(); err != nil {
-			log.Printf("wifi: failed to register iwd agent: %v (unknown-network connects will fail)", err)
+			dn.Warn("Wi-Fi", fmt.Sprintf("iwd agent failed: %v — unknown-network connects will fail", err))
 		} else {
 			log.Printf("wifi: iwd agent registered")
 		}
@@ -89,12 +92,12 @@ func main() {
 
 	bluetoothService, err := btsvc.NewService()
 	if err != nil {
-		log.Printf("bluetooth: %v", err)
+		dn.Warn("Bluetooth", fmt.Sprintf("%v — bluetooth controls unavailable", err))
 	}
 	if bluetoothService != nil {
 		defer bluetoothService.Close()
 		if err := bluetoothService.StartAgent(); err != nil {
-			log.Printf("bluetooth: failed to register bluez agent: %v (pairing prompts will not be handled)", err)
+			dn.Warn("Bluetooth", fmt.Sprintf("bluez agent failed: %v — pairing prompts will not be handled", err))
 		} else {
 			log.Printf("bluetooth: bluez agent registered")
 		}
@@ -102,7 +105,7 @@ func main() {
 
 	audioService, err := audiosvc.NewService()
 	if err != nil {
-		log.Printf("audio: %v (sound controls will be unavailable)", err)
+		dn.Warn("Sound", fmt.Sprintf("%v — sound controls unavailable", err))
 	}
 	if audioService != nil {
 		defer audioService.Close()
@@ -111,7 +114,7 @@ func main() {
 
 	networkService, err := netsvc.NewService()
 	if err != nil {
-		log.Printf("network: %v", err)
+		dn.Warn("Network", fmt.Sprintf("%v — network backend unavailable", err))
 	}
 	if networkService != nil {
 		defer networkService.Close()
@@ -149,13 +152,22 @@ func main() {
 	registerWifiAction := func(subject string, handler func(*wifisvc.Service, wifiActionRequest) wifiActionResponse) {
 		if _, err := nc.Subscribe(subject, func(m *nats.Msg) {
 			var req wifiActionRequest
-			_ = json.Unmarshal(m.Data, &req)
+			if err := json.Unmarshal(m.Data, &req); err != nil {
+				resp := wifiActionResponse{Error: "malformed request: " + err.Error()}
+				data, _ := json.Marshal(resp)
+				_ = m.Respond(data)
+				return
+			}
 			resp := handler(wifiService, req)
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			if err := m.Respond(data); err != nil {
+				dn.Error("Wi-Fi", "failed to send response: "+err.Error())
+			}
 			if resp.Error == "" {
 				snapData, _ := json.Marshal(resp.Snapshot)
-				_ = nc.Publish(bus.SubjectWifiAdapters, snapData)
+				if err := nc.Publish(bus.SubjectWifiAdapters, snapData); err != nil {
+					dn.Error("Wi-Fi", "failed to publish snapshot: "+err.Error())
+				}
 			}
 		}); err != nil {
 			log.Fatalf("subscribe %s: %v", subject, err)
@@ -174,10 +186,10 @@ func main() {
 	registerWifiAction(bus.SubjectWifiAPStartCmd, handleAPStart)
 	registerWifiAction(bus.SubjectWifiAPStopCmd, handleAPStop)
 
-	publishBluetooth := wireBluetooth(nc, bluetoothService)
-	publishAudio := wireAudio(nc, audioService)
-	publishNetwork := wireNetwork(nc, networkService)
-	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog)
+	publishBluetooth := wireBluetooth(nc, bluetoothService, dn)
+	publishAudio := wireAudio(nc, audioService, dn)
+	publishNetwork := wireNetwork(nc, networkService, dn)
+	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog, dn)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

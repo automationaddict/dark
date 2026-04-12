@@ -201,6 +201,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AppstoreSearchResultMsg:
 		if msg.Err != "" {
 			m.state.SetAppstoreError(msg.Err)
+			m.notifyError("App Store", msg.Err)
 			return m, nil
 		}
 		m.state.SetAppstoreResults(msg.Result)
@@ -209,6 +210,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AppstoreDetailResultMsg:
 		if msg.Err != "" {
 			m.state.SetAppstoreError(msg.Err)
+			m.notifyError("App Store", msg.Err)
 			return m, nil
 		}
 		m.state.SetAppstoreDetail(msg.Detail)
@@ -217,6 +219,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AppstoreRefreshResultMsg:
 		if msg.Err != "" {
 			m.state.SetAppstoreError(msg.Err)
+			m.notifyError("App Store", msg.Err)
 			return m, nil
 		}
 		m.state.SetAppstore(msg.Snapshot)

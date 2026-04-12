@@ -33,7 +33,7 @@ type audioActionResponse struct {
 // events) and the 20 Hz level meter publisher are spawned as their own
 // goroutines from here so the main loop in main.go doesn't need to
 // know about either pipeline.
-func wireAudio(nc *nats.Conn, svc *audiosvc.Service) func() {
+func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectAudioDevicesCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(snapshotAudio(svc))
 		_ = m.Respond(data)
@@ -44,13 +44,22 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service) func() {
 	register := func(subject string, handler func(*audiosvc.Service, audioActionRequest) audioActionResponse) {
 		if _, err := nc.Subscribe(subject, func(m *nats.Msg) {
 			var req audioActionRequest
-			_ = json.Unmarshal(m.Data, &req)
+			if err := json.Unmarshal(m.Data, &req); err != nil {
+				resp := audioActionResponse{Error: "malformed request: " + err.Error()}
+				data, _ := json.Marshal(resp)
+				_ = m.Respond(data)
+				return
+			}
 			resp := handler(svc, req)
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			if err := m.Respond(data); err != nil {
+				dn.Error("Sound", "failed to send response: "+err.Error())
+			}
 			if resp.Error == "" {
 				snapData, _ := json.Marshal(resp.Snapshot)
-				_ = nc.Publish(bus.SubjectAudioDevices, snapData)
+				if err := nc.Publish(bus.SubjectAudioDevices, snapData); err != nil {
+					dn.Error("Sound", "failed to publish snapshot: "+err.Error())
+				}
 			}
 		}); err != nil {
 			log.Fatalf("subscribe %s: %v", subject, err)
