@@ -89,6 +89,7 @@ type Detail struct {
 type Category struct {
 	ID      string `json:"id"`
 	Title   string `json:"title"`
+	Icon    string `json:"icon"`
 	Count   int    `json:"count"`
 	Enabled bool   `json:"enabled"`
 }
@@ -260,18 +261,18 @@ type InstallRequest struct {
 // packages that belong to them.
 func defaultCategories() []Category {
 	return []Category{
-		{ID: "featured", Title: "Featured", Enabled: true},
-		{ID: "all", Title: "All Packages", Enabled: true},
-		{ID: "installed", Title: "Installed", Enabled: true},
-		{ID: "aur", Title: "AUR", Enabled: true},
-		{ID: "development", Title: "Development", Enabled: false},
-		{ID: "graphics", Title: "Graphics", Enabled: false},
-		{ID: "internet", Title: "Internet", Enabled: false},
-		{ID: "multimedia", Title: "Multimedia", Enabled: false},
-		{ID: "office", Title: "Office", Enabled: false},
-		{ID: "system", Title: "System", Enabled: false},
-		{ID: "games", Title: "Games", Enabled: false},
-		{ID: "other", Title: "Other", Enabled: false},
+		{ID: "featured", Title: "Featured", Icon: "󰓹", Enabled: true},
+		{ID: "all", Title: "All Packages", Icon: "󰏗", Enabled: true},
+		{ID: "installed", Title: "Installed", Icon: "󰄬", Enabled: true},
+		{ID: "aur", Title: "AUR", Icon: "󰣇", Enabled: true},
+		{ID: "development", Title: "Development", Icon: "󰅩", Enabled: false},
+		{ID: "graphics", Title: "Graphics", Icon: "󰃣", Enabled: false},
+		{ID: "internet", Title: "Internet", Icon: "󰖟", Enabled: false},
+		{ID: "multimedia", Title: "Multimedia", Icon: "󰎄", Enabled: false},
+		{ID: "office", Title: "Office", Icon: "󰈙", Enabled: false},
+		{ID: "system", Title: "System", Icon: "󰒓", Enabled: false},
+		{ID: "games", Title: "Games", Icon: "󰊗", Enabled: false},
+		{ID: "other", Title: "Other", Icon: "󰘬", Enabled: false},
 	}
 }
 

@@ -23,28 +23,25 @@ func renderAppStoreTab(s *core.State, width, height int) string {
 
 // renderAppStoreSidebarColumn renders the categories using the exact
 // same sidebarStyle / sidebarItem / sidebarItemActive styles that the
-// F1 settings sidebar uses. Disabled categories render in dim italic
-// so the user sees them as "coming soon" without needing explanation.
+// F1 settings sidebar uses. Every item gets Icon + Label in the same
+// layout as settings sections. Disabled categories use the regular
+// item style but with dim foreground so they visually recede without
+// changing size, font, or spacing.
 func renderAppStoreSidebarColumn(s *core.State, height int) string {
 	itemWidth := s.SidebarItemWidth
 	item := sidebarItem.Width(itemWidth)
 	active := sidebarItemActive.Width(itemWidth)
+	disabled := sidebarItem.Width(itemWidth).Foreground(colorDim).Italic(true)
 
 	var rows []string
 	for i, cat := range s.Appstore.Categories {
-		line := "   " + cat.Title
-		if i == s.AppstoreCategoryIdx {
+		line := cat.Icon + "  " + cat.Title
+		switch {
+		case i == s.AppstoreCategoryIdx:
 			rows = append(rows, active.Render(line))
-		} else if !cat.Enabled {
-			rows = append(rows, lipgloss.NewStyle().
-				Width(itemWidth).
-				Padding(0, 1).
-				MarginBottom(1).
-				Foreground(colorDim).
-				Background(colorHelpBg).
-				Italic(true).
-				Render(line))
-		} else {
+		case !cat.Enabled:
+			rows = append(rows, disabled.Render(line))
+		default:
 			rows = append(rows, item.Render(line))
 		}
 	}
