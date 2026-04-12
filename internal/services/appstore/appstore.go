@@ -47,6 +47,12 @@ type Package struct {
 	// pacman database, regardless of origin. An AUR package is marked
 	// installed if the user installed it via makepkg / an AUR helper.
 	Installed bool `json:"installed,omitempty"`
+
+	// Category is the dark sidebar ID this package belongs to
+	// (development, graphics, internet, multimedia, office, system,
+	// games, other). Assigned at catalog-build time from Lua scripts
+	// and .desktop file parsing. Empty means unassigned.
+	Category string `json:"category,omitempty"`
 }
 
 // Detail is the full readout for one package shown in the detail panel.
@@ -203,11 +209,10 @@ func (s *Service) Refresh() error {
 }
 
 // defaultCategories is the sidebar layout shared by all backends. The
-// "real" named categories stay disabled in phase 1 — they render in the
-// sidebar so the layout is stable but users can't focus them.
-//
-// TODO(appstore): enable named categories in phase 2 once appstream
-// parsing is wired.
+// four navigational entries (Featured, All, Installed, AUR) are always
+// enabled. The named categories (Development, Graphics, etc.) start
+// disabled and are enabled dynamically when the catalog build finds
+// packages that belong to them.
 func defaultCategories() []Category {
 	return []Category{
 		{ID: "featured", Title: "Featured", Enabled: true},
@@ -223,6 +228,19 @@ func defaultCategories() []Category {
 		{ID: "games", Title: "Games", Enabled: false},
 		{ID: "other", Title: "Other", Enabled: false},
 	}
+}
+
+// namedCategoryIDs is the set of sidebar IDs that represent real content
+// categories (as opposed to navigational views like Featured/All/Installed).
+var namedCategoryIDs = map[string]bool{
+	"development": true,
+	"graphics":    true,
+	"internet":    true,
+	"multimedia":  true,
+	"office":      true,
+	"system":      true,
+	"games":       true,
+	"other":       true,
 }
 
 // DefaultCategories exposes the sidebar layout to callers that need to

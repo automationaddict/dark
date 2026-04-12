@@ -34,16 +34,35 @@ An empty query search returns you to whichever category is currently highlighted
 
 The sidebar owns the left column of the App Store body. Categories are divided into two tiers:
 
-**Enabled in this release**
+**Navigation views (always enabled)**
 
 - **Featured** — A curated list of common end-user apps, filtered against your repos so nothing on the list is a ghost. Good for poking around without knowing what to search for.
 - **All Packages** — Every package pacman knows about, in name order. Count in parentheses reflects your repo state.
 - **Installed** — Every package currently on your system according to `pacman -Qq`. Also includes AUR packages you've already built locally.
 - **AUR** — The Arch User Repository. Empty until you run a search with `[aur: on]` — the AUR has no browse-everything endpoint so we don't pull it wholesale.
 
-**Coming in a later pass**
+**Content categories (enabled when populated)**
 
-The sidebar also shows named categories — Development, Graphics, Internet, Multimedia, Office, System, Games, Other — dimmed and italicized. Pacman has no concept of categories, so populating these needs AppStream metadata parsing plus a curated fallback map. That work is scheduled for the next pass. The placeholders stay visible so the sidebar layout doesn't shift when they light up.
+- **Development** — Compilers, IDEs, version control, databases, Docker, language runtimes.
+- **Graphics** — Image editors, 3D modeling, photography, screenshot tools, vector graphics.
+- **Internet** — Web browsers, email clients, chat apps, download tools, VPNs, file sync.
+- **Multimedia** — Media players, video editors, audio workstations, codecs, streaming.
+- **Office** — Document suites, PDF viewers, note-taking, finance, password managers.
+- **System** — Terminals, shells, file managers, system monitors, boot loaders, firewalls, CLI tools.
+- **Games** — Game launchers, emulators, native games, compatibility layers.
+- **Other** — Everything that doesn't fit elsewhere (currently unused — packages without a category assignment are simply uncategorized rather than force-bucketed).
+
+Categories are populated at catalog-build time from two sources: a Lua script (`categories.lua`) that maps package names to sidebar groups and maps XDG freedesktop category strings to dark's groups, and the `Categories=` field in installed packages' `.desktop` files. The Lua script takes priority, so you can override any categorization by editing your copy of the script.
+
+### Customizing categories
+
+The default `categories.lua` is compiled into the binary. To override it, create a file at:
+
+    $XDG_CONFIG_HOME/dark/scripts/appstore/categories.lua
+
+The user file completely replaces the default — dark does not merge them. The script must set two global tables: `xdg_map` (mapping XDG category strings like `"AudioVideo"` to dark sidebar IDs like `"multimedia"`) and `packages` (mapping package names like `"firefox"` to sidebar IDs). See the default script for the full format.
+
+After editing the script, press `R` in the App Store to refresh the catalog and pick up the changes.
 
 ### Navigating the sidebar
 
@@ -178,7 +197,9 @@ Everything on this page comes from `darkd`, which reads:
 - **pacman** via the `pacman -Sl`, `pacman -Si`, and `pacman -Qq` commands for repo enumeration, per-package detail, and installed state.
 - **expac** when available, used to batch descriptions and installed sizes in a single call instead of running `pacman -Si` N times. Dark runs without expac but the browse list will show empty descriptions.
 - **aurweb RPC v5** at `https://aur.archlinux.org/rpc/v5` for AUR search and detail lookups. All AUR calls go over HTTPS; dark does no unencrypted network traffic.
-- **On-disk caches** under `$XDG_CACHE_HOME/dark/appstore` — 6 hours for the pacman catalog and 1 hour for AUR search/detail results.
+- **Lua scripting** via GopherLua. The `categories.lua` script is loaded at catalog-build time and provides the XDG-to-sidebar category mapping plus a curated per-package override table. The embedded default ships ~290 curated package entries and ~90 XDG category mappings. Users can override the script at `$XDG_CONFIG_HOME/dark/scripts/appstore/categories.lua`.
+- **.desktop files** at `/usr/share/applications/*.desktop`. The `Categories=` field is parsed for installed packages and mapped through the Lua `xdg_map` table to assign categories to packages that ship a desktop entry but aren't in the curated list.
+- **On-disk caches** under `$XDG_CACHE_HOME/dark/appstore` — 6 hours for the pacman catalog and 1 hour for AUR search/detail results. Categories are re-assigned from the Lua script on every catalog load (including cache hits) so script edits take effect on the next refresh without clearing the cache.
 
 The daemon publishes a fresh catalog snapshot on `dark.appstore.catalog` every 60 seconds (much slower than wifi or bluetooth because the repo list barely moves) and pushes an updated snapshot immediately after a user-initiated refresh.
 

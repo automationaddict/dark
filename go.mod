@@ -7,10 +7,12 @@ require (
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/godbus/dbus/v5 v5.2.2
+	github.com/jfreymuth/pulse v0.1.1
 	github.com/mattn/go-runewidth v0.0.17
 	github.com/muesli/reflow v0.3.0
 	github.com/nats-io/nats-server/v2 v2.12.6
 	github.com/nats-io/nats.go v1.50.0
+	github.com/yuin/gopher-lua v1.1.2
 )
 
 require (
@@ -27,7 +29,6 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/jfreymuth/pulse v0.1.1 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

@@ -3,6 +3,8 @@ package appstore
 import (
 	"log/slog"
 	"os/exec"
+
+	"github.com/johnnelson/dark/internal/scripting"
 )
 
 // Detect probes the host and returns a Backend wired to whichever
@@ -10,17 +12,10 @@ import (
 // — and does no network calls, so Detect is safe to call at daemon
 // startup without blocking.
 //
-// The selection rules are:
-//
-//  1. Pacman present → compose a pacmanBackend with an aurBackend. The
-//     AUR side handles its own availability via rate-limit state and
-//     network errors at request time, so we don't probe it here.
-//  2. Pacman absent → return a noopBackend tagged "none". The TUI will
-//     render an explanation in the app store panel.
-//
-// The function takes a logger so backends can emit structured events
-// from the moment they're constructed.
-func Detect(logger *slog.Logger) Backend {
+// The scripting engine is passed through to the pacman backend so it
+// can load categories.lua at catalog-build time. A nil engine is safe
+// and means categories will be unpopulated.
+func Detect(logger *slog.Logger, engine *scripting.Engine) Backend {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -28,15 +23,14 @@ func Detect(logger *slog.Logger) Backend {
 		logger.Info("appstore: pacman not found, using noop backend", "err", err)
 		return NewNoopBackend(BackendNone)
 	}
-	pacman := NewPacmanBackend(logger)
+	pacman := NewPacmanBackend(logger, engine)
 	aur := NewAURBackend(logger)
 	return NewCompositeBackend(logger, pacman, aur)
 }
 
 // NewService constructs the user-facing Service wired to whichever
-// backend Detect picks. Callers use this in place of
-// NewServiceWithBackend when they don't need to inject a specific
-// backend for tests.
-func NewService(logger *slog.Logger) *Service {
-	return NewServiceWithBackend(Detect(logger))
+// backend Detect picks. The scripting engine enables Lua-driven
+// category assignment and will host additional hooks in future passes.
+func NewService(logger *slog.Logger, engine *scripting.Engine) *Service {
+	return NewServiceWithBackend(Detect(logger, engine))
 }

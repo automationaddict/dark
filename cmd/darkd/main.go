@@ -15,6 +15,7 @@ import (
 	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/lock"
 	"github.com/johnnelson/dark/internal/logging"
+	"github.com/johnnelson/dark/internal/scripting"
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
@@ -122,7 +123,9 @@ func main() {
 	}
 
 	appstoreLog := appstoreLogger()
-	appstoreService := appstoresvc.NewService(appstoreLog)
+	scriptEngine := scripting.New(appstoreLog)
+	defer scriptEngine.Close()
+	appstoreService := appstoresvc.NewService(appstoreLog, scriptEngine)
 	defer appstoreService.Close()
 	appstoreLog.Info("appstore: service ready")
 

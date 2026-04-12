@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/johnnelson/dark/internal/scripting"
 )
 
 const (
@@ -49,12 +51,14 @@ var featuredAllowlist = []string{
 // installation plus optional expac for fast batch metadata.
 type pacmanBackend struct {
 	logger *slog.Logger
+	engine *scripting.Engine
 	cache  string
 
 	mu             sync.RWMutex
 	catalog        []Package
 	index          map[string]int // lower(name) -> catalog position
 	installed      map[string]struct{}
+	catCounts      map[string]int // sidebar ID → count of packages
 	lastLoad       time.Time
 	expacAvailable bool
 }
@@ -63,7 +67,7 @@ type pacmanBackend struct {
 // expac at construction time; absence is non-fatal and logged at info.
 // The first call to Snapshot or Search triggers catalog population, so
 // construction is cheap.
-func NewPacmanBackend(logger *slog.Logger) Backend {
+func NewPacmanBackend(logger *slog.Logger, engine *scripting.Engine) Backend {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -73,6 +77,7 @@ func NewPacmanBackend(logger *slog.Logger) Backend {
 	}
 	p := &pacmanBackend{
 		logger: logger,
+		engine: engine,
 		cache:  dir,
 	}
 	if _, err := exec.LookPath("expac"); err == nil {
@@ -93,6 +98,7 @@ func (p *pacmanBackend) Refresh() error {
 	p.catalog = nil
 	p.index = nil
 	p.installed = nil
+	p.catCounts = nil
 	p.lastLoad = time.Time{}
 	if p.cache != "" {
 		_ = removeIfExists(filepath.Join(p.cache, pacmanCatalogCacheFile))
@@ -108,11 +114,16 @@ func (p *pacmanBackend) Snapshot() Snapshot {
 
 	cats := defaultCategories()
 	for i := range cats {
-		switch cats[i].ID {
-		case "all":
+		switch {
+		case cats[i].ID == "all":
 			cats[i].Count = len(p.catalog)
-		case "installed":
+		case cats[i].ID == "installed":
 			cats[i].Count = len(p.installed)
+		case namedCategoryIDs[cats[i].ID]:
+			if c, ok := p.catCounts[cats[i].ID]; ok && c > 0 {
+				cats[i].Count = c
+				cats[i].Enabled = true
+			}
 		}
 	}
 
@@ -148,8 +159,12 @@ func (p *pacmanBackend) Search(q SearchQuery) (SearchResult, error) {
 			Packages: p.featuredLocked(),
 		}, nil
 	}
+	filterByCat := namedCategoryIDs[q.Category]
 
 	for _, pkg := range source {
+		if filterByCat && pkg.Category != q.Category {
+			continue
+		}
 		if text != "" {
 			if !strings.Contains(strings.ToLower(pkg.Name), text) &&
 				!strings.Contains(strings.ToLower(pkg.Description), text) {
@@ -209,6 +224,9 @@ func (p *pacmanBackend) ensureCatalog() {
 	if p.cache != "" {
 		if cached, ok := readCache[[]Package](filepath.Join(p.cache, pacmanCatalogCacheFile), pacmanCatalogTTL); ok {
 			p.logger.Debug("appstore: loaded pacman catalog from disk cache", "count", len(cached))
+			cm := loadCategoryMaps(p.engine, p.logger)
+			desktop := desktopCategories(p.logger)
+			p.catCounts = assignCategories(cached, cm, desktop)
 			p.installCatalogLocked(cached)
 			p.lastLoad = time.Now()
 			p.refreshInstalledLocked()
@@ -247,7 +265,23 @@ func (p *pacmanBackend) buildCatalogLocked() ([]Package, error) {
 	if p.expacAvailable && len(cat) > 0 {
 		enrichWithExpac(cat, p.logger)
 	}
+	cm := loadCategoryMaps(p.engine, p.logger)
+	desktop := desktopCategories(p.logger)
+	p.catCounts = assignCategories(cat, cm, desktop)
+	p.logger.Info("appstore: categories assigned",
+		"categorized", countCategorized(cat),
+		"counts", p.catCounts)
 	return cat, nil
+}
+
+func countCategorized(cat []Package) int {
+	n := 0
+	for _, pkg := range cat {
+		if pkg.Category != "" {
+			n++
+		}
+	}
+	return n
 }
 
 func (p *pacmanBackend) installCatalogLocked(cat []Package) {
