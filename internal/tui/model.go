@@ -18,6 +18,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/display"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
+	"github.com/johnnelson/dark/internal/services/power"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/tuilink"
 	"github.com/johnnelson/dark/internal/services/weblink"
@@ -61,6 +62,7 @@ type Model struct {
 	audio     AudioActions
 	network   NetworkActions
 	display   DisplayActions
+	power     PowerActions
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
 	dialog    *Dialog
@@ -88,7 +90,7 @@ type TUILinksMsg []tuilink.TUIApp
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -99,6 +101,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		audio:     audio,
 		network:   network,
 		display:   displayAct,
+		power:     powerAct,
 		notifier:  notifier,
 		appstore:  appstore,
 		spinner:   sp,
@@ -218,6 +221,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.DisplayActionError = ""
 		m.state.SetDisplay(msg.Snapshot)
+		return m, nil
+
+	case PowerMsg:
+		m.state.SetPower(power.Snapshot(msg))
+		return m, nil
+
+	case PowerActionResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Power", msg.Err)
+			return m, nil
+		}
+		m.state.SetPower(msg.Snapshot)
 		return m, nil
 
 	case AudioMsg:
@@ -729,11 +744,6 @@ func (m Model) handleHelpSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Layout mode gets its own key routing so arrow keys move
-	// monitors instead of triggering normal navigation.
-	if m.state.DisplayLayoutOpen {
-		return m.handleDisplayLayoutKey(msg)
-	}
 	// When the appstore search input is active, swallow all keys
 	// so typed characters don't trigger action shortcuts.
 	if m.state.ActiveTab == core.TabF2 && m.state.AppstoreSearchActive {
@@ -752,14 +762,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		if m.state.BluetoothDeviceInfoOpen {
 			m.state.CloseBluetoothDeviceInfo()
-			return m, nil
-		}
-		if m.state.DisplayLayoutOpen {
-			m.state.CloseDisplayLayout()
-			return m, nil
-		}
-		if m.state.DisplayInfoOpen {
-			m.state.CloseDisplayInfo()
 			return m, nil
 		}
 		if m.state.AudioDeviceInfoOpen {
@@ -810,10 +812,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case m.state.ActiveTab == core.TabSettings:
 			switch m.state.ActiveSection().ID {
-			case "display":
-				if !m.state.DisplayInfoOpen {
-					m.state.OpenDisplayInfo()
-				}
 			case "bluetooth":
 				if !m.state.BluetoothDeviceInfoOpen {
 					m.state.OpenBluetoothDeviceInfo()
@@ -949,6 +947,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "p":
+		if m.inPowerContent() {
+			if cmd := m.triggerPowerProfileCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDisplayContent() {
 			m.triggerDisplayPositionDialog()
 			return m, nil
@@ -1042,11 +1045,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.state.ActiveTab == core.TabF2 {
 			return m, m.triggerAppstoreInstall()
 		}
-	case "l":
-		if m.inDisplayContent() && !m.state.DisplayInfoOpen {
-			m.state.OpenDisplayLayout()
-			return m, nil
-		}
 	case "X":
 		if m.inDisplayContent() {
 			m.triggerDisplayDeleteProfile()
@@ -1069,7 +1067,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.AppstoreIncludeAUR = !m.state.AppstoreIncludeAUR
 			return m, nil
 		}
+	case "E":
+		if m.inPowerContent() {
+			if cmd := m.triggerPowerEPPCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 	case "g":
+		if m.inPowerContent() {
+			if cmd := m.triggerPowerGovernorCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayGammaDelta(-5); cmd != nil {
 			return m, cmd
 		}
@@ -1140,7 +1149,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "N":
-		if m.inDisplayContent() && !m.state.DisplayInfoOpen && !m.state.DisplayLayoutOpen {
+		if m.inDisplayContent() {
 			m.triggerDisplayNightLightTempDialog()
 			return m, nil
 		}

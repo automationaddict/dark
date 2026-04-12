@@ -92,6 +92,12 @@ const (
 	SubjectDisplayApplyProfileCmd   = "dark.cmd.display.apply_profile"
 	SubjectDisplayDeleteProfileCmd  = "dark.cmd.display.delete_profile"
 
+	SubjectPowerSnapshot    = "dark.power.snapshot"
+	SubjectPowerSnapshotCmd = "dark.cmd.power.snapshot"
+	SubjectPowerProfileCmd  = "dark.cmd.power.profile"
+	SubjectPowerGovernorCmd  = "dark.cmd.power.governor"
+	SubjectPowerEPPCmd       = "dark.cmd.power.epp"
+
 	SubjectAppstoreCatalog    = "dark.appstore.catalog"
 	SubjectAppstoreCatalogCmd = "dark.cmd.appstore.catalog"
 	SubjectAppstoreSearchCmd  = "dark.cmd.appstore.search"

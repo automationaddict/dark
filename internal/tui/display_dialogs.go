@@ -101,7 +101,7 @@ func (m *Model) triggerDisplayApplyProfile() {
 	}
 	profiles := m.state.Display.Profiles
 	if len(profiles) == 0 {
-		m.state.DisplayActionError = "no saved profiles"
+		m.notifyError("Displays", "no saved profiles")
 		return
 	}
 
@@ -130,7 +130,7 @@ func (m *Model) triggerDisplayDeleteProfile() {
 	}
 	profiles := m.state.Display.Profiles
 	if len(profiles) == 0 {
-		m.state.DisplayActionError = "no saved profiles"
+		m.notifyError("Displays", "no saved profiles")
 		return
 	}
 

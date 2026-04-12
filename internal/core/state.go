@@ -9,6 +9,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/display"
 	"github.com/johnnelson/dark/internal/services/network"
+	"github.com/johnnelson/dark/internal/services/power"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/wifi"
 )
@@ -100,6 +101,9 @@ type State struct {
 	AudioBusy             bool
 	AudioActionError      string
 
+	Power       power.Snapshot
+	PowerLoaded bool
+
 	Appstore              appstore.Snapshot
 	AppstoreLoaded        bool
 	AppstoreCategoryIdx   int
@@ -164,6 +168,11 @@ func NewState(start TabID, binPath string) *State {
 // bus subscriber goroutine via tea.Program.Send.
 func (s *State) SetBusConnected(ok bool) {
 	s.BusConnected = ok
+}
+
+func (s *State) SetPower(snap power.Snapshot) {
+	s.Power = snap
+	s.PowerLoaded = true
 }
 
 // SetSysInfo replaces the cached system snapshot with one received from the
@@ -291,6 +300,10 @@ func (s *State) FocusContent() {
 			if s.AudioFocus == "" {
 				s.AudioFocus = AudioFocusSinks
 			}
+		}
+	case "power":
+		if s.PowerLoaded {
+			s.ContentFocused = true
 		}
 	case "network":
 		if len(s.Network.Interfaces) > 0 {

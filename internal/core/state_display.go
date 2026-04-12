@@ -79,8 +79,7 @@ func (s *State) OpenDisplayLayout() {
 	if !s.ContentFocused || s.ActiveSection().ID != "display" {
 		return
 	}
-	if len(s.Display.Monitors) < 2 {
-		s.DisplayActionError = "layout view requires multiple monitors"
+	if len(s.Display.Monitors) == 0 {
 		return
 	}
 	s.DisplayLayoutOpen = true

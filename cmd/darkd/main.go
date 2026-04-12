@@ -205,6 +205,7 @@ func main() {
 	publishAudio := wireAudio(nc, audioService, dn)
 	publishDisplay := wireDisplay(nc, displayService, dn)
 	publishNetwork := wireNetwork(nc, networkService, dn)
+	publishPower := wirePower(nc, dn)
 	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog, dn)
 
 	sigs := make(chan os.Signal, 1)
@@ -242,6 +243,7 @@ func main() {
 	publishAudio()
 	publishDisplay()
 	publishNetwork()
+	publishPower()
 	publishAppstore()
 
 	var seq uint64
@@ -256,6 +258,7 @@ func main() {
 				publishAudio()
 				publishDisplay()
 				publishNetwork()
+				publishPower()
 				publishAppstore()
 				continue
 			}

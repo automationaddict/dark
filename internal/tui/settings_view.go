@@ -74,6 +74,8 @@ func renderSettingsContent(s *core.State, width, height int) string {
 		return renderSound(s, width, height)
 	case "network":
 		return renderNetwork(s, width, height)
+	case "power":
+		return renderPower(s, width, height)
 	}
 	title := contentTitle.Render(sec.Label)
 	body := placeholderStyle.Render("Nothing wired up yet for " + sec.Label + ".")

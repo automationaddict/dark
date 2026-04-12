@@ -33,44 +33,31 @@ func renderDisplay(s *core.State, width, height int) string {
 
 	var blocks []string
 
-	if s.DisplayLayoutOpen {
-		blocks = append(blocks, renderDisplayLayout(s, innerWidth, height-4))
-		body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-		return renderContentPane(width, height, body)
+	monBox := renderDisplayMonitorBox(s, innerWidth, focused)
+	blocks = append(blocks, monBox)
+
+	if detail := renderDisplaySelectedDetail(s, innerWidth); detail != "" {
+		blocks = append(blocks, detail)
 	}
 
-	if s.DisplayInfoOpen {
-		mon, ok := s.SelectedMonitor()
-		if ok {
-			blocks = append(blocks, renderDisplayInfoBox(mon, innerWidth))
-		} else {
-			s.DisplayInfoOpen = false
+	if s.Display.HasBacklight || s.Display.HasKbdLight || s.DisplayLoaded {
+		extras := renderDisplayExtras(s, innerWidth)
+		if extras != "" {
+			blocks = append(blocks, extras)
 		}
 	}
 
-	if !s.DisplayInfoOpen {
-		monBox := renderDisplayMonitorBox(s, innerWidth, focused)
-		blocks = append(blocks, monBox)
+	if len(s.Display.Monitors) > 0 {
+		layout := renderDisplayLayoutCompact(s, innerWidth)
+		blocks = append(blocks, layout)
+	}
 
-		if s.Display.HasBacklight || s.Display.HasKbdLight || s.DisplayLoaded {
-			extras := renderDisplayExtras(s, innerWidth)
-			if extras != "" {
-				blocks = append(blocks, extras)
-			}
-		}
+	if s.DisplayBusy {
+		blocks = append(blocks, "", statusBusyStyle.Render("working…"))
+	}
 
-		if s.DisplayBusy {
-			blocks = append(blocks, "", statusBusyStyle.Render("working…"))
-		}
-
-		if s.DisplayActionError != "" {
-			errStyle := lipgloss.NewStyle().Foreground(colorRed)
-			blocks = append(blocks, "", errStyle.Render("  error: "+s.DisplayActionError))
-		}
-
-		if focused {
-			blocks = append(blocks, renderDisplayHints())
-		}
+	if focused {
+		blocks = append(blocks, renderDisplayHints())
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
@@ -208,161 +195,145 @@ func renderDisplayTags(mon display.Monitor) string {
 	return dim.Render("(" + strings.Join(tags, " · ") + ")")
 }
 
-func renderDisplayInfoBox(mon display.Monitor, total int) string {
-	innerWidth := total - 4
-	if innerWidth < 24 {
-		innerWidth = 24
+
+func renderDisplayLayoutCompact(s *core.State, total int) string {
+	canvasW := total - 8
+	canvasH := 8
+	if canvasW < 30 {
+		canvasW = 30
+	}
+	grid := renderMonitorGrid(s.Display.Monitors, s.DisplayMonitorIdx, canvasW, canvasH)
+	return groupBoxSections("Layout", []string{grid}, total, colorBorder)
+}
+
+func renderDisplaySelectedDetail(s *core.State, total int) string {
+	mon, ok := s.SelectedMonitor()
+	if !ok {
+		return ""
+	}
+
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	lw := 16
+	label := detailLabelStyle.Width(lw)
+	value := detailValueStyle
+
+	var lines []string
+
+	currentMode := fmt.Sprintf("%dx%d @ %s", mon.Width, mon.Height, mon.RefreshRateHz())
+	modeLine := label.Render("Mode") + value.Render(currentMode)
+	if s.ContentFocused && len(mon.AvailableModes) > 0 {
+		modeLine += dim.Render(fmt.Sprintf("  (%d available · ", len(mon.AvailableModes))) +
+			accent.Render("m") + dim.Render(")")
+	}
+	lines = append(lines, modeLine)
+
+	scaleLine := label.Render("Scale") + value.Render(fmt.Sprintf("%.2f", mon.Scale))
+	if s.ContentFocused {
+		scaleLine += dim.Render("  (") + accent.Render("s") + dim.Render(" select · ") +
+			accent.Render("+/-") + dim.Render(" step)")
+	}
+	lines = append(lines, scaleLine)
+
+	lines = append(lines, label.Render("Rotation")+value.Render(mon.TransformLabel()))
+	lines = append(lines, label.Render("Position")+value.Render(fmt.Sprintf("%d, %d", mon.X, mon.Y)))
+
+	dpms := "On"
+	if !mon.DpmsStatus {
+		dpms = "Off"
+	}
+	lines = append(lines, label.Render("Display Power")+value.Render(dpms))
+
+	vrr := "Off"
+	if mon.Vrr {
+		vrr = "On"
+	}
+	lines = append(lines, label.Render("VRR")+value.Render(vrr))
+
+	status := "Enabled"
+	if mon.Disabled {
+		status = "Disabled"
+	}
+	lines = append(lines, label.Render("Status")+value.Render(status))
+
+	if mon.Make != "" || mon.Model != "" {
+		hw := ""
+		if mon.Make != "" {
+			hw = mon.Make
+		}
+		if mon.Model != "" {
+			if hw != "" {
+				hw += " "
+			}
+			hw += mon.Model
+		}
+		lines = append(lines, label.Render("Hardware")+value.Render(hw))
+	}
+
+	if mon.PhysicalWidth > 0 {
+		diag := mon.DiagonalInches()
+		lines = append(lines, label.Render("Size")+value.Render(fmt.Sprintf("%.1f\" diagonal, %d DPI", diag, mon.DPI())))
 	}
 
 	desc := mon.Description
 	if desc == "" {
 		desc = mon.Name
 	}
-	title := desc + " (" + mon.Name + ")"
 
-	rows := [][2]string{
-		{"Name", mon.Name},
-		{"Description", orDash(mon.Description)},
-	}
-	if mon.Make != "" {
-		rows = append(rows, [2]string{"Make", mon.Make})
-	}
-	if mon.Model != "" {
-		rows = append(rows, [2]string{"Model", mon.Model})
-	}
-	if mon.Serial != "" {
-		rows = append(rows, [2]string{"Serial", mon.Serial})
-	}
-
-	rows = append(rows,
-		[2]string{"Resolution", mon.Resolution()},
-		[2]string{"Refresh Rate", mon.RefreshRateHz()},
-		[2]string{"Scale", fmt.Sprintf("%.2f", mon.Scale)},
-		[2]string{"Transform", mon.TransformLabel()},
-		[2]string{"Position", fmt.Sprintf("%d, %d", mon.X, mon.Y)},
-	)
-
-	if mon.PhysicalWidth > 0 {
-		wIn, hIn := mon.PhysicalSizeInches()
-		diag := mon.DiagonalInches()
-		rows = append(rows,
-			[2]string{"Physical Size", fmt.Sprintf("%.1f\" × %.1f\" (%.1f\" diagonal)", wIn, hIn, diag)},
-			[2]string{"DPI", fmt.Sprintf("%d", mon.DPI())},
-		)
-	}
-
-	dpms := "On"
-	if !mon.DpmsStatus {
-		dpms = "Off (DPMS)"
-	}
-	rows = append(rows, [2]string{"Display Power", dpms})
-
-	vrr := "Off"
-	if mon.Vrr {
-		vrr = "On"
-	}
-	rows = append(rows, [2]string{"VRR", vrr})
-
-	status := "Enabled"
-	if mon.Disabled {
-		status = "Disabled"
-	}
-	rows = append(rows, [2]string{"Status", status})
-
-	if mon.MirrorOf != "" && mon.MirrorOf != "none" {
-		rows = append(rows, [2]string{"Mirror Of", mon.MirrorOf})
-	}
-	if mon.ActiveWorkspace.Name != "" {
-		rows = append(rows, [2]string{"Workspace", mon.ActiveWorkspace.Name})
-	}
-
-	labelWidth := 0
-	for _, r := range rows {
-		if w := lipgloss.Width(r[0]); w > labelWidth {
-			labelWidth = w
-		}
-	}
-	propLines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
-		value := detailValueStyle.Render(r[1])
-		propLines = append(propLines, label+value)
-	}
-
-	sections := []string{strings.Join(propLines, "\n")}
-
-	if len(mon.AvailableModes) > 0 {
-		var modeLines []string
-		current := fmt.Sprintf("%dx%d@%.2fHz", mon.Width, mon.Height, mon.RefreshRate)
-		modesPerRow := 3
-		for i := 0; i < len(mon.AvailableModes); i += modesPerRow {
-			end := i + modesPerRow
-			if end > len(mon.AvailableModes) {
-				end = len(mon.AvailableModes)
-			}
-			chunk := mon.AvailableModes[i:end]
-			rendered := make([]string, len(chunk))
-			for j, mode := range chunk {
-				if mode == current {
-					rendered[j] = lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(mode)
-				} else {
-					rendered[j] = lipgloss.NewStyle().Foreground(colorDim).Render(mode)
-				}
-			}
-			modeLines = append(modeLines, "  "+strings.Join(rendered, "  "))
-		}
-		sections = append(sections, strings.Join(modeLines, "\n"))
-	}
-
-	sections = append(sections, placeholderStyle.Render(
-		"m mode · r rotate · +/- scale · w dpms · e enable · v vrr · esc back"))
-
-	return groupBoxSections(title, sections, total, colorAccent)
+	return groupBoxSections(desc, []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
 func renderDisplayExtras(s *core.State, total int) string {
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	const indent = 3
+	const labelWidth = 16
+	barWidth := total - indent - labelWidth - 7
+	if barWidth < 10 {
+		barWidth = 10
+	}
+
 	var lines []string
 
 	if s.Display.HasBacklight {
-		bar := brightnessBar(s.Display.Brightness)
-		lines = append(lines, fmt.Sprintf("  ☀ Brightness  %s  %d%%", bar, s.Display.Brightness))
+		lines = append(lines, renderDisplaySlider("☀ Brightness", fmt.Sprintf("%3d%%", s.Display.Brightness), s.Display.Brightness, barWidth, indent, labelWidth, false))
 	}
 	if s.Display.HasKbdLight {
-		bar := brightnessBar(s.Display.KbdBrightness)
-		lines = append(lines, fmt.Sprintf("  ⌨ Keyboard    %s  %d%%", bar, s.Display.KbdBrightness))
+		lines = append(lines, renderDisplaySlider("⌨ Keyboard", fmt.Sprintf("%3d%%", s.Display.KbdBrightness), s.Display.KbdBrightness, barWidth, indent, labelWidth, false))
 	}
 
 	if s.NightLightActive {
-		nlInfo := fmt.Sprintf("  🌙 Night Light  %s  %s",
-			accent.Render(fmt.Sprintf("%dK", s.NightLightTemp)),
-			accent.Render("(active)"))
-		if s.NightLightGamma != 0 && s.NightLightGamma != 100 {
-			nlInfo += fmt.Sprintf("  gamma %s", accent.Render(fmt.Sprintf("%d%%", s.NightLightGamma)))
-		}
-		lines = append(lines, nlInfo)
+		pct := s.NightLightTemp * 100 / 6500
+		lines = append(lines, renderDisplaySlider("🌙 Night Light", fmt.Sprintf("%dK", s.NightLightTemp), pct, barWidth, indent, labelWidth, false))
 	} else {
-		lines = append(lines, "  🌙 Night Light  "+dim.Render("off"))
-	}
-
-	if s.NightLightGamma != 0 && s.NightLightGamma != 100 && !s.NightLightActive {
-		lines = append(lines, fmt.Sprintf("  γ  Gamma  %s", accent.Render(fmt.Sprintf("%d%%", s.NightLightGamma))))
+		lines = append(lines, renderDisplaySlider("🌙 Night Light", "off", 0, barWidth, indent, labelWidth, true))
 	}
 
 	if len(lines) == 0 {
 		return ""
 	}
-	return strings.Join(lines, "\n")
+	return groupBoxSections("Controls", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
-func brightnessBar(pct int) string {
-	const width = 10
-	filled := pct * width / 100
-	if filled > width {
-		filled = width
+func renderDisplaySlider(name, label string, pct, barWidth, indent, labelWidth int, muted bool) string {
+	if pct < 0 {
+		pct = 0
 	}
-	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+	filled := pct * barWidth / 100
+	if filled > barWidth {
+		filled = barWidth
+	}
+
+	filledStyle := audioBarFilledStyle
+	if muted {
+		filledStyle = audioBarMutedStyle
+	}
+
+	pad := strings.Repeat(" ", indent)
+	nameStr := lipgloss.NewStyle().Foreground(colorText).Width(labelWidth).Render(name)
+	labelStr := placeholderStyle.Render(fmt.Sprintf("%5s ", label))
+	filledPart := filledStyle.Render(strings.Repeat("─", filled))
+	emptyPart := audioBarEmptyStyle.Render(strings.Repeat("┄", barWidth-filled))
+
+	return pad + nameStr + labelStr + filledPart + emptyPart
 }
 
 func renderDisplayHints() string {
@@ -370,9 +341,6 @@ func renderDisplayHints() string {
 	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var hints []string
-	hints = append(hints, accent.Render("enter")+" info")
-	hints = append(hints, accent.Render("l")+" layout")
-	hints = append(hints, accent.Render("i")+" identify")
 	hints = append(hints, accent.Render("m")+" mode")
 	hints = append(hints, accent.Render("w")+" dpms")
 	hints = append(hints, accent.Render("e")+" enable/disable")

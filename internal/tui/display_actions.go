@@ -68,6 +68,33 @@ func (m *Model) triggerDisplayToggleEnabled() tea.Cmd {
 	if !ok {
 		return nil
 	}
+
+	// Warn if disabling the only active monitor.
+	if !mon.Disabled {
+		active := 0
+		for _, other := range m.state.Display.Monitors {
+			if !other.Disabled {
+				active++
+			}
+		}
+		if active <= 1 {
+			name := mon.Name
+			displayRef := m.display
+			state := m.state
+			m.dialog = NewDialog("Disable "+name+"?", []DialogFieldSpec{
+				{Key: "confirm", Label: "This is your only active display. You may not be able to get it back without restarting. Type YES to confirm"},
+			}, func(result DialogResult) tea.Cmd {
+				if result["confirm"] != "YES" {
+					return nil
+				}
+				state.DisplayBusy = true
+				state.DisplayActionError = ""
+				return displayRef.ToggleEnabled(name)
+			})
+			return nil
+		}
+	}
+
 	m.state.DisplayBusy = true
 	m.state.DisplayActionError = ""
 	return m.display.ToggleEnabled(mon.Name)
@@ -293,7 +320,7 @@ func (m *Model) triggerDisplayModeDialog() {
 		return
 	}
 	if len(mon.AvailableModes) == 0 {
-		m.state.DisplayActionError = "no available modes for this monitor"
+		m.notifyError("Displays", "no available modes for this monitor")
 		return
 	}
 
@@ -367,7 +394,7 @@ func (m *Model) triggerDisplayMirrorDialog() {
 		return
 	}
 	if len(m.state.Display.Monitors) < 2 {
-		m.state.DisplayActionError = "need at least two monitors to mirror"
+		m.notifyError("Displays", "need at least two monitors to mirror")
 		return
 	}
 

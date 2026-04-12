@@ -20,6 +20,7 @@ import (
 	displaysvc "github.com/johnnelson/dark/internal/services/display"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
+	powersvc "github.com/johnnelson/dark/internal/services/power"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/wifi"
 	"github.com/johnnelson/dark/internal/theme"
@@ -122,6 +123,7 @@ func main() {
 	audioActions := newAudioActions(nc)
 	displayActions := newDisplayActions(nc)
 	networkActions := newNetworkActions(nc)
+	powerActions := newPowerActions(nc)
 	appstoreActions := newAppstoreActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
@@ -134,7 +136,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, notifier, appstoreActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, notifier, appstoreActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -252,6 +254,20 @@ func main() {
 	}
 	defer displaySub.Unsubscribe()
 
+	powerSub, err := nc.Subscribe(bus.SubjectPowerSnapshot, func(m *nats.Msg) {
+		var snap powersvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Power", err)
+			return
+		}
+		p.Send(tui.PowerMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe power:", err)
+		os.Exit(1)
+	}
+	defer powerSub.Unsubscribe()
+
 	networkSub, err := nc.Subscribe(bus.SubjectNetworkSnapshot, func(m *nats.Msg) {
 		var snap netsvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
@@ -305,6 +321,12 @@ func main() {
 	}
 	if snap, ok := requestInitialNetwork(nc); ok {
 		state.SetNetwork(snap)
+	}
+	if reply, err := nc.Request(bus.SubjectPowerSnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap powersvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetPower(snap)
+		}
 	}
 	if snap, ok := requestInitialAppstore(nc); ok {
 		state.SetAppstore(snap)
