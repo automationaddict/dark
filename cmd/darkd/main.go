@@ -191,7 +191,7 @@ func main() {
 	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog, dn)
 
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	heartbeat := time.NewTicker(1 * time.Second)
 	defer heartbeat.Stop()
@@ -237,8 +237,23 @@ func main() {
 	var seq uint64
 	for {
 		select {
-		case <-sigs:
-			slog.Info("shutting down")
+		case sig := <-sigs:
+			if sig == syscall.SIGHUP {
+				slog.Info("reloading (SIGHUP)")
+				publishSysInfo(nc, binPath, dn)
+				publishWifi(nc, wifiService, dn)
+				publishBluetooth()
+				publishAudio()
+				publishNetwork()
+				publishAppstore()
+				continue
+			}
+			slog.Info("shutting down", "signal", sig.String())
+			go func() {
+				time.Sleep(5 * time.Second)
+				slog.Error("shutdown timeout — force exit")
+				os.Exit(1)
+			}()
 			return
 		case t := <-heartbeat.C:
 			seq++

@@ -296,6 +296,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Shutdown timeout: if the deferred cleanup (nc.Drain, service
+	// Close, notifier Close, etc.) hangs on a stuck connection, force
+	// exit after 5 seconds. The restart path skips this because
+	// syscall.Exec replaces the process immediately.
+	if !state.RestartRequested {
+		go func() {
+			time.Sleep(5 * time.Second)
+			fmt.Fprintln(os.Stderr, "dark: shutdown timeout — force exit")
+			os.Exit(1)
+		}()
+	}
+
 	if state.RestartRequested {
 		if err := syscall.Exec(binPath, os.Args, os.Environ()); err != nil {
 			fmt.Fprintln(os.Stderr, "dark: restart failed:", err)
