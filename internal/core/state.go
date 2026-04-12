@@ -86,12 +86,6 @@ type State struct {
 
 	ContentFocused bool
 
-	// SkipAutoExpand suppresses the single-adapter auto-drill on the
-	// first snapshot of a section. Set by the restart path so ctrl+r
-	// returns the user to the sidebar instead of dropping them back
-	// into a drill-in they already navigated out of.
-	SkipAutoExpand bool
-
 	HelpOpen        bool
 	HelpWidth       int
 	HelpDoc         *help.Document
@@ -142,7 +136,6 @@ func (s *State) SetSysInfo(info sysinfo.SystemInfo) {
 // appends the current RSSI to each adapter's rolling history so the
 // Details view can render a signal sparkline.
 func (s *State) SetWifi(snap wifi.Snapshot) {
-	firstLoad := !s.WifiLoaded
 	s.Wifi = snap
 	s.WifiLoaded = true
 	s.appendRSSIHistory(snap)
@@ -156,15 +149,6 @@ func (s *State) SetWifi(snap wifi.Snapshot) {
 		if s.WifiNetworkSelected >= len(snap.Adapters[s.WifiSelected].Networks) {
 			s.WifiNetworkSelected = 0
 		}
-	}
-
-	// On the very first wifi snapshot, if the user is already on the Wi-Fi
-	// section and there's exactly one powered adapter, drill in
-	// automatically so they don't have to press Enter twice. Later
-	// snapshots don't retrigger, and an off radio never auto-drills.
-	if firstLoad && !s.SkipAutoExpand && s.ActiveTab == TabSettings && s.ActiveSection().ID == "wifi" &&
-		len(snap.Adapters) == 1 && snap.Adapters[0].Powered {
-		s.autoExpandSingleAdapter()
 	}
 }
 
@@ -185,24 +169,6 @@ func (s *State) appendRSSIHistory(snap wifi.Snapshot) {
 			hist = hist[len(hist)-RSSIHistoryLen:]
 		}
 		s.RSSIHistory[a.Name] = hist
-	}
-}
-
-// autoExpandSingleAdapter is the "there's only one possible choice, just
-// open it" shortcut. Mirrors OpenWifiDetails + FocusContent but skips
-// their user-interaction gates.
-func (s *State) autoExpandSingleAdapter() {
-	s.ContentFocused = true
-	s.WifiDetailsOpen = true
-	s.WifiFocus = WifiFocusNetworks
-	s.WifiNetworkSelected = 0
-	s.WifiKnownSelected = 0
-	adapter := s.Wifi.Adapters[0]
-	for i, n := range adapter.Networks {
-		if n.Connected {
-			s.WifiNetworkSelected = i
-			break
-		}
 	}
 }
 

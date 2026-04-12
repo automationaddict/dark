@@ -14,10 +14,7 @@ const (
 // SetBluetooth replaces the cached bluetooth snapshot with one received
 // from darkd. Selection indices are clamped to the new list sizes so an
 // unpair or a removed device doesn't leave an out-of-bounds cursor.
-// Mirrors SetWifi, including the "single adapter + on Bluetooth section"
-// auto-expand on first load.
 func (s *State) SetBluetooth(snap bluetooth.Snapshot) {
-	firstLoad := !s.BluetoothLoaded
 	s.Bluetooth = snap
 	s.BluetoothLoaded = true
 
@@ -29,17 +26,6 @@ func (s *State) SetBluetooth(snap bluetooth.Snapshot) {
 			s.BluetoothDevSelected = 0
 		}
 	}
-
-	if firstLoad && !s.SkipAutoExpand && s.ActiveTab == TabSettings && s.ActiveSection().ID == "bluetooth" &&
-		len(snap.Adapters) == 1 && snap.Adapters[0].Powered {
-		s.autoExpandSingleBluetoothAdapter()
-	}
-}
-
-func (s *State) autoExpandSingleBluetoothAdapter() {
-	s.ContentFocused = true
-	s.BluetoothDetailsOpen = true
-	s.BluetoothDevSelected = 0
 }
 
 // CycleBluetoothFocus tabs between Adapters and Devices sub-tables.

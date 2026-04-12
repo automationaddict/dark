@@ -51,10 +51,6 @@ func main() {
 	defer nc.Drain()
 
 	state := core.NewState(startTab, binPath)
-	if os.Getenv("DARK_RESTART") != "" {
-		state.SkipAutoExpand = true
-		os.Unsetenv("DARK_RESTART")
-	}
 
 	wifiActions := tui.WifiActions{
 		Scan: func(adapter string) tea.Cmd {
@@ -261,7 +257,6 @@ func main() {
 	}
 
 	if state.RestartRequested {
-		os.Setenv("DARK_RESTART", "1")
 		if err := syscall.Exec(binPath, os.Args, os.Environ()); err != nil {
 			fmt.Fprintln(os.Stderr, "dark: restart failed:", err)
 			os.Exit(1)
