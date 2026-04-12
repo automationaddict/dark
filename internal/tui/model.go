@@ -531,7 +531,16 @@ func (m *Model) inWifiDetails() bool {
 // sections; when the content pane is focused, it moves the inner widget's
 // selection (currently only the wifi adapter row).
 func (m *Model) moveSelection(delta int) {
-	if m.state.ActiveTab != core.TabSettings {
+	switch m.state.ActiveTab {
+	case core.TabF2:
+		if m.state.ContentFocused {
+			m.state.MoveAppstoreResult(delta)
+		} else {
+			m.state.MoveAppstoreCategory(delta)
+		}
+		return
+	case core.TabSettings:
+	default:
 		return
 	}
 	if m.state.ContentFocused {
@@ -634,14 +643,10 @@ func (m Model) handleHelpSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// The App Store tab owns its own focus model (search input,
-	// sidebar, results, detail). Route keys through its handler
-	// first; anything it returns handled=false for falls through to
-	// the global switch below.
-	if m.state.ActiveTab == core.TabF2 {
-		if handled, model, cmd := m.handleAppstoreKey(msg); handled {
-			return model, cmd
-		}
+	// When the appstore search input is active, swallow all keys
+	// so typed characters don't trigger action shortcuts.
+	if m.state.ActiveTab == core.TabF2 && m.state.AppstoreSearchActive {
+		return m.handleAppstoreSearchInput(msg)
 	}
 	switch msg.String() {
 	case "ctrl+c":
@@ -662,9 +667,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.CloseAudioDeviceInfo()
 			return m, nil
 		}
-		// Wi-Fi and Bluetooth details are always visible when content
-		// is focused (no intermediate close level). Esc goes straight
-		// from content to sidebar. FocusSidebar resets the detail flags.
+		if m.state.AppstoreDetailOpen {
+			m.state.CloseAppstoreDetail()
+			return m, nil
+		}
 		if m.state.ContentFocused {
 			m.state.FocusSidebar()
 			return m, nil
@@ -672,17 +678,41 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "enter":
 		if !m.state.ContentFocused {
+			if m.state.ActiveTab == core.TabF2 {
+				m.state.ContentFocused = true
+				m.state.AppstoreFocus = core.AppstoreFocusResults
+				// Load the category if results aren't already showing it.
+				if !m.state.AppstoreResultsLoaded || m.state.AppstoreResults.Query.Category != m.categoryID() {
+					return m, m.loadAppstoreCategoryCmd()
+				}
+				return m, nil
+			}
 			m.state.FocusContent()
 			return m, nil
 		}
-		switch m.state.ActiveSection().ID {
-		case "bluetooth":
-			if !m.state.BluetoothDeviceInfoOpen {
-				m.state.OpenBluetoothDeviceInfo()
+		switch {
+		case m.state.ActiveTab == core.TabF2:
+			// Enter in results → open detail for highlighted package.
+			if m.state.AppstoreFocus == core.AppstoreFocusResults && !m.state.AppstoreDetailOpen {
+				pkg, ok := m.state.SelectedAppstorePackage()
+				if ok && m.appstore.Detail != nil {
+					m.state.MarkAppstoreBusy()
+					return m, m.appstore.Detail(appstore.DetailRequest{
+						Name:   pkg.Name,
+						Origin: pkg.Origin,
+					})
+				}
 			}
-		case "sound":
-			if !m.state.AudioDeviceInfoOpen {
-				m.state.OpenAudioDeviceInfo()
+		case m.state.ActiveTab == core.TabSettings:
+			switch m.state.ActiveSection().ID {
+			case "bluetooth":
+				if !m.state.BluetoothDeviceInfoOpen {
+					m.state.OpenBluetoothDeviceInfo()
+				}
+			case "sound":
+				if !m.state.AudioDeviceInfoOpen {
+					m.state.OpenAudioDeviceInfo()
+				}
 			}
 		}
 		return m, nil
@@ -842,6 +872,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerNetworkReset(); cmd != nil {
 			return m, cmd
 		}
+		if m.state.ActiveTab == core.TabF2 && m.appstore.Refresh != nil {
+			m.state.MarkAppstoreBusy()
+			return m, m.appstore.Refresh()
+		}
 	case "T":
 		if cmd := m.triggerBluetoothSetTimeout(); cmd != nil {
 			return m, cmd
@@ -865,6 +899,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "K":
 		if cmd := m.triggerAudioKillStream(); cmd != nil {
 			return m, cmd
+		}
+	case "/":
+		if m.state.ActiveTab == core.TabF2 {
+			m.state.OpenAppstoreSearch()
+			return m, nil
+		}
+	case "A":
+		if m.state.ActiveTab == core.TabF2 {
+			m.state.AppstoreIncludeAUR = !m.state.AppstoreIncludeAUR
+			return m, nil
 		}
 	case "+", "=":
 		if cmd := m.triggerAudioVolumeDelta(5); cmd != nil {
@@ -907,7 +951,7 @@ func (m Model) View() string {
 	case core.TabSettings:
 		body = renderSettings(m.state, width, bodyHeight)
 	case core.TabF2:
-		body = renderAppstore(m.state, width, bodyHeight)
+		body = renderAppStoreTab(m.state, width, bodyHeight)
 	default:
 		body = renderEmpty(m.state, width, bodyHeight)
 	}

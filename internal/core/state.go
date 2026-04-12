@@ -274,6 +274,8 @@ func (s *State) FocusSidebar() {
 	s.BluetoothDeviceInfoOpen = false
 	s.AudioDeviceInfoOpen = false
 	s.NetworkRoutesOpen = false
+	s.AppstoreDetailOpen = false
+	s.AppstoreFocus = AppstoreFocusSidebar
 }
 
 // OpenWifiDetails drills into the currently highlighted adapter and shows
