@@ -18,6 +18,7 @@ func renderAppStoreTab(s *core.State, width, height int) string {
 	for i, cat := range cats {
 		entries[i] = sidebarEntry{Icon: cat.Icon, Label: cat.Title, Enabled: cat.Enabled}
 	}
+	// Use the shared sidebar renderer so F1 and F2 are identical.
 	sidebar := renderSidebarGeneric(s, entries, s.AppstoreCategoryIdx, height)
 	contentWidth := width - lipgloss.Width(sidebar)
 	content := renderAppStoreContent(s, contentWidth, height)

@@ -9,9 +9,6 @@ import (
 )
 
 func renderStatusBar(s *core.State, width int) string {
-	// The "rebuilding…" indicator stays inline because it's transient
-	// state, but build failures fire desktop notifications and don't
-	// take over the status bar anymore.
 	if s.Rebuilding {
 		return statusBusyStyle.Width(width).Render("rebuilding…")
 	}
