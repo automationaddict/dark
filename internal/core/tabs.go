@@ -28,7 +28,7 @@ type Tab struct {
 func AllTabs() []Tab {
 	return []Tab{
 		{TabSettings, "F1", "Settings"},
-		{TabF2, "F2", "—"},
+		{TabF2, "F2", "App Store"},
 		{TabF3, "F3", "—"},
 		{TabF4, "F4", "—"},
 		{TabF5, "F5", "—"},

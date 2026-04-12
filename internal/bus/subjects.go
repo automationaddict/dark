@@ -72,4 +72,10 @@ const (
 	SubjectNetworkReconfigureCmd   = "dark.cmd.network.reconfigure"
 	SubjectNetworkConfigureIPv4Cmd = "dark.cmd.network.configure_ipv4"
 	SubjectNetworkResetCmd         = "dark.cmd.network.reset"
+
+	SubjectAppstoreCatalog    = "dark.appstore.catalog"
+	SubjectAppstoreCatalogCmd = "dark.cmd.appstore.catalog"
+	SubjectAppstoreSearchCmd  = "dark.cmd.appstore.search"
+	SubjectAppstoreDetailCmd  = "dark.cmd.appstore.detail"
+	SubjectAppstoreRefreshCmd = "dark.cmd.appstore.refresh"
 )

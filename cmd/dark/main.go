@@ -14,6 +14,7 @@ import (
 	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/help"
 	"github.com/johnnelson/dark/internal/lock"
+	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
@@ -119,6 +120,7 @@ func main() {
 	bluetoothActions := newBluetoothActions(nc)
 	audioActions := newAudioActions(nc)
 	networkActions := newNetworkActions(nc)
+	appstoreActions := newAppstoreActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -130,7 +132,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, notifier)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, notifier, appstoreActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -227,6 +229,19 @@ func main() {
 	}
 	defer networkSub.Unsubscribe()
 
+	appstoreSub, err := nc.Subscribe(bus.SubjectAppstoreCatalog, func(m *nats.Msg) {
+		var snap appstoresvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			return
+		}
+		p.Send(tui.AppstoreMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe appstore:", err)
+		os.Exit(1)
+	}
+	defer appstoreSub.Unsubscribe()
+
 	// Request current snapshots up front so each tab has data on the
 	// first frame instead of waiting for the next periodic publish.
 	if reply, err := nc.Request(bus.SubjectSystemInfoCmd, nil, 1*time.Second); err == nil {
@@ -249,6 +264,9 @@ func main() {
 	}
 	if snap, ok := requestInitialNetwork(nc); ok {
 		state.SetNetwork(snap)
+	}
+	if snap, ok := requestInitialAppstore(nc); ok {
+		state.SetAppstore(snap)
 	}
 
 	if _, err := p.Run(); err != nil {

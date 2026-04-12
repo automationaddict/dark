@@ -11,6 +11,7 @@ import (
 
 	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/help"
+	"github.com/johnnelson/dark/internal/services/appstore"
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/network"
@@ -56,6 +57,7 @@ type Model struct {
 	audio     AudioActions
 	network   NetworkActions
 	notifier  *notify.Notifier
+	appstore  AppstoreActions
 	dialog    *Dialog
 	width     int
 	height    int
@@ -74,7 +76,7 @@ type WifiMsg wifi.Snapshot
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, notifier *notify.Notifier) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
 	return Model{
 		state:     state,
 		binPath:   binPath,
@@ -83,6 +85,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		audio:     audio,
 		network:   network,
 		notifier:  notifier,
+		appstore:  appstore,
 	}
 }
 
@@ -189,6 +192,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.AudioActionError = ""
 		m.state.SetAudio(msg.Snapshot)
+		return m, nil
+
+	case AppstoreMsg:
+		m.state.SetAppstore(appstore.Snapshot(msg))
+		return m, nil
+
+	case AppstoreSearchResultMsg:
+		if msg.Err != "" {
+			m.state.SetAppstoreError(msg.Err)
+			return m, nil
+		}
+		m.state.SetAppstoreResults(msg.Result)
+		return m, nil
+
+	case AppstoreDetailResultMsg:
+		if msg.Err != "" {
+			m.state.SetAppstoreError(msg.Err)
+			return m, nil
+		}
+		m.state.SetAppstoreDetail(msg.Detail)
+		return m, nil
+
+	case AppstoreRefreshResultMsg:
+		if msg.Err != "" {
+			m.state.SetAppstoreError(msg.Err)
+			return m, nil
+		}
+		m.state.SetAppstore(msg.Snapshot)
 		return m, nil
 
 	case BusStatusMsg:
@@ -603,6 +634,15 @@ func (m Model) handleHelpSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// The App Store tab owns its own focus model (search input,
+	// sidebar, results, detail). Route keys through its handler
+	// first; anything it returns handled=false for falls through to
+	// the global switch below.
+	if m.state.ActiveTab == core.TabF2 {
+		if handled, model, cmd := m.handleAppstoreKey(msg); handled {
+			return model, cmd
+		}
+	}
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
@@ -863,9 +903,12 @@ func (m Model) View() string {
 	bodyHeight := height - lipgloss.Height(tabBar) - lipgloss.Height(statusBar)
 
 	var body string
-	if m.state.ActiveTab == core.TabSettings {
+	switch m.state.ActiveTab {
+	case core.TabSettings:
 		body = renderSettings(m.state, width, bodyHeight)
-	} else {
+	case core.TabF2:
+		body = renderAppstore(m.state, width, bodyHeight)
+	default:
 		body = renderEmpty(m.state, width, bodyHeight)
 	}
 

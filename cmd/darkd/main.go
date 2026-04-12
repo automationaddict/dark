@@ -13,6 +13,7 @@ import (
 
 	"github.com/johnnelson/dark/internal/bus"
 	"github.com/johnnelson/dark/internal/lock"
+	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
@@ -116,6 +117,11 @@ func main() {
 		defer networkService.Close()
 	}
 
+	appstoreLog := appstoreLogger()
+	appstoreService := appstoresvc.NewService(appstoreLog)
+	defer appstoreService.Close()
+	appstoreLog.Info("appstore: service ready")
+
 	log.Printf("listening on %s", srv.ClientURL())
 	log.Printf("discovery file: %s", bus.DiscoveryPath())
 
@@ -171,6 +177,7 @@ func main() {
 	publishBluetooth := wireBluetooth(nc, bluetoothService)
 	publishAudio := wireAudio(nc, audioService)
 	publishNetwork := wireNetwork(nc, networkService)
+	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -200,6 +207,13 @@ func main() {
 	networkTick := time.NewTicker(10 * time.Second)
 	defer networkTick.Stop()
 
+	// Appstore state barely changes at runtime — the repo list is
+	// refreshed by the user via the UI, not by external events. A
+	// 60s tick is plenty to pick up installs/removals the user did
+	// in another terminal and to keep the installed-set view honest.
+	appstoreTick := time.NewTicker(60 * time.Second)
+	defer appstoreTick.Stop()
+
 	// Publish initial snapshots immediately so any subscriber that
 	// connects in the gap before the first tick still gets pushed data.
 	publishSysInfo(nc, binPath)
@@ -207,6 +221,7 @@ func main() {
 	publishBluetooth()
 	publishAudio()
 	publishNetwork()
+	publishAppstore()
 
 	var seq uint64
 	for {
@@ -232,6 +247,8 @@ func main() {
 			publishAudio()
 		case <-networkTick.C:
 			publishNetwork()
+		case <-appstoreTick.C:
+			publishAppstore()
 		}
 	}
 }

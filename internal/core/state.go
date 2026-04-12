@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/johnnelson/dark/internal/help"
+	"github.com/johnnelson/dark/internal/services/appstore"
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/network"
@@ -83,6 +84,22 @@ type State struct {
 	AudioDeviceInfoOpen   bool
 	AudioBusy             bool
 	AudioActionError      string
+
+	Appstore              appstore.Snapshot
+	AppstoreLoaded        bool
+	AppstoreCategoryIdx   int
+	AppstoreResults       appstore.SearchResult
+	AppstoreResultsLoaded bool
+	AppstoreResultIdx     int
+	AppstoreDetail        appstore.Detail
+	AppstoreDetailLoaded  bool
+	AppstoreDetailOpen    bool
+	AppstoreSearchInput   string
+	AppstoreSearchActive  bool
+	AppstoreFocus         AppstoreFocus
+	AppstoreStatusMsg     string
+	AppstoreBusy          bool
+	AppstoreIncludeAUR    bool
 
 	ContentFocused bool
 
@@ -354,8 +371,11 @@ func (s *State) CloseWifiDetails() {
 // HelpKey returns the context key for the currently visible view.
 // The help package looks this up in its embedded content directory.
 func (s *State) HelpKey() string {
-	if s.ActiveTab == TabSettings {
+	switch s.ActiveTab {
+	case TabSettings:
 		return s.ActiveSection().ID
+	case TabF2:
+		return "appstore"
 	}
 	return "default"
 }
