@@ -40,55 +40,12 @@ func renderTabBar(s *core.State, width int) string {
 		}
 	}
 
-	var top, mid, bot strings.Builder
+	top := bf.Render(strings.Repeat("─", width))
 
-	for i, c := range cells {
-		if i == 0 {
-			if c.active {
-				top.WriteString(bf.Render("┐"))
-			} else {
-				top.WriteString(bf.Render("┌"))
-			}
-			mid.WriteString(bf.Render("│"))
-			bot.WriteString(bf.Render("└"))
-		} else {
-			prev := cells[i-1]
-			switch {
-			case prev.active && c.active:
-				top.WriteString(bf.Render("│"))
-			case prev.active:
-				top.WriteString(bf.Render("┌"))
-			case c.active:
-				top.WriteString(bf.Render("┐"))
-			default:
-				top.WriteString(bf.Render("┬"))
-			}
-			mid.WriteString(bf.Render("│"))
-			bot.WriteString(bf.Render("┴"))
-		}
-
-		if c.active {
-			top.WriteString(strings.Repeat(" ", c.w))
-		} else {
-			top.WriteString(bf.Render(strings.Repeat("─", c.w)))
-		}
+	var mid strings.Builder
+	for _, c := range cells {
 		mid.WriteString(c.label)
-		bot.WriteString(bf.Render(strings.Repeat("─", c.w)))
 	}
 
-	last := cells[len(cells)-1]
-	if last.active {
-		top.WriteString(bf.Render("┌"))
-	} else {
-		top.WriteString(bf.Render("┬"))
-	}
-	mid.WriteString(bf.Render("│"))
-	bot.WriteString(bf.Render("┘"))
-
-	topW := lipgloss.Width(top.String())
-	if topW < width {
-		top.WriteString(bf.Render(strings.Repeat("─", width-topW)))
-	}
-
-	return top.String() + "\n" + mid.String() + "\n" + bot.String()
+	return top + "\n" + mid.String()
 }

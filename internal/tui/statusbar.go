@@ -9,13 +9,18 @@ import (
 )
 
 func renderStatusBar(s *core.State, width int) string {
+	divider := lipgloss.NewStyle().Foreground(colorBorder).Render(strings.Repeat("─", width))
+
+	var content string
 	if s.Rebuilding {
-		return statusBusyStyle.Width(width).Render("rebuilding…")
+		content = statusBusyStyle.Width(width).Render("rebuilding…")
+	} else {
+		left := "? help · ctrl+r rebuild · +/- resize sidebar · F1–F12 tabs · q quit"
+		right := connectionIndicator(s.BusConnected)
+		content = statusBarStyle.Width(width).Render(layoutStatusRow(left, right, width))
 	}
 
-	left := "? help · ctrl+r rebuild · +/- resize sidebar · F1–F12 tabs · q quit"
-	right := connectionIndicator(s.BusConnected)
-	return statusBarStyle.Width(width).Render(layoutStatusRow(left, right, width))
+	return divider + "\n" + content
 }
 
 // layoutStatusRow places the left-aligned hint text and the right-aligned
