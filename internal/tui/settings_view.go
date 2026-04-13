@@ -78,6 +78,8 @@ func renderSettingsContent(s *core.State, width, height int) string {
 		return renderPower(s, width, height)
 	case "input":
 		return renderInputDevices(s, width, height)
+	case "notifications":
+		return renderNotifications(s, width, height)
 	}
 	title := contentTitle.Render(sec.Label)
 	body := placeholderStyle.Render("Nothing wired up yet for " + sec.Label + ".")

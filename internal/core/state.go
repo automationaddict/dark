@@ -9,6 +9,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/display"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
+	"github.com/johnnelson/dark/internal/services/notifycfg"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/power"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
@@ -110,6 +111,9 @@ type State struct {
 	InputDevices       inputsvc.Snapshot
 	InputDevicesLoaded bool
 
+	Notify       notifycfg.Snapshot
+	NotifyLoaded bool
+
 	Appstore              appstore.Snapshot
 	AppstoreLoaded        bool
 	AppstoreCategoryIdx   int
@@ -174,6 +178,11 @@ func NewState(start TabID, binPath string) *State {
 // bus subscriber goroutine via tea.Program.Send.
 func (s *State) SetBusConnected(ok bool) {
 	s.BusConnected = ok
+}
+
+func (s *State) SetNotify(snap notifycfg.Snapshot) {
+	s.Notify = snap
+	s.NotifyLoaded = true
 }
 
 func (s *State) SetInputDevices(snap inputsvc.Snapshot) {
@@ -318,6 +327,10 @@ func (s *State) FocusContent() {
 		}
 	case "input":
 		if s.InputDevicesLoaded {
+			s.ContentFocused = true
+		}
+	case "notifications":
+		if s.NotifyLoaded {
 			s.ContentFocused = true
 		}
 	case "network":

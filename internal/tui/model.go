@@ -17,6 +17,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/display"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
+	"github.com/johnnelson/dark/internal/services/notifycfg"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/power"
@@ -65,6 +66,7 @@ type Model struct {
 	display   DisplayActions
 	power     PowerActions
 	input     InputActions
+	notifyCfg NotifyConfigActions
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
 	dialog    *Dialog
@@ -92,7 +94,7 @@ type TUILinksMsg []tuilink.TUIApp
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -105,6 +107,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		display:   displayAct,
 		power:     powerAct,
 		input:     inputAct,
+		notifyCfg: notifyCfgAct,
 		notifier:  notifier,
 		appstore:  appstore,
 		spinner:   sp,
@@ -224,6 +227,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.DisplayActionError = ""
 		m.state.SetDisplay(msg.Snapshot)
+		return m, nil
+
+	case NotifyCfgMsg:
+		m.state.SetNotify(notifycfg.Snapshot(msg))
+		return m, nil
+
+	case NotifyCfgActionResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Notifications", msg.Err)
+			return m, nil
+		}
+		m.state.SetNotify(msg.Snapshot)
 		return m, nil
 
 	case InputMsg:
@@ -685,7 +700,7 @@ func (m *Model) moveSelection(delta int) {
 			} else {
 				m.state.MoveNetworkSelection(delta)
 			}
-		case "power", "input":
+		case "power", "input", "notifications":
 			m.state.ScrollContent(delta)
 		}
 		return
@@ -912,6 +927,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "d":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifyDNDToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.state.ActiveTab == core.TabF3 {
 			return m, m.triggerOmarchyDelete()
 		}
@@ -1059,6 +1079,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "D":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifyDismissAll(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerAudioSetDefault(); cmd != nil {
 			return m, cmd
 		}

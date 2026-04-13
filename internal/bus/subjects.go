@@ -112,6 +112,11 @@ const (
 	SubjectInputMiddleBtnCmd       = "dark.cmd.input.middle_button_emu"
 	SubjectInputClickfingerCmd     = "dark.cmd.input.clickfinger"
 
+	SubjectNotifySnapshot    = "dark.notify.snapshot"
+	SubjectNotifySnapshotCmd = "dark.cmd.notify.snapshot"
+	SubjectNotifyDNDCmd      = "dark.cmd.notify.dnd"
+	SubjectNotifyDismissCmd   = "dark.cmd.notify.dismiss"
+
 	SubjectPowerSnapshot    = "dark.power.snapshot"
 	SubjectPowerSnapshotCmd = "dark.cmd.power.snapshot"
 	SubjectPowerProfileCmd  = "dark.cmd.power.profile"
