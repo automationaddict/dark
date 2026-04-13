@@ -118,7 +118,10 @@ const (
 	SubjectNotifyDismissCmd   = "dark.cmd.notify.dismiss"
 	SubjectNotifyAnchorCmd    = "dark.cmd.notify.anchor"
 	SubjectNotifyTimeoutCmd   = "dark.cmd.notify.timeout"
-	SubjectNotifyAddRuleCmd   = "dark.cmd.notify.add_rule"
+	SubjectNotifyWidthCmd      = "dark.cmd.notify.width"
+	SubjectNotifyLayerCmd      = "dark.cmd.notify.layer"
+	SubjectNotifySoundCmd      = "dark.cmd.notify.sound"
+	SubjectNotifyAddRuleCmd    = "dark.cmd.notify.add_rule"
 	SubjectNotifyRemoveRuleCmd = "dark.cmd.notify.remove_rule"
 
 	SubjectPowerSnapshot    = "dark.power.snapshot"

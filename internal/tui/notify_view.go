@@ -26,6 +26,8 @@ func renderNotifications(s *core.State, width, height int) string {
 	blocks = append(blocks, renderNotifyDaemon(s, innerWidth))
 	blocks = append(blocks, renderNotifyAppearance(s.Notify, innerWidth))
 	blocks = append(blocks, renderNotifyDND(s, innerWidth))
+	blocks = append(blocks, renderNotifyUrgency(s, innerWidth))
+	blocks = append(blocks, renderNotifySound(s, innerWidth))
 
 	if rules := renderNotifyRules(s, innerWidth); rules != "" {
 		blocks = append(blocks, rules)
@@ -70,9 +72,19 @@ func renderNotifyDaemon(s *core.State, total int) string {
 	lines = append(lines, timeoutLine)
 
 	widthLine := label.Render("Width") + value.Render(fmt.Sprintf("%dpx", n.Width))
+	if s.ContentFocused {
+		widthLine += dim.Render("  (") + accent.Render("w/W") + dim.Render(" adjust)")
+	}
 	lines = append(lines, widthLine)
 
+	lines = append(lines, label.Render("Max Visible")+value.Render(fmt.Sprintf("%d", n.MaxVisible)))
 	lines = append(lines, label.Render("Max History")+value.Render(fmt.Sprintf("%d", n.MaxHistory)))
+
+	layerLine := label.Render("Layer") + value.Render(n.Layer)
+	if s.ContentFocused {
+		layerLine += dim.Render("  (") + accent.Render("l") + dim.Render(" toggle)")
+	}
+	lines = append(lines, layerLine)
 
 	return groupBoxSections("Notification Daemon", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
@@ -172,6 +184,89 @@ func renderNotifyRules(s *core.State, total int) string {
 	}
 
 	return groupBoxSections("App Rules", []string{strings.Join(lines, "\n")}, total, colorBorder)
+}
+
+func renderNotifyUrgency(s *core.State, total int) string {
+	n := s.Notify
+	lw := 18
+	label := detailLabelStyle.Width(lw)
+	value := detailValueStyle
+
+	formatTimeout := func(ms int) string {
+		if ms < 0 {
+			return "default"
+		}
+		if ms == 0 {
+			return "never dismiss"
+		}
+		return fmt.Sprintf("%.1fs", float64(ms)/1000)
+	}
+
+	var lines []string
+
+	lines = append(lines, label.Render("Low")+value.Render(formatTimeout(n.LowTimeout)))
+	lines = append(lines, label.Render("Normal")+value.Render(formatTimeout(n.TimeoutMS)))
+
+	critLine := label.Render("Critical") + value.Render(formatTimeout(n.CritTimeout))
+	if n.CritLayer != "" {
+		critLine += detailValueStyle.Render("  layer: " + n.CritLayer)
+	}
+	lines = append(lines, critLine)
+
+	if n.GroupFormat != "" {
+		lines = append(lines, label.Render("Group Format")+value.Render(n.GroupFormat))
+	}
+
+	return groupBoxSections("Urgency Timeouts", []string{strings.Join(lines, "\n")}, total, colorBorder)
+}
+
+func renderNotifySound(s *core.State, total int) string {
+	n := s.Notify
+	lw := 18
+	label := detailLabelStyle.Width(lw)
+	value := detailValueStyle
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+
+	var lines []string
+
+	if n.NotifySound != "" {
+		sound := n.NotifySound
+		// Strip "exec mpv " prefix for display
+		sound = strings.TrimPrefix(sound, "exec mpv ")
+		lines = append(lines, label.Render("Sound")+
+			lipgloss.NewStyle().Foreground(colorGreen).Render("enabled"))
+		lines = append(lines, label.Render("File")+value.Render(sound))
+	} else {
+		lines = append(lines, label.Render("Sound")+
+			lipgloss.NewStyle().Foreground(colorDim).Render("disabled"))
+	}
+
+	if s.ContentFocused {
+		lines = append(lines, dim.Render("  "+accent.Render("o")+" set sound · "+
+			accent.Render("O")+" disable sound"))
+	}
+
+	if len(n.Sounds) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, detailLabelStyle.Render("Available:"))
+		row := "  "
+		for i, snd := range n.Sounds {
+			if i > 0 {
+				row += "  "
+			}
+			if len(row)+len(snd) > 60 {
+				lines = append(lines, dim.Render(row))
+				row = "  "
+			}
+			row += snd
+		}
+		if row != "  " {
+			lines = append(lines, dim.Render(row))
+		}
+	}
+
+	return groupBoxSections("Notification Sound", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
 func renderNotifyHistory(n notifycfg.Snapshot, total int) string {

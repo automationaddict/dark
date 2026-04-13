@@ -98,6 +98,30 @@ func wireNotifyCfg(nc *nats.Conn, dn *daemonNotifier) func() {
 		return notifyCfgResponse{Snapshot: notifycfg.ReadSnapshot()}
 	})
 
+	register(bus.SubjectNotifyWidthCmd, func(req notifyCfgRequest) notifyCfgResponse {
+		if err := notifycfg.SetWidth(req.Timeout); err != nil { // reusing timeout field for int
+			return notifyCfgResponse{Error: err.Error()}
+		}
+		return notifyCfgResponse{Snapshot: notifycfg.ReadSnapshot()}
+	})
+
+	register(bus.SubjectNotifyLayerCmd, func(req notifyCfgRequest) notifyCfgResponse {
+		if req.Anchor == "" { // reusing anchor field for layer string
+			return notifyCfgResponse{Error: "missing layer"}
+		}
+		if err := notifycfg.SetLayer(req.Anchor); err != nil {
+			return notifyCfgResponse{Error: err.Error()}
+		}
+		return notifyCfgResponse{Snapshot: notifycfg.ReadSnapshot()}
+	})
+
+	register(bus.SubjectNotifySoundCmd, func(req notifyCfgRequest) notifyCfgResponse {
+		if err := notifycfg.SetNotifySound(req.Criteria); err != nil { // reusing criteria for sound path
+			return notifyCfgResponse{Error: err.Error()}
+		}
+		return notifyCfgResponse{Snapshot: notifycfg.ReadSnapshot()}
+	})
+
 	register(bus.SubjectNotifyRemoveRuleCmd, func(req notifyCfgRequest) notifyCfgResponse {
 		if req.Criteria == "" {
 			return notifyCfgResponse{Error: "missing criteria"}

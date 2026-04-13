@@ -34,6 +34,21 @@ func newNotifyCfgActions(nc *nats.Conn) tui.NotifyConfigActions {
 				return notifyCfgRequest(nc, bus.SubjectNotifyTimeoutCmd, map[string]any{"timeout": ms})
 			}
 		},
+		SetWidth: func(px int) tea.Cmd {
+			return func() tea.Msg {
+				return notifyCfgRequest(nc, bus.SubjectNotifyWidthCmd, map[string]any{"timeout": px})
+			}
+		},
+		SetLayer: func(layer string) tea.Cmd {
+			return func() tea.Msg {
+				return notifyCfgRequest(nc, bus.SubjectNotifyLayerCmd, map[string]any{"anchor": layer})
+			}
+		},
+		SetSound: func(soundPath string) tea.Cmd {
+			return func() tea.Msg {
+				return notifyCfgRequest(nc, bus.SubjectNotifySoundCmd, map[string]any{"criteria": soundPath})
+			}
+		},
 		AddAppRule: func(appName string, hide bool) tea.Cmd {
 			return func() tea.Msg {
 				return notifyCfgRequest(nc, bus.SubjectNotifyAddRuleCmd, map[string]any{"app_name": appName, "hide": hide})

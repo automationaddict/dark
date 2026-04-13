@@ -949,6 +949,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "w":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifyWidthDelta(20); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayDpmsToggle(); cmd != nil {
 			return m, cmd
 		}
@@ -1022,6 +1027,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "o":
+		if m.inNotifyContent() {
+			m.triggerNotifySoundDialog()
+			return m, nil
+		}
 		if cmd := m.triggerAudioCyclePort(); cmd != nil {
 			return m, cmd
 		}
@@ -1059,6 +1068,24 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "b":
 		if cmd := m.triggerBluetoothBlockToggle(); cmd != nil {
 			return m, cmd
+		}
+	case "W":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifyWidthDelta(-20); cmd != nil {
+				return m, cmd
+			}
+		}
+	case "O":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifySoundDisable(); cmd != nil {
+				return m, cmd
+			}
+		}
+	case "l":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifyLayerToggle(); cmd != nil {
+				return m, cmd
+			}
 		}
 	case "x":
 		if m.inNotifyContent() {

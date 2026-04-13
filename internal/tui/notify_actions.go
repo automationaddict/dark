@@ -8,12 +8,15 @@ import (
 )
 
 type NotifyConfigActions struct {
-	ToggleDND   func() tea.Cmd
-	DismissAll  func() tea.Cmd
-	SetAnchor   func(anchor string) tea.Cmd
-	SetTimeout  func(ms int) tea.Cmd
-	AddAppRule  func(appName string, hide bool) tea.Cmd
-	RemoveRule  func(criteria string) tea.Cmd
+	ToggleDND    func() tea.Cmd
+	DismissAll   func() tea.Cmd
+	SetAnchor    func(anchor string) tea.Cmd
+	SetTimeout   func(ms int) tea.Cmd
+	SetWidth     func(px int) tea.Cmd
+	SetLayer     func(layer string) tea.Cmd
+	SetSound     func(soundPath string) tea.Cmd
+	AddAppRule   func(appName string, hide bool) tea.Cmd
+	RemoveRule   func(criteria string) tea.Cmd
 }
 
 type NotifyCfgMsg notifycfg.Snapshot
@@ -71,6 +74,56 @@ func (m *Model) triggerNotifyTimeoutDelta(delta int) tea.Cmd {
 		ms = 30000
 	}
 	return m.notifyCfg.SetTimeout(ms)
+}
+
+func (m *Model) triggerNotifyWidthDelta(delta int) tea.Cmd {
+	if m.notifyCfg.SetWidth == nil || !m.inNotifyContent() {
+		return nil
+	}
+	px := m.state.Notify.Width + delta
+	if px < 100 {
+		px = 100
+	}
+	if px > 800 {
+		px = 800
+	}
+	return m.notifyCfg.SetWidth(px)
+}
+
+func (m *Model) triggerNotifyLayerToggle() tea.Cmd {
+	if m.notifyCfg.SetLayer == nil || !m.inNotifyContent() {
+		return nil
+	}
+	current := m.state.Notify.Layer
+	next := "overlay"
+	if current == "overlay" {
+		next = "top"
+	}
+	return m.notifyCfg.SetLayer(next)
+}
+
+func (m *Model) triggerNotifySoundDialog() {
+	if m.notifyCfg.SetSound == nil || !m.inNotifyContent() {
+		return
+	}
+	notifyCfgRef := m.notifyCfg
+	m.dialog = NewDialog("Set notification sound", []DialogFieldSpec{
+		{Key: "sound", Label: "Sound name (from available list)", Value: "message"},
+	}, func(result DialogResult) tea.Cmd {
+		name := result["sound"]
+		if name == "" {
+			return nil
+		}
+		path := "/usr/share/sounds/freedesktop/stereo/" + name + ".oga"
+		return notifyCfgRef.SetSound(path)
+	})
+}
+
+func (m *Model) triggerNotifySoundDisable() tea.Cmd {
+	if m.notifyCfg.SetSound == nil || !m.inNotifyContent() {
+		return nil
+	}
+	return m.notifyCfg.SetSound("")
 }
 
 func (m *Model) triggerNotifyAddRuleDialog() {
