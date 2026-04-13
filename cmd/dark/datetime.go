@@ -29,6 +29,16 @@ func newDateTimeActions(nc *nats.Conn) tui.DateTimeActions {
 				return dateTimeSimpleRequest(nc, bus.SubjectDateTimeFormatCmd)
 			}
 		},
+		SetTime: func(timeStr string) tea.Cmd {
+			return func() tea.Msg {
+				return dateTimeRequest(nc, bus.SubjectDateTimeSetTimeCmd, map[string]any{"time": timeStr})
+			}
+		},
+		SetLocalRTC: func(local bool) tea.Cmd {
+			return func() tea.Msg {
+				return dateTimeRequest(nc, bus.SubjectDateTimeRTCCmd, map[string]any{"local": local})
+			}
+		},
 	}
 }
 

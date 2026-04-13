@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/datetime"
 )
 
 func renderDateTime(s *core.State, width, height int) string {
@@ -22,26 +21,34 @@ func renderDateTime(s *core.State, width, height int) string {
 
 	var blocks []string
 
-	blocks = append(blocks, renderDTCurrent(s.DateTime, innerWidth))
+	blocks = append(blocks, renderDTCurrent(s, innerWidth))
 	blocks = append(blocks, renderDTTimezone(s, innerWidth))
-	blocks = append(blocks, renderDTNTP(s.DateTime, innerWidth))
+	blocks = append(blocks, renderDTNTP(s, innerWidth))
 	blocks = append(blocks, renderDTFormat(s, innerWidth))
-	blocks = append(blocks, renderDTHardware(s.DateTime, innerWidth))
+	blocks = append(blocks, renderDTHardware(s, innerWidth))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
 	return renderScrollableContentPane(s, width, height, body)
 }
 
-func renderDTCurrent(dt datetime.Snapshot, total int) string {
+func renderDTCurrent(s *core.State, total int) string {
+	dt := s.DateTime
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 	lines = append(lines, label.Render("Local Time")+value.Render(dt.LocalTime))
 	lines = append(lines, label.Render("UTC Time")+value.Render(dt.UTCTime))
 	if dt.Uptime != "" {
 		lines = append(lines, label.Render("Uptime")+value.Render(dt.Uptime))
+	}
+
+	if s.ContentFocused && !dt.NTPEnabled {
+		timeLine := dim.Render("  (") + accent.Render("t") + dim.Render(" set time manually)")
+		lines = append(lines, timeLine)
 	}
 
 	return groupBoxSections("Current Time", []string{strings.Join(lines, "\n")}, total, colorBorder)
@@ -67,10 +74,13 @@ func renderDTTimezone(s *core.State, total int) string {
 	return groupBoxSections("Timezone", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
-func renderDTNTP(dt datetime.Snapshot, total int) string {
+func renderDTNTP(s *core.State, total int) string {
+	dt := s.DateTime
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -78,7 +88,11 @@ func renderDTNTP(dt datetime.Snapshot, total int) string {
 	if !dt.NTPEnabled {
 		ntpStatus = lipgloss.NewStyle().Foreground(colorRed).Render("disabled")
 	}
-	lines = append(lines, label.Render("NTP Service")+ntpStatus)
+	ntpLine := label.Render("NTP Service") + ntpStatus
+	if s.ContentFocused && dt.CanNTP {
+		ntpLine += dim.Render("  (") + accent.Render("n") + dim.Render(" toggle)")
+	}
+	lines = append(lines, ntpLine)
 
 	syncStatus := lipgloss.NewStyle().Foreground(colorGreen).Render("synchronized")
 	if !dt.NTPSynced {
@@ -122,10 +136,13 @@ func renderDTFormat(s *core.State, total int) string {
 	return groupBoxSections("Format & Locale", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
-func renderDTHardware(dt datetime.Snapshot, total int) string {
+func renderDTHardware(s *core.State, total int) string {
+	dt := s.DateTime
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -137,7 +154,11 @@ func renderDTHardware(dt datetime.Snapshot, total int) string {
 	if !dt.RTCInUTC {
 		rtcMode = "Local"
 	}
-	lines = append(lines, label.Render("RTC Mode")+value.Render(rtcMode))
+	rtcLine := label.Render("RTC Mode") + value.Render(rtcMode)
+	if s.ContentFocused {
+		rtcLine += dim.Render("  (") + accent.Render("r") + dim.Render(" toggle UTC/Local)")
+	}
+	lines = append(lines, rtcLine)
 
 	if len(lines) == 0 {
 		return ""

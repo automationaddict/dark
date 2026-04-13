@@ -1065,6 +1065,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "t":
+		if m.inDateTimeContent() {
+			m.triggerDTSetTimeDialog()
+			return m, nil
+		}
 		if m.inInputContent() {
 			if cmd := m.triggerInputTapToClickToggle(); cmd != nil {
 				return m, cmd
@@ -1082,6 +1086,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "r":
+		if m.inDateTimeContent() {
+			if cmd := m.triggerDTRTCToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayCycleTransform(); cmd != nil {
 			return m, cmd
 		}

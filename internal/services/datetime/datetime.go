@@ -25,9 +25,11 @@ type Snapshot struct {
 	RTCTime      string `json:"rtc_time"`
 	RTCDate      string `json:"rtc_date"`
 	RTCInUTC     bool   `json:"rtc_in_utc"`
+	CanNTP       bool   `json:"can_ntp"`
 	Locale       string `json:"locale"`
 	ClockFormat  string `json:"clock_format"` // "12h" or "24h"
 	Uptime       string `json:"uptime"`
+	Timezones    []string `json:"timezones,omitempty"`
 }
 
 func ReadSnapshot() Snapshot {
@@ -53,6 +55,10 @@ func ReadSnapshot() Snapshot {
 	s.ClockFormat = readClockFormat()
 	s.Uptime = readUptime()
 
+	if zones, err := ListTimezones(); err == nil {
+		s.Timezones = zones
+	}
+
 	return s
 }
 
@@ -72,6 +78,50 @@ func SetNTP(enabled bool) error {
 	}
 	obj := conn.Object("org.freedesktop.timedate1", "/org/freedesktop/timedate1")
 	return obj.Call("org.freedesktop.timedate1.SetNTP", 0, enabled, false).Err
+}
+
+// SetTime sets the system clock. timeStr must be in "2006-01-02 15:04:05" format.
+// NTP must be disabled before calling this.
+func SetTime(timeStr string) error {
+	t, err := time.Parse("2006-01-02 15:04:05", timeStr)
+	if err != nil {
+		return fmt.Errorf("invalid time format (use YYYY-MM-DD HH:MM:SS): %w", err)
+	}
+	usec := t.UnixMicro()
+	conn, err := dbus.SystemBus()
+	if err != nil {
+		return err
+	}
+	obj := conn.Object("org.freedesktop.timedate1", "/org/freedesktop/timedate1")
+	return obj.Call("org.freedesktop.timedate1.SetTime", 0, usec, false, false).Err
+}
+
+// SetLocalRTC switches the hardware clock between local time and UTC.
+func SetLocalRTC(local bool) error {
+	conn, err := dbus.SystemBus()
+	if err != nil {
+		return err
+	}
+	obj := conn.Object("org.freedesktop.timedate1", "/org/freedesktop/timedate1")
+	return obj.Call("org.freedesktop.timedate1.SetLocalRTC", 0, local, true, false).Err
+}
+
+// ListTimezones returns all available timezones from systemd.
+func ListTimezones() ([]string, error) {
+	conn, err := dbus.SystemBus()
+	if err != nil {
+		return nil, err
+	}
+	obj := conn.Object("org.freedesktop.timedate1", "/org/freedesktop/timedate1")
+	call := obj.Call("org.freedesktop.timedate1.ListTimezones", 0)
+	if call.Err != nil {
+		return nil, call.Err
+	}
+	var zones []string
+	if err := call.Store(&zones); err != nil {
+		return nil, err
+	}
+	return zones, nil
 }
 
 func ToggleClockFormat() error {
@@ -123,6 +173,10 @@ func readTimedateD(s *Snapshot) {
 		localRTC, _ = v.Value().(bool)
 	}
 	s.RTCInUTC = !localRTC
+
+	if v, err := obj.GetProperty("org.freedesktop.timedate1.CanNTP"); err == nil {
+		s.CanNTP, _ = v.Value().(bool)
+	}
 }
 
 func readTimesyncD(s *Snapshot) {

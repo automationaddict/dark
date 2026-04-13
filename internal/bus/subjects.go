@@ -99,6 +99,8 @@ const (
 	SubjectDateTimeTZCmd       = "dark.cmd.datetime.timezone"
 	SubjectDateTimeNTPCmd      = "dark.cmd.datetime.ntp"
 	SubjectDateTimeFormatCmd   = "dark.cmd.datetime.format"
+	SubjectDateTimeSetTimeCmd  = "dark.cmd.datetime.set_time"
+	SubjectDateTimeRTCCmd      = "dark.cmd.datetime.rtc"
 
 	SubjectInputSnapshot       = "dark.input.snapshot"
 	SubjectInputSnapshotCmd    = "dark.cmd.input.snapshot"

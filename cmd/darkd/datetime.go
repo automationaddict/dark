@@ -15,6 +15,8 @@ import (
 type dateTimeRequest struct {
 	Timezone string `json:"timezone,omitempty"`
 	Enabled  *bool  `json:"enabled,omitempty"`
+	Time     string `json:"time,omitempty"`
+	Local    *bool  `json:"local,omitempty"`
 }
 
 type dateTimeResponse struct {
@@ -62,6 +64,24 @@ func wireDateTime(nc *nats.Conn, dn *daemonNotifier) func() {
 	register(bus.SubjectDateTimeNTPCmd, func(req dateTimeRequest) dateTimeResponse {
 		enabled := req.Enabled != nil && *req.Enabled
 		if err := datetime.SetNTP(enabled); err != nil {
+			return dateTimeResponse{Error: err.Error()}
+		}
+		return dateTimeResponse{Snapshot: datetime.ReadSnapshot()}
+	})
+
+	register(bus.SubjectDateTimeSetTimeCmd, func(req dateTimeRequest) dateTimeResponse {
+		if req.Time == "" {
+			return dateTimeResponse{Error: "missing time"}
+		}
+		if err := datetime.SetTime(req.Time); err != nil {
+			return dateTimeResponse{Error: err.Error()}
+		}
+		return dateTimeResponse{Snapshot: datetime.ReadSnapshot()}
+	})
+
+	register(bus.SubjectDateTimeRTCCmd, func(req dateTimeRequest) dateTimeResponse {
+		local := req.Local != nil && *req.Local
+		if err := datetime.SetLocalRTC(local); err != nil {
 			return dateTimeResponse{Error: err.Error()}
 		}
 		return dateTimeResponse{Snapshot: datetime.ReadSnapshot()}
