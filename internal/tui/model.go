@@ -366,6 +366,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.dialog != nil {
 			cmd := m.dialog.Update(msg)
 			if m.dialog.Closed() {
+				stopPreview()
 				m.dialog = nil
 			}
 			return m, cmd

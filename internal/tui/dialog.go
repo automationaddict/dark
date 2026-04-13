@@ -17,11 +17,12 @@ const (
 // DialogFieldSpec defines one form row. Declared up front when building
 // the dialog so the Dialog struct can carry internal state per field.
 type DialogFieldSpec struct {
-	Key     string
-	Label   string
-	Kind    DialogFieldKind
-	Value   string   // optional pre-filled value
-	Options []string // for DialogFieldSelect
+	Key      string
+	Label    string
+	Kind     DialogFieldKind
+	Value    string   // optional pre-filled value
+	Options  []string // for DialogFieldSelect
+	OnChange func(value string) // called when select cursor moves
 }
 
 // DialogResult is passed to the submit callback. Keys are the spec keys.
@@ -51,6 +52,7 @@ type dialogField struct {
 	options   []string
 	selectIdx int
 	scrollOff int
+	onChange  func(string)
 }
 
 // NewDialog constructs a dialog with the given title, field definitions,
@@ -59,11 +61,12 @@ func NewDialog(title string, fields []DialogFieldSpec, submit DialogSubmitFunc) 
 	d := &Dialog{title: title, submit: submit}
 	for _, f := range fields {
 		df := dialogField{
-			key:     f.Key,
-			label:   f.Label,
-			kind:    f.Kind,
-			value:   []rune(f.Value),
-			options: f.Options,
+			key:      f.Key,
+			label:    f.Label,
+			kind:     f.Kind,
+			value:    []rune(f.Value),
+			options:  f.Options,
+			onChange: f.OnChange,
 		}
 		if f.Kind == DialogFieldSelect {
 			for i, o := range f.Options {
@@ -132,6 +135,7 @@ func (d *Dialog) updateSelect(msg tea.KeyMsg) tea.Cmd {
 	case tea.KeyShiftTab:
 		d.advanceField(-1)
 	default:
+		prev := af.selectIdx
 		switch msg.String() {
 		case "j", "down":
 			if af.selectIdx < len(af.options)-1 {
@@ -145,6 +149,9 @@ func (d *Dialog) updateSelect(msg tea.KeyMsg) tea.Cmd {
 			af.selectIdx = 0
 		case "G", "end":
 			af.selectIdx = len(af.options) - 1
+		}
+		if af.selectIdx != prev && af.onChange != nil && len(af.options) > 0 {
+			af.onChange(af.options[af.selectIdx])
 		}
 	}
 	return nil

@@ -1,11 +1,40 @@
 package tui
 
 import (
+	"os/exec"
+	"sync"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/services/notifycfg"
 )
+
+var (
+	previewMu  sync.Mutex
+	previewCmd *exec.Cmd
+)
+
+func previewSound(name string) {
+	previewMu.Lock()
+	defer previewMu.Unlock()
+	if previewCmd != nil && previewCmd.Process != nil {
+		previewCmd.Process.Kill()
+		previewCmd = nil
+	}
+	path := "/usr/share/sounds/freedesktop/stereo/" + name + ".oga"
+	previewCmd = exec.Command("mpv", "--no-terminal", "--no-video", path)
+	previewCmd.Start()
+}
+
+func stopPreview() {
+	previewMu.Lock()
+	defer previewMu.Unlock()
+	if previewCmd != nil && previewCmd.Process != nil {
+		previewCmd.Process.Kill()
+		previewCmd = nil
+	}
+}
 
 type NotifyConfigActions struct {
 	ToggleDND    func() tea.Cmd
@@ -114,8 +143,13 @@ func (m *Model) triggerNotifySoundDialog() {
 	current := "message"
 	notifyCfgRef := m.notifyCfg
 	m.dialog = NewDialog("Set notification sound", []DialogFieldSpec{
-		{Key: "sound", Label: "Sound", Kind: DialogFieldSelect, Options: sounds, Value: current},
+		{Key: "sound", Label: "Sound", Kind: DialogFieldSelect, Options: sounds, Value: current,
+			OnChange: func(value string) {
+				previewSound(value)
+			},
+		},
 	}, func(result DialogResult) tea.Cmd {
+		stopPreview()
 		name := result["sound"]
 		if name == "" {
 			return nil
