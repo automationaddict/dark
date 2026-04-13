@@ -106,9 +106,15 @@ func (m *Model) triggerNotifySoundDialog() {
 	if m.notifyCfg.SetSound == nil || !m.inNotifyContent() {
 		return
 	}
+	sounds := m.state.Notify.Sounds
+	if len(sounds) == 0 {
+		m.notifyError("Notifications", "no system sounds found")
+		return
+	}
+	current := "message"
 	notifyCfgRef := m.notifyCfg
 	m.dialog = NewDialog("Set notification sound", []DialogFieldSpec{
-		{Key: "sound", Label: "Sound name (from available list)", Value: "message"},
+		{Key: "sound", Label: "Sound", Kind: DialogFieldSelect, Options: sounds, Value: current},
 	}, func(result DialogResult) tea.Cmd {
 		name := result["sound"]
 		if name == "" {

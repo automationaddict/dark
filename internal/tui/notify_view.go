@@ -247,25 +247,6 @@ func renderNotifySound(s *core.State, total int) string {
 			accent.Render("O")+" disable sound"))
 	}
 
-	if len(n.Sounds) > 0 {
-		lines = append(lines, "")
-		lines = append(lines, detailLabelStyle.Render("Available:"))
-		row := "  "
-		for i, snd := range n.Sounds {
-			if i > 0 {
-				row += "  "
-			}
-			if len(row)+len(snd) > 60 {
-				lines = append(lines, dim.Render(row))
-				row = "  "
-			}
-			row += snd
-		}
-		if row != "  " {
-			lines = append(lines, dim.Render(row))
-		}
-	}
-
 	return groupBoxSections("Notification Sound", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
