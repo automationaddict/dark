@@ -959,6 +959,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "a":
+		if m.inNotifyContent() {
+			m.triggerNotifyAddRuleDialog()
+			return m, nil
+		}
 		if m.inInputContent() {
 			if cmd := m.triggerInputAccelProfileCycle(); cmd != nil {
 				return m, cmd
@@ -994,6 +998,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "p":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifyAnchorCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inPowerContent() {
 			if cmd := m.triggerPowerProfileCycle(); cmd != nil {
 				return m, cmd
@@ -1052,6 +1061,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "x":
+		if m.inNotifyContent() {
+			m.triggerNotifyRemoveRuleDialog()
+			return m, nil
+		}
 		if cmd := m.triggerBluetoothCancelPair(); cmd != nil {
 			return m, cmd
 		}
@@ -1172,6 +1185,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "+", "=":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifyTimeoutDelta(1000); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inInputContent() {
 			if cmd := m.triggerInputRepeatRateDelta(5); cmd != nil {
 				return m, cmd
@@ -1187,6 +1205,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.ResizeSidebar(1)
 		}
 	case "-", "_":
+		if m.inNotifyContent() {
+			if cmd := m.triggerNotifyTimeoutDelta(-1000); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inInputContent() {
 			if cmd := m.triggerInputRepeatRateDelta(-5); cmd != nil {
 				return m, cmd

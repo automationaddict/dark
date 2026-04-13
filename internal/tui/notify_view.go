@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -22,11 +23,11 @@ func renderNotifications(s *core.State, width, height int) string {
 
 	var blocks []string
 
-	blocks = append(blocks, renderNotifyDaemon(s.Notify, innerWidth))
+	blocks = append(blocks, renderNotifyDaemon(s, innerWidth))
 	blocks = append(blocks, renderNotifyAppearance(s.Notify, innerWidth))
-	blocks = append(blocks, renderNotifyDND(s.Notify, innerWidth))
+	blocks = append(blocks, renderNotifyDND(s, innerWidth))
 
-	if rules := renderNotifyRules(s.Notify, innerWidth); rules != "" {
+	if rules := renderNotifyRules(s, innerWidth); rules != "" {
 		blocks = append(blocks, rules)
 	}
 
@@ -38,10 +39,13 @@ func renderNotifications(s *core.State, width, height int) string {
 	return renderScrollableContentPane(s, width, height, body)
 }
 
-func renderNotifyDaemon(n notifycfg.Snapshot, total int) string {
+func renderNotifyDaemon(s *core.State, total int) string {
+	n := s.Notify
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -52,12 +56,23 @@ func renderNotifyDaemon(n notifycfg.Snapshot, total int) string {
 	lines = append(lines, label.Render("Status")+status)
 	lines = append(lines, label.Render("Daemon")+value.Render(n.Daemon))
 
-	if n.Anchor != "" {
-		lines = append(lines, label.Render("Position")+value.Render(n.Anchor))
+	posLine := label.Render("Position") + value.Render(n.Anchor)
+	if s.ContentFocused {
+		posLine += dim.Render("  (") + accent.Render("p") + dim.Render(" cycle)")
 	}
-	if n.Timeout != "" {
-		lines = append(lines, label.Render("Timeout")+value.Render(n.Timeout))
+	lines = append(lines, posLine)
+
+	timeoutSec := fmt.Sprintf("%.1fs", float64(n.TimeoutMS)/1000)
+	timeoutLine := label.Render("Timeout") + value.Render(timeoutSec)
+	if s.ContentFocused {
+		timeoutLine += dim.Render("  (") + accent.Render("+/-") + dim.Render(" adjust)")
 	}
+	lines = append(lines, timeoutLine)
+
+	widthLine := label.Render("Width") + value.Render(fmt.Sprintf("%dpx", n.Width))
+	lines = append(lines, widthLine)
+
+	lines = append(lines, label.Render("Max History")+value.Render(fmt.Sprintf("%d", n.MaxHistory)))
 
 	return groupBoxSections("Notification Daemon", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
@@ -69,38 +84,31 @@ func renderNotifyAppearance(n notifycfg.Snapshot, total int) string {
 
 	var lines []string
 
-	if n.Width != "" {
-		lines = append(lines, label.Render("Width")+value.Render(n.Width))
+	if n.Font != "" {
+		lines = append(lines, label.Render("Font")+value.Render(n.Font))
 	}
 	if n.Padding != "" {
 		lines = append(lines, label.Render("Padding")+value.Render(n.Padding))
 	}
-	if n.BorderSize != "" {
-		lines = append(lines, label.Render("Border")+value.Render(n.BorderSize))
+	lines = append(lines, label.Render("Border")+value.Render(fmt.Sprintf("%dpx", n.BorderSize)))
+	if n.BorderRadius > 0 {
+		lines = append(lines, label.Render("Border Radius")+value.Render(fmt.Sprintf("%dpx", n.BorderRadius)))
 	}
-	if n.Font != "" {
-		lines = append(lines, label.Render("Font")+value.Render(n.Font))
-	}
-	if n.MaxIcon != "" {
-		lines = append(lines, label.Render("Max Icon")+value.Render(n.MaxIcon))
-	}
+	lines = append(lines, label.Render("Max Icon")+value.Render(fmt.Sprintf("%dpx", n.MaxIcon)))
+	lines = append(lines, label.Render("Icons")+value.Render(onOff(n.Icons)))
+	lines = append(lines, label.Render("Markup")+value.Render(onOff(n.Markup)))
+	lines = append(lines, label.Render("Actions")+value.Render(onOff(n.Actions)))
 
 	if n.TextColor != "" {
-		lines = append(lines, label.Render("Text Color")+
-			renderColorSwatch(n.TextColor))
+		lines = append(lines, label.Render("Text Color")+renderColorSwatch(n.TextColor))
 	}
 	if n.BorderColor != "" {
-		lines = append(lines, label.Render("Border Color")+
-			renderColorSwatch(n.BorderColor))
+		lines = append(lines, label.Render("Border Color")+renderColorSwatch(n.BorderColor))
 	}
 	if n.BgColor != "" {
-		lines = append(lines, label.Render("Background")+
-			renderColorSwatch(n.BgColor))
+		lines = append(lines, label.Render("Background")+renderColorSwatch(n.BgColor))
 	}
 
-	if len(lines) == 0 {
-		return ""
-	}
 	return groupBoxSections("Appearance", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
@@ -109,7 +117,8 @@ func renderColorSwatch(hex string) string {
 	return swatch + " " + detailValueStyle.Render(hex)
 }
 
-func renderNotifyDND(n notifycfg.Snapshot, total int) string {
+func renderNotifyDND(s *core.State, total int) string {
+	n := s.Notify
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	dim := lipgloss.NewStyle().Foreground(colorDim)
@@ -125,24 +134,41 @@ func renderNotifyDND(n notifycfg.Snapshot, total int) string {
 			lipgloss.NewStyle().Foreground(colorGreen).Render("off"))
 	}
 
-	lines = append(lines, dim.Render("  "+accent.Render("d")+" toggle DND · "+
-		accent.Render("D")+" dismiss all"))
+	if s.ContentFocused {
+		lines = append(lines, dim.Render("  "+accent.Render("d")+" toggle DND · "+
+			accent.Render("D")+" dismiss all"))
+	}
 
 	return groupBoxSections("Do Not Disturb", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
-func renderNotifyRules(n notifycfg.Snapshot, total int) string {
-	if len(n.Rules) == 0 {
+func renderNotifyRules(s *core.State, total int) string {
+	n := s.Notify
+	if len(n.Rules) == 0 && !s.ContentFocused {
 		return ""
 	}
 
 	lw := 28
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 	for _, r := range n.Rules {
 		lines = append(lines, label.Render(r.Criteria)+value.Render(r.Action))
+	}
+
+	if s.ContentFocused {
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, dim.Render("  "+accent.Render("a")+" add app rule · "+
+			accent.Render("x")+" remove rule"))
+	}
+
+	if len(lines) == 0 {
+		lines = append(lines, placeholderStyle.Render("No app-specific rules configured."))
 	}
 
 	return groupBoxSections("App Rules", []string{strings.Join(lines, "\n")}, total, colorBorder)

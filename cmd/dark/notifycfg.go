@@ -16,27 +16,60 @@ func newNotifyCfgActions(nc *nats.Conn) tui.NotifyConfigActions {
 	return tui.NotifyConfigActions{
 		ToggleDND: func() tea.Cmd {
 			return func() tea.Msg {
-				return notifyCfgRequest(nc, bus.SubjectNotifyDNDCmd)
+				return notifyCfgSimpleRequest(nc, bus.SubjectNotifyDNDCmd)
 			}
 		},
 		DismissAll: func() tea.Cmd {
 			return func() tea.Msg {
-				return notifyCfgRequest(nc, bus.SubjectNotifyDismissCmd)
+				return notifyCfgSimpleRequest(nc, bus.SubjectNotifyDismissCmd)
+			}
+		},
+		SetAnchor: func(anchor string) tea.Cmd {
+			return func() tea.Msg {
+				return notifyCfgRequest(nc, bus.SubjectNotifyAnchorCmd, map[string]any{"anchor": anchor})
+			}
+		},
+		SetTimeout: func(ms int) tea.Cmd {
+			return func() tea.Msg {
+				return notifyCfgRequest(nc, bus.SubjectNotifyTimeoutCmd, map[string]any{"timeout": ms})
+			}
+		},
+		AddAppRule: func(appName string, hide bool) tea.Cmd {
+			return func() tea.Msg {
+				return notifyCfgRequest(nc, bus.SubjectNotifyAddRuleCmd, map[string]any{"app_name": appName, "hide": hide})
+			}
+		},
+		RemoveRule: func(criteria string) tea.Cmd {
+			return func() tea.Msg {
+				return notifyCfgRequest(nc, bus.SubjectNotifyRemoveRuleCmd, map[string]any{"criteria": criteria})
 			}
 		},
 	}
 }
 
-func notifyCfgRequest(nc *nats.Conn, subject string) tui.NotifyCfgActionResultMsg {
+func notifyCfgSimpleRequest(nc *nats.Conn, subject string) tui.NotifyCfgActionResultMsg {
 	reply, err := nc.Request(subject, nil, core.TimeoutNormal)
 	if err != nil {
 		return tui.NotifyCfgActionResultMsg{Err: err.Error()}
 	}
+	return parseNotifyCfgResponse(reply.Data)
+}
+
+func notifyCfgRequest(nc *nats.Conn, subject string, payload any) tui.NotifyCfgActionResultMsg {
+	data, _ := json.Marshal(payload)
+	reply, err := nc.Request(subject, data, core.TimeoutNormal)
+	if err != nil {
+		return tui.NotifyCfgActionResultMsg{Err: err.Error()}
+	}
+	return parseNotifyCfgResponse(reply.Data)
+}
+
+func parseNotifyCfgResponse(data []byte) tui.NotifyCfgActionResultMsg {
 	var resp struct {
 		Snapshot notifycfg.Snapshot `json:"snapshot"`
 		Error    string            `json:"error,omitempty"`
 	}
-	if err := json.Unmarshal(reply.Data, &resp); err != nil {
+	if err := json.Unmarshal(data, &resp); err != nil {
 		return tui.NotifyCfgActionResultMsg{Err: err.Error()}
 	}
 	if resp.Error != "" {
