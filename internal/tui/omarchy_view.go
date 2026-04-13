@@ -24,6 +24,8 @@ func renderOmarchyTab(s *core.State, width, height int) string {
 		content = renderWebLinks(s, contentWidth, height)
 	case "tuilinks":
 		content = renderTUILinks(s, contentWidth, height)
+	case "keybindings":
+		content = renderKeybindings(s, contentWidth, height)
 	default:
 		content = renderContentPane(contentWidth, height,
 			placeholderStyle.Render("Not implemented yet."))

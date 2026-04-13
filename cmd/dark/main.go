@@ -20,6 +20,7 @@ import (
 	displaysvc "github.com/johnnelson/dark/internal/services/display"
 	dtsvc "github.com/johnnelson/dark/internal/services/datetime"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
+	keybindsvc "github.com/johnnelson/dark/internal/services/keybind"
 	notifycfgsvc "github.com/johnnelson/dark/internal/services/notifycfg"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
@@ -131,6 +132,7 @@ func main() {
 	notifyCfgActions := newNotifyCfgActions(nc)
 	powerActions := newPowerActions(nc)
 	appstoreActions := newAppstoreActions(nc)
+	keybindActions := newKeybindActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -142,7 +144,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -344,6 +346,20 @@ func main() {
 	}
 	defer appstoreSub.Unsubscribe()
 
+	keybindSub, err := nc.Subscribe(bus.SubjectKeybindSnapshot, func(m *nats.Msg) {
+		var snap keybindsvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Keybindings", err)
+			return
+		}
+		p.Send(tui.KeybindMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe keybind:", err)
+		os.Exit(1)
+	}
+	defer keybindSub.Unsubscribe()
+
 	// Request current snapshots up front so each tab has data on the
 	// first frame instead of waiting for the next periodic publish.
 	if reply, err := nc.Request(bus.SubjectSystemInfoCmd, nil, core.TimeoutFast); err == nil {
@@ -396,6 +412,12 @@ func main() {
 	}
 	if snap, ok := requestInitialAppstore(nc); ok {
 		state.SetAppstore(snap)
+	}
+	if reply, err := nc.Request(bus.SubjectKeybindSnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap keybindsvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetKeybindings(snap)
+		}
 	}
 
 	if _, err := p.Run(); err != nil {

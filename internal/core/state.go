@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/johnnelson/dark/internal/help"
 	"github.com/johnnelson/dark/internal/services/appstore"
+	"github.com/johnnelson/dark/internal/services/keybind"
 	"github.com/johnnelson/dark/internal/services/tuilink"
 	"github.com/johnnelson/dark/internal/services/weblink"
 	"github.com/johnnelson/dark/internal/services/audio"
@@ -143,6 +144,9 @@ type State struct {
 	TUILinks          []tuilink.TUIApp
 	TUILinksLoaded    bool
 	TUILinkIdx        int
+	Keybindings       keybind.Snapshot
+	KeybindingsLoaded bool
+	KeybindIdx        int
 	OmarchySidebarIdx int
 
 	ContentFocused bool

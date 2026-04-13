@@ -146,4 +146,10 @@ const (
 	SubjectAppstoreInstallCmd = "dark.cmd.appstore.install"
 	SubjectAppstoreRemoveCmd  = "dark.cmd.appstore.remove"
 	SubjectAppstoreUpgradeCmd = "dark.cmd.appstore.upgrade"
+
+	SubjectKeybindSnapshot    = "dark.keybind.snapshot"
+	SubjectKeybindSnapshotCmd = "dark.cmd.keybind.snapshot"
+	SubjectKeybindAddCmd      = "dark.cmd.keybind.add"
+	SubjectKeybindUpdateCmd   = "dark.cmd.keybind.update"
+	SubjectKeybindRemoveCmd   = "dark.cmd.keybind.remove"
 )

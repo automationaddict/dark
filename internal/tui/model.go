@@ -18,6 +18,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/display"
 	"github.com/johnnelson/dark/internal/services/datetime"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
+	"github.com/johnnelson/dark/internal/services/keybind"
 	"github.com/johnnelson/dark/internal/services/notifycfg"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
@@ -71,6 +72,7 @@ type Model struct {
 	notifyCfg NotifyConfigActions
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
+	keybind   KeybindActions
 	dialog    *Dialog
 	spinner   spinner.Model
 	width     int
@@ -96,7 +98,7 @@ type TUILinksMsg []tuilink.TUIApp
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions, keybindAct KeybindActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -113,6 +115,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		notifyCfg: notifyCfgAct,
 		notifier:  notifier,
 		appstore:  appstore,
+		keybind:   keybindAct,
 		spinner:   sp,
 	}
 }
@@ -356,6 +359,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.AppstoreStatusMsg = ""
 		m.state.SetAppstore(msg.Snapshot)
 		return m, nil
+
+	case KeybindMsg:
+		m.state.SetKeybindings(keybind.Snapshot(msg))
+		return m, nil
+
+	case KeybindActionResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Keybindings", msg.Err)
+			return m, nil
+		}
+		m.state.SetKeybindings(msg.Snapshot)
+		return m, nil
+
+	case keybindConflictMsg:
+		return m, m.handleKeybindConflict(msg)
 
 	case BusStatusMsg:
 		m.state.SetBusConnected(bool(msg))

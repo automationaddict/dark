@@ -210,6 +210,7 @@ func main() {
 	publishInput := wireInput(nc, dn)
 	publishPower := wirePower(nc, dn)
 	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog, dn)
+	publishKeybind := wireKeybind(nc, dn)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -251,6 +252,7 @@ func main() {
 	publishInput()
 	publishPower()
 	publishAppstore()
+	publishKeybind()
 
 	var seq uint64
 	for {
@@ -269,6 +271,7 @@ func main() {
 				publishInput()
 				publishPower()
 				publishAppstore()
+				publishKeybind()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())

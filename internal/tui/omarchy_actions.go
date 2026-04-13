@@ -18,6 +18,8 @@ func (m *Model) triggerOmarchyEnter() tea.Cmd {
 		return m.triggerWebLinkOpen()
 	case "tuilinks":
 		return m.triggerTUILinkLaunch()
+	case "keybindings":
+		return m.triggerKeybindEdit()
 	}
 	return nil
 }
@@ -28,6 +30,8 @@ func (m *Model) triggerOmarchyAdd() tea.Cmd {
 		return m.triggerWebLinkAdd()
 	case "tuilinks":
 		return m.triggerTUILinkAdd()
+	case "keybindings":
+		return m.triggerKeybindAdd()
 	}
 	return nil
 }
@@ -38,6 +42,8 @@ func (m *Model) triggerOmarchyEdit() tea.Cmd {
 		return m.triggerWebLinkEdit()
 	case "tuilinks":
 		return m.triggerTUILinkEdit()
+	case "keybindings":
+		return m.triggerKeybindEdit()
 	}
 	return nil
 }
@@ -48,6 +54,8 @@ func (m *Model) triggerOmarchyDelete() tea.Cmd {
 		return m.triggerWebLinkRemove()
 	case "tuilinks":
 		return m.triggerTUILinkRemove()
+	case "keybindings":
+		return m.triggerKeybindRemove()
 	}
 	return nil
 }

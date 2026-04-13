@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/johnnelson/dark/internal/services/keybind"
 	"github.com/johnnelson/dark/internal/services/tuilink"
 	"github.com/johnnelson/dark/internal/services/weblink"
 )
@@ -15,6 +16,7 @@ func OmarchySections() []OmarchySection {
 	return []OmarchySection{
 		{"weblinks", "󰖟", "Web Links"},
 		{"tuilinks", "󰆍", "TUI Links"},
+		{"keybindings", "󰌌", "Keybindings"},
 	}
 }
 
@@ -56,6 +58,12 @@ func (s *State) MoveOmarchyFocus(delta int) {
 			return
 		}
 		s.TUILinkIdx = (s.TUILinkIdx + delta + n) % n
+	case "keybindings":
+		n := len(s.Keybindings.Bindings)
+		if n == 0 {
+			return
+		}
+		s.KeybindIdx = (s.KeybindIdx + delta + n) % n
 	}
 }
 
@@ -85,4 +93,22 @@ func (s *State) SelectedTUILink() (tuilink.TUIApp, bool) {
 		s.TUILinkIdx = 0
 	}
 	return s.TUILinks[s.TUILinkIdx], true
+}
+
+func (s *State) SetKeybindings(snap keybind.Snapshot) {
+	s.Keybindings = snap
+	s.KeybindingsLoaded = true
+	if s.KeybindIdx >= len(snap.Bindings) {
+		s.KeybindIdx = 0
+	}
+}
+
+func (s *State) SelectedKeybinding() (keybind.Binding, bool) {
+	if len(s.Keybindings.Bindings) == 0 {
+		return keybind.Binding{}, false
+	}
+	if s.KeybindIdx >= len(s.Keybindings.Bindings) {
+		s.KeybindIdx = 0
+	}
+	return s.Keybindings.Bindings[s.KeybindIdx], true
 }
