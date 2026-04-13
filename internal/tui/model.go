@@ -16,6 +16,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/display"
+	"github.com/johnnelson/dark/internal/services/datetime"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	"github.com/johnnelson/dark/internal/services/notifycfg"
 	"github.com/johnnelson/dark/internal/services/network"
@@ -66,6 +67,7 @@ type Model struct {
 	display   DisplayActions
 	power     PowerActions
 	input     InputActions
+	dateTime  DateTimeActions
 	notifyCfg NotifyConfigActions
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
@@ -94,7 +96,7 @@ type TUILinksMsg []tuilink.TUIApp
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -107,6 +109,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		display:   displayAct,
 		power:     powerAct,
 		input:     inputAct,
+		dateTime:  dateTimeAct,
 		notifyCfg: notifyCfgAct,
 		notifier:  notifier,
 		appstore:  appstore,
@@ -227,6 +230,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.DisplayActionError = ""
 		m.state.SetDisplay(msg.Snapshot)
+		return m, nil
+
+	case DateTimeMsg:
+		m.state.SetDateTime(datetime.Snapshot(msg))
+		return m, nil
+
+	case DateTimeActionResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Date & Time", msg.Err)
+			return m, nil
+		}
+		m.state.SetDateTime(msg.Snapshot)
 		return m, nil
 
 	case NotifyCfgMsg:
@@ -701,7 +716,7 @@ func (m *Model) moveSelection(delta int) {
 			} else {
 				m.state.MoveNetworkSelection(delta)
 			}
-		case "power", "input", "notifications":
+		case "power", "input", "notifications", "datetime":
 			m.state.ScrollContent(delta)
 		}
 		return
@@ -945,7 +960,17 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerNetworkRouteDelete(); cmd != nil {
 			return m, cmd
 		}
+	case "z":
+		if m.inDateTimeContent() {
+			m.triggerDTTimezoneDialog()
+			return m, nil
+		}
 	case "f":
+		if m.inDateTimeContent() {
+			if cmd := m.triggerDTClockFormatToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerWifiForget(); cmd != nil {
 			return m, cmd
 		}
@@ -1295,6 +1320,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "n":
+		if m.inDateTimeContent() {
+			if cmd := m.triggerDTNTPToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inInputContent() {
 			if cmd := m.triggerInputNaturalScrollToggle(); cmd != nil {
 				return m, cmd

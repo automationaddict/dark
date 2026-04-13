@@ -8,6 +8,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/display"
+	"github.com/johnnelson/dark/internal/services/datetime"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	"github.com/johnnelson/dark/internal/services/notifycfg"
 	"github.com/johnnelson/dark/internal/services/network"
@@ -114,6 +115,9 @@ type State struct {
 	Notify       notifycfg.Snapshot
 	NotifyLoaded bool
 
+	DateTime       datetime.Snapshot
+	DateTimeLoaded bool
+
 	Appstore              appstore.Snapshot
 	AppstoreLoaded        bool
 	AppstoreCategoryIdx   int
@@ -178,6 +182,11 @@ func NewState(start TabID, binPath string) *State {
 // bus subscriber goroutine via tea.Program.Send.
 func (s *State) SetBusConnected(ok bool) {
 	s.BusConnected = ok
+}
+
+func (s *State) SetDateTime(snap datetime.Snapshot) {
+	s.DateTime = snap
+	s.DateTimeLoaded = true
 }
 
 func (s *State) SetNotify(snap notifycfg.Snapshot) {
@@ -331,6 +340,10 @@ func (s *State) FocusContent() {
 		}
 	case "notifications":
 		if s.NotifyLoaded {
+			s.ContentFocused = true
+		}
+	case "datetime":
+		if s.DateTimeLoaded {
 			s.ContentFocused = true
 		}
 	case "network":

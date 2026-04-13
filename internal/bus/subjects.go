@@ -94,6 +94,12 @@ const (
 	SubjectDisplayApplyProfileCmd   = "dark.cmd.display.apply_profile"
 	SubjectDisplayDeleteProfileCmd  = "dark.cmd.display.delete_profile"
 
+	SubjectDateTimeSnapshot    = "dark.datetime.snapshot"
+	SubjectDateTimeSnapshotCmd = "dark.cmd.datetime.snapshot"
+	SubjectDateTimeTZCmd       = "dark.cmd.datetime.timezone"
+	SubjectDateTimeNTPCmd      = "dark.cmd.datetime.ntp"
+	SubjectDateTimeFormatCmd   = "dark.cmd.datetime.format"
+
 	SubjectInputSnapshot       = "dark.input.snapshot"
 	SubjectInputSnapshotCmd    = "dark.cmd.input.snapshot"
 	SubjectInputRepeatRateCmd  = "dark.cmd.input.repeat_rate"
