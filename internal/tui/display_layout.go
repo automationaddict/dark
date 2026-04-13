@@ -251,86 +251,94 @@ func paintRect(grid [][]rune, color [][]int, ox, oy, w, h, idx int, label string
 }
 
 // snapPosition calculates the new position for a monitor when the user
-// nudges it in a direction. Snaps to the edge of adjacent monitors or
-// to the origin. dx/dy are in logical directions (-1, 0, +1).
+// nudges it in a direction. Instead of pixel nudging, it jumps to the
+// next snap point in the given direction — the nearest edge of another
+// monitor that is strictly further along the nudge axis. This makes
+// arrow keys feel like "swap sides" rather than "inch by 10 pixels".
+// dx/dy are in logical directions (-1, 0, +1).
 func snapPosition(monitors []display.Monitor, selectedIdx int, dx, dy int) (int, int) {
 	sel := monitors[selectedIdx]
-	nudgePx := 10
+	newX, newY := sel.X, sel.Y
 
-	newX := sel.X + dx*nudgePx
-	newY := sel.Y + dy*nudgePx
+	if dx != 0 {
+		newX = findNextSnapX(monitors, selectedIdx, dx)
+	}
+	if dy != 0 {
+		newY = findNextSnapY(monitors, selectedIdx, dy)
+	}
+	return newX, newY
+}
 
-	// Snap to edges of other monitors when close.
-	const snapThreshold = 30
+// findNextSnapX finds the next horizontal snap position for the selected
+// monitor in direction dx (-1 = left, +1 = right). It collects all
+// meaningful X positions from other monitors (left edge, right edge)
+// and picks the closest one that is strictly in the nudge direction.
+func findNextSnapX(monitors []display.Monitor, selIdx, dx int) int {
+	sel := monitors[selIdx]
+	curX := sel.X
+
+	var candidates []int
 	for i, m := range monitors {
-		if i == selectedIdx {
+		if i == selIdx {
 			continue
 		}
-		// Snap right edge of sel to left edge of m
-		if dx > 0 {
-			target := m.X - sel.Width
-			if abs(newX-target) < snapThreshold {
-				newX = target
-			}
-			target = m.X + m.Width
-			if abs(newX-target) < snapThreshold {
-				newX = target
-			}
+		// Place selected monitor's left edge at other monitor's right edge
+		candidates = append(candidates, m.X+m.Width)
+		// Place selected monitor's right edge at other monitor's left edge
+		candidates = append(candidates, m.X-sel.Width)
+	}
+	// Also consider origin
+	candidates = append(candidates, 0)
+
+	best := curX
+	bestDist := -1
+	for _, cx := range candidates {
+		if dx > 0 && cx <= curX {
+			continue
 		}
-		// Snap left edge of sel to right edge of m
-		if dx < 0 {
-			target := m.X + m.Width
-			if abs(newX-target) < snapThreshold {
-				newX = target
-			}
-			target = m.X - sel.Width
-			if abs(newX-target) < snapThreshold {
-				newX = target
-			}
+		if dx < 0 && cx >= curX {
+			continue
 		}
-		// Snap bottom edge of sel to top edge of m
-		if dy > 0 {
-			target := m.Y - sel.Height
-			if abs(newY-target) < snapThreshold {
-				newY = target
-			}
-			target = m.Y + m.Height
-			if abs(newY-target) < snapThreshold {
-				newY = target
-			}
-		}
-		// Snap top edge of sel to bottom edge of m
-		if dy < 0 {
-			target := m.Y + m.Height
-			if abs(newY-target) < snapThreshold {
-				newY = target
-			}
-			target = m.Y - sel.Height
-			if abs(newY-target) < snapThreshold {
-				newY = target
-			}
-		}
-		// Align tops/bottoms when moving horizontally
-		if dx != 0 && dy == 0 {
-			if abs(newY-m.Y) < snapThreshold {
-				newY = m.Y
-			}
-			if abs((newY+sel.Height)-(m.Y+m.Height)) < snapThreshold {
-				newY = m.Y + m.Height - sel.Height
-			}
-		}
-		// Align lefts/rights when moving vertically
-		if dy != 0 && dx == 0 {
-			if abs(newX-m.X) < snapThreshold {
-				newX = m.X
-			}
-			if abs((newX+sel.Width)-(m.X+m.Width)) < snapThreshold {
-				newX = m.X + m.Width - sel.Width
-			}
+		dist := abs(cx - curX)
+		if bestDist < 0 || dist < bestDist {
+			best = cx
+			bestDist = dist
 		}
 	}
+	return best
+}
 
-	return newX, newY
+// findNextSnapY finds the next vertical snap position.
+func findNextSnapY(monitors []display.Monitor, selIdx, dy int) int {
+	sel := monitors[selIdx]
+	curY := sel.Y
+
+	var candidates []int
+	for i, m := range monitors {
+		if i == selIdx {
+			continue
+		}
+		candidates = append(candidates, m.Y+m.Height)
+		candidates = append(candidates, m.Y-sel.Height)
+	}
+	candidates = append(candidates, 0)
+
+	best := curY
+	bestDist := -1
+	for _, cy := range candidates {
+		if dy > 0 && cy <= curY {
+			continue
+		}
+		if dy < 0 && cy >= curY {
+			continue
+		}
+		dist := abs(cy - curY)
+		if bestDist < 0 || dist < bestDist {
+			best = cy
+			bestDist = dist
+		}
+	}
+	return best
 }
 
 func abs(x int) int {

@@ -11,6 +11,10 @@
 package network
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -147,11 +151,12 @@ type RouteConfig struct {
 
 // Snapshot is the network domain payload published on the bus.
 type Snapshot struct {
-	Backend    string      `json:"backend"`
-	Hostname   string      `json:"hostname,omitempty"`
-	Interfaces []Interface `json:"interfaces"`
-	Routes     []Route     `json:"routes,omitempty"`
-	DNS        DNS         `json:"dns,omitempty"`
+	Backend      string      `json:"backend"`
+	Hostname     string      `json:"hostname,omitempty"`
+	AirplaneMode bool        `json:"airplane_mode"`
+	Interfaces   []Interface `json:"interfaces"`
+	Routes       []Route     `json:"routes,omitempty"`
+	DNS          DNS         `json:"dns,omitempty"`
 }
 
 // Service holds long-lived state across snapshot calls: the previous
@@ -201,10 +206,11 @@ func (s *Service) Close() {
 // always runs first; the backend then gets a chance to augment.
 func (s *Service) Snapshot() Snapshot {
 	snap := Snapshot{
-		Hostname:   readHostname(),
-		Interfaces: scanInterfaces(),
-		Routes:     readRoutes(),
-		DNS:        readDNS(),
+		Hostname:     readHostname(),
+		AirplaneMode: readAirplaneMode(),
+		Interfaces:   scanInterfaces(),
+		Routes:       readRoutes(),
+		DNS:          readDNS(),
 	}
 	if s.backend != nil {
 		snap.Backend = s.backend.Name()
@@ -246,6 +252,45 @@ func (s *Service) ResetInterface(iface string) error {
 		return ErrBackendUnsupported
 	}
 	return s.backend.ResetInterface(iface)
+}
+
+// SetAirplaneMode toggles all wireless radios via rfkill. When
+// enabled, soft-blocks all radios (wifi, bluetooth, etc.); when
+// disabled, unblocks them. Uses sysfs directly — no shell-out.
+func SetAirplaneMode(enable bool) error {
+	entries, err := os.ReadDir("/sys/class/rfkill")
+	if err != nil {
+		return fmt.Errorf("rfkill: %w", err)
+	}
+	val := []byte("0")
+	if enable {
+		val = []byte("1")
+	}
+	for _, e := range entries {
+		path := filepath.Join("/sys/class/rfkill", e.Name(), "soft")
+		_ = os.WriteFile(path, val, 0o644)
+	}
+	return nil
+}
+
+// readAirplaneMode returns true when ALL rfkill devices are
+// soft-blocked. Returns false if any device is unblocked or if
+// there are no rfkill devices at all.
+func readAirplaneMode() bool {
+	entries, err := os.ReadDir("/sys/class/rfkill")
+	if err != nil || len(entries) == 0 {
+		return false
+	}
+	for _, e := range entries {
+		data, err := os.ReadFile(filepath.Join("/sys/class/rfkill", e.Name(), "soft"))
+		if err != nil {
+			continue
+		}
+		if strings.TrimSpace(string(data)) != "1" {
+			return false
+		}
+	}
+	return true
 }
 
 // updateRateSample mirrors the wifi service's rate computation: store

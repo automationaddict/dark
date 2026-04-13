@@ -19,6 +19,10 @@ func (m *Model) triggerOmarchyEnter() tea.Cmd {
 	case "tuilinks":
 		return m.triggerTUILinkLaunch()
 	case "keybindings":
+		if !m.state.KeybindTableFocused {
+			m.state.KeybindTableFocused = true
+			return nil
+		}
 		return m.triggerKeybindEdit()
 	}
 	return nil

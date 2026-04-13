@@ -44,61 +44,157 @@ func renderWifi(s *core.State, width, height int) string {
 		)
 	}
 
-	// contentStyle has Padding(1, 3), so usable inner width is width - 6.
+	secs := core.WifiSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebarFocused := s.ContentFocused && !s.WifiContentFocused
+	sidebar := renderInnerSidebarFocused(s, entries, s.WifiSectionIdx, height, sidebarFocused)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActiveWifiSection()
+	var content string
+	switch sec.ID {
+	case "adapters":
+		content = renderWifiAdaptersSection(s, contentWidth, height)
+	case "networks":
+		content = renderWifiNetworksSection(s, contentWidth, height)
+	case "known":
+		content = renderWifiKnownSection(s, contentWidth, height)
+	case "ap":
+		content = renderWifiAPSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+func renderWifiAdaptersSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
 	}
 
+	adapters := s.Wifi.Adapters
 	selected := s.WifiSelected
 	if selected >= len(adapters) {
 		selected = 0
 	}
-	focused := s.ContentFocused
 
-	tableSection := renderAdaptersTable(adapters, selected, focused)
-
-	adaptersBorder := colorBorder
-	if focused && s.WifiFocus == core.WifiFocusAdapters {
-		adaptersBorder = colorAccent
-	}
-	adaptersBox := groupBoxSections("Adapters", []string{tableSection}, innerWidth, adaptersBorder)
+	tableSection := renderAdaptersTable(adapters, selected, s.WifiContentFocused)
+	adaptersBox := groupBoxSections("Adapters", []string{tableSection}, innerWidth,
+		borderForFocus(s.WifiContentFocused))
 
 	selAdapter := adapters[selected]
 	toggleLine := renderWifiToggle(selAdapter, s.WifiBusy)
-	blocks := []string{toggleLine, "", adaptersBox}
 
 	detailsTitle := "Details"
 	if selAdapter.Name != "" {
 		detailsTitle = "Details · " + selAdapter.Name
 	}
 	detailsBox := groupBoxSections(detailsTitle,
-		[]string{renderAdapterDetailsInline(selAdapter, s.RSSIHistory[selAdapter.Name])}, innerWidth, colorBorder)
-	blocks = append(blocks, "", detailsBox)
+		[]string{renderAdapterDetailsInline(selAdapter, s.RSSIHistory[selAdapter.Name])},
+		innerWidth, colorBorder)
 
-	networksBorder := colorBorder
-	if focused && s.WifiFocus == core.WifiFocusNetworks {
-		networksBorder = colorAccent
-	}
-	networksBox := renderNetworksBox(s, selAdapter, innerWidth, networksBorder)
-	blocks = append(blocks, "", networksBox)
-
-	knownBorder := colorBorder
-	if focused && s.WifiFocus == core.WifiFocusKnown {
-		knownBorder = colorAccent
-	}
-	knownBox := renderKnownNetworksBox(s, innerWidth, knownBorder)
-	blocks = append(blocks, "", knownBox)
-
-	if adapterSupportsAP(adapters[selected]) {
-		apBox := renderAccessPointBox(adapters[selected], innerWidth)
-		blocks = append(blocks, "", apBox)
-	}
-
-	blocks = append(blocks, renderWifiFocusHint(s, focused, true, len(adapters)))
+	blocks := []string{toggleLine, "", adaptersBox, "", detailsBox}
+	blocks = append(blocks, renderWifiFocusHint(s, s.WifiContentFocused, true, len(adapters)))
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-
 	return renderContentPane(width, height, body)
+}
+
+func renderWifiNetworksSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	adapters := s.Wifi.Adapters
+	selected := s.WifiSelected
+	if selected >= len(adapters) {
+		selected = 0
+	}
+	selAdapter := adapters[selected]
+
+	networksBox := renderNetworksBox(s, selAdapter, innerWidth,
+		borderForFocus(s.WifiContentFocused))
+
+	blocks := []string{networksBox}
+	blocks = append(blocks, renderWifiFocusHint(s, s.WifiContentFocused, true, len(adapters)))
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderWifiKnownSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	knownBox := renderKnownNetworksBox(s, innerWidth, borderForFocus(s.WifiContentFocused))
+
+	blocks := []string{knownBox}
+	blocks = append(blocks, renderWifiFocusHint(s, s.WifiContentFocused, true, len(s.Wifi.Adapters)))
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderWifiAPSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	adapters := s.Wifi.Adapters
+	selected := s.WifiSelected
+	if selected >= len(adapters) {
+		selected = 0
+	}
+
+	if !adapterSupportsAP(adapters[selected]) {
+		return renderContentPane(width, height,
+			placeholderStyle.Render("Selected adapter does not support Access Point mode."))
+	}
+
+	apBox := renderAccessPointBox(adapters[selected], innerWidth)
+	body := lipgloss.JoinVertical(lipgloss.Left, apBox)
+	return renderContentPane(width, height, body)
+}
+
+// renderInnerSidebar renders a sub-section sidebar for sections that
+// have their own navigation (wifi, bluetooth, power). Highlights when
+// the content pane has focus.
+func renderInnerSidebar(s *core.State, entries []sidebarEntry, selected int, height int) string {
+	return renderInnerSidebarFocused(s, entries, selected, height, s.ContentFocused)
+}
+
+// renderInnerSidebarFocused is like renderInnerSidebar but takes an
+// explicit focused flag for cases where the highlight depends on more
+// than just ContentFocused (e.g. keybindings table focus).
+func renderInnerSidebarFocused(s *core.State, entries []sidebarEntry, selected int, height int, focused bool) string {
+	itemWidth := s.SidebarItemWidth
+	item := sidebarItem.Width(itemWidth)
+	active := sidebarItemActive.Width(itemWidth)
+
+	var rows []string
+	for i, e := range entries {
+		line := e.Icon + "  " + e.Label
+		if i == selected {
+			rows = append(rows, active.Render(line))
+		} else {
+			rows = append(rows, item.Render(line))
+		}
+	}
+	body := strings.Join(rows, "\n")
+	return renderSidebarPane(height, body, focused)
+}
+
+func borderForFocus(focused bool) lipgloss.Color {
+	if focused {
+		return colorAccent
+	}
+	return colorBorder
 }
 
 // renderAdaptersTable builds the header + data rows for the Adapters table.
@@ -211,9 +307,8 @@ func renderNetworksBox(s *core.State, a wifi.Adapter, total int, border lipgloss
 		statusLine = statusBusyStyle.Render("scanning…")
 	}
 
-	focused := s.WifiFocus == core.WifiFocusNetworks
 	sel := -1
-	if focused {
+	if s.WifiContentFocused {
 		sel = s.WifiNetworkSelected
 	}
 
@@ -289,9 +384,8 @@ func renderKnownNetworksBox(s *core.State, total int, border lipgloss.Color) str
 		return groupBoxSections(title, []string{body}, total, border)
 	}
 
-	focused := s.WifiFocus == core.WifiFocusKnown
 	sel := -1
-	if focused {
+	if s.WifiContentFocused {
 		sel = s.WifiKnownSelected
 	}
 
@@ -542,16 +636,22 @@ func renderWifiFocusHint(s *core.State, focused, detailsOpen bool, adapterCount 
 	if adapterCount == 0 {
 		return ""
 	}
+	if !focused {
+		return statusBarStyle.Render("enter to select · w toggle radio")
+	}
+	sec := s.ActiveWifiSection()
 	var text string
-	switch {
-	case focused && s.WifiFocus == core.WifiFocusKnown:
-		text = "tab · j/k · c connect · f forget · a auto · d disconnect · h hidden · p AP · w toggle · esc"
-	case focused && s.WifiFocus == core.WifiFocusAdapters:
-		text = "tab · j/k select adapter · s scan · h hidden · p AP · w toggle · esc"
-	case focused:
-		text = "tab · j/k · c connect · s scan · h hidden · d disconnect · p AP · w toggle · esc"
+	switch sec.ID {
+	case "adapters":
+		text = "j/k select adapter · s scan · w toggle · esc"
+	case "networks":
+		text = "j/k · c connect · s scan · d disconnect · h hidden · esc"
+	case "known":
+		text = "j/k · c connect · f forget · a autoconnect · esc"
+	case "ap":
+		text = "p start/stop hotspot · esc"
 	default:
-		text = "enter · w toggle radio · h hidden · p start/stop hotspot"
+		text = "esc"
 	}
 	return statusBarStyle.Render(text)
 }

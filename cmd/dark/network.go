@@ -46,6 +46,16 @@ func newNetworkActions(nc *nats.Conn) tui.NetworkActions {
 				return networkResetRequest(nc, iface)
 			}
 		},
+		SetAirplane: func(enabled bool) tea.Cmd {
+			return func() tea.Msg {
+				payload, _ := json.Marshal(map[string]any{"enabled": enabled})
+				reply, err := nc.Request(bus.SubjectNetworkAirplaneCmd, payload, core.TimeoutNormal)
+				if err != nil {
+					return tui.NetworkActionResultMsg{Err: err.Error()}
+				}
+				return decodeNetworkReply(reply.Data)
+			}
+		},
 	}
 }
 

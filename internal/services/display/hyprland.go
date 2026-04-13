@@ -131,22 +131,16 @@ func (b *hyprlandBackend) Identify() error {
 		return fmt.Errorf("no monitors to identify")
 	}
 
-	var focused string
-	for _, m := range snap.Monitors {
-		if m.Focused {
-			focused = m.Name
-			break
-		}
-	}
-
+	// hyprctl notify can't target a specific monitor. Instead, use
+	// `hyprctl dispatch exec` with inline window rules to spawn a
+	// small floating terminal on each monitor showing its label.
+	// The inline rules [float;monitor <name>;center] pin each
+	// window to the correct output.
 	for i, m := range snap.Monitors {
-		_ = hyprctl("dispatch", "focusmonitor", m.Name)
-		label := fmt.Sprintf("  %d: %s  ", i+1, m.Name)
-		_ = hyprctl("notify", "1", "3000", "0", label)
-	}
-
-	if focused != "" {
-		_ = hyprctl("dispatch", "focusmonitor", focused)
+		label := fmt.Sprintf("%d: %s (%dx%d)", i+1, m.Name, m.Width, m.Height)
+		script := fmt.Sprintf(`echo; echo "    %s"; sleep 3`, label)
+		rules := fmt.Sprintf("[float;monitor %s;size 400 80;center;noanim]", m.Name)
+		_ = hyprctl("dispatch", "exec", rules+" alacritty -T dark-identify -e sh -c '"+script+"'")
 	}
 	return nil
 }

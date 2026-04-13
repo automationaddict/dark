@@ -1,6 +1,10 @@
 package tui
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/johnnelson/dark/internal/core"
@@ -8,9 +12,11 @@ import (
 )
 
 type PowerActions struct {
-	SetProfile  func(profile string) tea.Cmd
+	SetProfile func(profile string) tea.Cmd
 	SetGovernor func(gov string) tea.Cmd
 	SetEPP      func(epp string) tea.Cmd
+	SetIdle     func(kind string, sec int) tea.Cmd
+	SetButton   func(key, value string) tea.Cmd
 }
 
 type PowerMsg power.Snapshot
@@ -81,4 +87,90 @@ func (m *Model) triggerPowerEPPCycle() tea.Cmd {
 		}
 	}
 	return m.power.SetEPP(next)
+}
+
+func (m *Model) triggerPowerButtonsDialog() {
+	if m.power.SetButton == nil || !m.inPowerContent() {
+		return
+	}
+	btn := m.state.Power.Buttons
+	actRef := m.power
+	actions := []string{"ignore", "poweroff", "reboot", "halt", "suspend",
+		"hibernate", "hybrid-sleep", "suspend-then-hibernate", "lock"}
+
+	m.dialog = NewDialog("System Buttons", []DialogFieldSpec{
+		{Key: "power", Label: "Power Button", Kind: DialogFieldSelect, Options: actions, Value: btn.PowerKeyAction},
+		{Key: "lid", Label: "Lid Close", Kind: DialogFieldSelect, Options: actions, Value: btn.LidSwitch},
+		{Key: "lid_ac", Label: "Lid + AC Power", Kind: DialogFieldSelect, Options: actions, Value: btn.LidSwitchPower},
+		{Key: "lid_dock", Label: "Lid + Docked", Kind: DialogFieldSelect, Options: actions, Value: btn.LidSwitchDocked},
+	}, func(result DialogResult) tea.Cmd {
+		keyMap := map[string]struct{ logindKey, orig string }{
+			"power":    {"HandlePowerKey", btn.PowerKeyAction},
+			"lid":      {"HandleLidSwitch", btn.LidSwitch},
+			"lid_ac":   {"HandleLidSwitchExternalPower", btn.LidSwitchPower},
+			"lid_dock": {"HandleLidSwitchDocked", btn.LidSwitchDocked},
+		}
+		var cmds []tea.Cmd
+		for field, info := range keyMap {
+			val := strings.TrimSpace(result[field])
+			if val == "" || val == info.orig {
+				continue
+			}
+			cmds = append(cmds, actRef.SetButton(info.logindKey, val))
+		}
+		if len(cmds) == 0 {
+			return nil
+		}
+		return tea.Batch(cmds...)
+	})
+}
+
+func (m *Model) triggerPowerIdleDialog() {
+	if m.power.SetIdle == nil || !m.inPowerContent() {
+		return
+	}
+	idle := m.state.Power.Idle
+	actRef := m.power
+
+	m.dialog = NewDialog("Screen & Idle Timers (seconds, 0 to disable)", []DialogFieldSpec{
+		{Key: "kbd", Label: "Kbd Backlight Off", Kind: DialogFieldText, Value: fmt.Sprintf("%d", idle.KbdBacklightSec)},
+		{Key: "screensaver", Label: "Screensaver", Kind: DialogFieldText, Value: fmt.Sprintf("%d", idle.ScreensaverSec)},
+		{Key: "lock", Label: "Screen Lock", Kind: DialogFieldText, Value: fmt.Sprintf("%d", idle.LockSec)},
+		{Key: "dpms", Label: "Screen Off (DPMS)", Kind: DialogFieldText, Value: fmt.Sprintf("%d", idle.DPMSOffSec)},
+	}, func(result DialogResult) tea.Cmd {
+		var cmds []tea.Cmd
+		for _, entry := range []struct{ key, kind string }{
+			{"kbd", "kbd"},
+			{"screensaver", "screensaver"},
+			{"lock", "lock"},
+			{"dpms", "dpms"},
+		} {
+			raw := strings.TrimSpace(result[entry.key])
+			if raw == "" {
+				continue
+			}
+			sec, err := strconv.Atoi(raw)
+			if err != nil || sec < 0 {
+				continue
+			}
+			var orig int
+			switch entry.kind {
+			case "kbd":
+				orig = idle.KbdBacklightSec
+			case "screensaver":
+				orig = idle.ScreensaverSec
+			case "lock":
+				orig = idle.LockSec
+			case "dpms":
+				orig = idle.DPMSOffSec
+			}
+			if sec != orig {
+				cmds = append(cmds, actRef.SetIdle(entry.kind, sec))
+			}
+		}
+		if len(cmds) == 0 {
+			return nil
+		}
+		return tea.Batch(cmds...)
+	})
 }

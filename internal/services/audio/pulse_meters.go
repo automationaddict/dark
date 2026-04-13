@@ -2,6 +2,7 @@ package audio
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 
 	"github.com/jfreymuth/pulse/proto"
@@ -131,24 +132,33 @@ func (b *pulseBackend) Levels() Levels {
 // out to the proto layer (CreateRecordStream / DeleteRecordStream).
 // proto.Client.Request is internally serialized via its own write
 // mutex, so it's safe to issue from here without taking b.mu.
+// meterTarget carries everything openMeterStream needs to pin a
+// peak-detect record stream to the right PipeWire/PulseAudio source.
+type meterTarget struct {
+	sourceIndex uint32
+	sourceName  string // used to defeat module-stream-restore
+}
+
 func (b *pulseBackend) reconcileMeters(snap Snapshot) {
-	wantedSinks := map[uint32]uint32{} // sink index → monitor source index
+	wantedSinks := map[uint32]meterTarget{} // sink index → monitor target
 	for _, s := range snap.Sinks {
-		// Skip sinks that don't expose a monitor — defensive, every
-		// real sink has one.
 		if s.MonitorIndex == proto.Undefined {
 			continue
 		}
-		wantedSinks[s.Index] = s.MonitorIndex
+		wantedSinks[s.Index] = meterTarget{
+			sourceIndex: s.MonitorIndex,
+			sourceName:  s.MonitorName,
+		}
 	}
-	wantedSources := map[uint32]struct{}{}
+	wantedSources := map[uint32]meterTarget{}
 	for _, s := range snap.Sources {
-		wantedSources[s.Index] = struct{}{}
+		wantedSources[s.Index] = meterTarget{
+			sourceIndex: s.Index,
+			sourceName:  s.Name,
+		}
 	}
 
 	b.metersMu.Lock()
-	// Build the inverse: device → existing stream index, so we can
-	// detect which need creating and which need deleting.
 	haveSinks := map[uint32]uint32{}
 	haveSources := map[uint32]uint32{}
 	for streamIdx, entry := range b.meterStreams {
@@ -159,7 +169,6 @@ func (b *pulseBackend) reconcileMeters(snap Snapshot) {
 			haveSources[entry.deviceIndex] = streamIdx
 		}
 	}
-	// Tear down streams that no longer correspond to a live device.
 	var toDelete []uint32
 	for streamIdx, entry := range b.meterStreams {
 		switch entry.kind {
@@ -178,18 +187,16 @@ func (b *pulseBackend) reconcileMeters(snap Snapshot) {
 	for _, idx := range toDelete {
 		delete(b.meterStreams, idx)
 	}
-	// Snapshot the work we still need to do, then drop the lock so
-	// CreateRecordStream / DeleteRecordStream don't run under it.
-	createSinks := map[uint32]uint32{}
-	for sinkIdx, monitorIdx := range wantedSinks {
+	createSinks := map[uint32]meterTarget{}
+	for sinkIdx, target := range wantedSinks {
 		if _, ok := haveSinks[sinkIdx]; !ok {
-			createSinks[sinkIdx] = monitorIdx
+			createSinks[sinkIdx] = target
 		}
 	}
-	createSources := map[uint32]struct{}{}
-	for sourceIdx := range wantedSources {
+	createSources := map[uint32]meterTarget{}
+	for sourceIdx, target := range wantedSources {
 		if _, ok := haveSources[sourceIdx]; !ok {
-			createSources[sourceIdx] = struct{}{}
+			createSources[sourceIdx] = target
 		}
 	}
 	b.metersMu.Unlock()
@@ -198,8 +205,8 @@ func (b *pulseBackend) reconcileMeters(snap Snapshot) {
 		_ = b.client.Request(&proto.DeleteRecordStream{StreamIndex: idx}, nil)
 	}
 
-	for sinkIdx, monitorIdx := range createSinks {
-		streamIdx, ok := b.openMeterStream(monitorIdx)
+	for sinkIdx, target := range createSinks {
+		streamIdx, ok := b.openMeterStream(target)
 		if !ok {
 			continue
 		}
@@ -207,8 +214,8 @@ func (b *pulseBackend) reconcileMeters(snap Snapshot) {
 		b.meterStreams[streamIdx] = meterEntry{kind: meterKindSink, deviceIndex: sinkIdx}
 		b.metersMu.Unlock()
 	}
-	for sourceIdx := range createSources {
-		streamIdx, ok := b.openMeterStream(sourceIdx)
+	for sourceIdx, target := range createSources {
+		streamIdx, ok := b.openMeterStream(target)
 		if !ok {
 			continue
 		}
@@ -219,24 +226,30 @@ func (b *pulseBackend) reconcileMeters(snap Snapshot) {
 }
 
 // openMeterStream opens a peak-detect record stream against the given
-// PulseAudio source index (which is either a real source or a sink's
-// monitor source — both are sources to the protocol). Two channels so
-// the TUI can render a stereo center-anchored meter; the server
-// upmixes mono inputs by duplicating the channel.
-func (b *pulseBackend) openMeterStream(sourceIndex uint32) (uint32, bool) {
+// PipeWire/PulseAudio source. We target the source by name rather than
+// index because PipeWire's module-stream-restore remembers per-app
+// routing by application.name and will redirect index-based requests to
+// the last-used source. Name-based targeting bypasses this.
+func (b *pulseBackend) openMeterStream(target meterTarget) (uint32, bool) {
 	req := &proto.CreateRecordStream{
 		SampleSpec: proto.SampleSpec{
 			Format:   proto.FormatFloat32LE,
 			Channels: peakDetectChannels,
 			Rate:     peakDetectRate,
 		},
-		ChannelMap:      proto.ChannelMap{proto.ChannelLeft, proto.ChannelRight},
-		SourceIndex:     sourceIndex,
-		BufferMaxLength: peakDetectMaxLength,
-		BufferFragSize:  peakDetectMaxLength,
-		Corked:          false,
-		PeakDetect:      true,
-		AdjustLatency:   true,
+		ChannelMap:             proto.ChannelMap{proto.ChannelLeft, proto.ChannelRight},
+		SourceIndex:            proto.Undefined,
+		SourceName:             target.sourceName,
+		BufferMaxLength:        peakDetectMaxLength,
+		BufferFragSize:         peakDetectMaxLength,
+		Corked:                 false,
+		NoMove:                 true,
+		PeakDetect:             true,
+		AdjustLatency:          true,
+		DontInhibitAutoSuspend: true,
+		Properties: proto.PropList{
+			"media.name": proto.PropListString(fmt.Sprintf("dark-peak-%d", target.sourceIndex)),
+		},
 	}
 	var reply proto.CreateRecordStreamReply
 	if err := b.client.Request(req, &reply); err != nil {

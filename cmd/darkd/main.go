@@ -211,6 +211,9 @@ func main() {
 	publishPower := wirePower(nc, dn)
 	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog, dn)
 	publishKeybind := wireKeybind(nc, dn)
+	publishUsers := wireUsers(nc, dn)
+	publishPrivacy := wirePrivacy(nc, dn)
+	publishAppearance := wireAppearance(nc, dn)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -253,6 +256,9 @@ func main() {
 	publishPower()
 	publishAppstore()
 	publishKeybind()
+	publishUsers()
+	publishPrivacy()
+	publishAppearance()
 
 	var seq uint64
 	for {
@@ -272,6 +278,9 @@ func main() {
 				publishPower()
 				publishAppstore()
 				publishKeybind()
+				publishUsers()
+				publishPrivacy()
+				publishAppearance()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())

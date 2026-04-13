@@ -47,7 +47,8 @@ func renderSidebarGeneric(s *core.State, entries []sidebarEntry, selected int, h
 		}
 	}
 	body := strings.Join(rows, "\n")
-	return renderSidebarPane(height, body)
+	sidebarFocused := !s.ContentFocused
+	return renderSidebarPane(height, body, sidebarFocused)
 }
 
 func renderSidebar(s *core.State, height int) string {
@@ -82,6 +83,12 @@ func renderSettingsContent(s *core.State, width, height int) string {
 		return renderNotifications(s, width, height)
 	case "datetime":
 		return renderDateTime(s, width, height)
+	case "privacy":
+		return renderPrivacy(s, width, height)
+	case "users":
+		return renderUsers(s, width, height)
+	case "appearance":
+		return renderAppearance(s, width, height)
 	}
 	title := contentTitle.Render(sec.Label)
 	body := placeholderStyle.Render("Nothing wired up yet for " + sec.Label + ".")

@@ -19,6 +19,7 @@ type NetworkActions struct {
 	Reconfigure    func(iface string) tea.Cmd
 	ConfigureIPv4  func(iface string, cfg network.IPv4Config) tea.Cmd
 	ResetInterface func(iface string) tea.Cmd
+	SetAirplane    func(enabled bool) tea.Cmd
 }
 
 // NetworkMsg is dispatched whenever darkd publishes a network snapshot.
@@ -42,6 +43,15 @@ func (m *Model) inNetworkContent() bool {
 // current configuration to the highlighted interface. The "kick this
 // thing" verb that triggers a DHCP refresh on systemd-networkd and a
 // connection reapply on NetworkManager.
+func (m *Model) triggerNetworkAirplaneToggle() tea.Cmd {
+	if m.network.SetAirplane == nil || !m.inNetworkContent() || m.state.NetworkBusy {
+		return nil
+	}
+	m.state.NetworkBusy = true
+	m.state.NetworkActionError = ""
+	return m.network.SetAirplane(!m.state.Network.AirplaneMode)
+}
+
 func (m *Model) triggerNetworkReconfigure() tea.Cmd {
 	if m.network.Reconfigure == nil || !m.inNetworkContent() || m.state.NetworkBusy {
 		return nil

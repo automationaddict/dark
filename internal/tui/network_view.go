@@ -47,7 +47,8 @@ func renderNetwork(s *core.State, width, height int) string {
 		[]string{renderNetworkInterfacesTable(s.Network.Interfaces, selected, focused)},
 		innerWidth, interfacesBorder)
 
-	blocks := []string{interfacesBox}
+	airplaneBox := renderNetworkAirplane(s, innerWidth)
+	blocks := []string{airplaneBox, interfacesBox}
 
 	if iface, ok := s.SelectedNetworkInterface(); ok {
 		detailsTitle := "Details"
@@ -175,6 +176,22 @@ func renderNetworkManagedRoutesTable(routes []network.RouteConfig, selected int)
 }
 
 // renderNetworkInterfacesTable builds the main interfaces table.
+func renderNetworkAirplane(s *core.State, total int) string {
+	lw := 18
+	label := detailLabelStyle.Width(lw)
+
+	status := lipgloss.NewStyle().Foreground(colorDim).Render("off")
+	icon := "󰀝"
+	if s.Network.AirplaneMode {
+		status = lipgloss.NewStyle().Foreground(colorGold).Bold(true).Render("on")
+		icon = "󰀞"
+	}
+	line := label.Render(icon+"  Airplane Mode") + status
+	hint := lipgloss.NewStyle().Foreground(colorDim).Render("  A toggle")
+
+	return groupBoxSections("", []string{line, hint}, total, colorBorder)
+}
+
 func renderNetworkInterfacesTable(ifaces []network.Interface, selected int, focused bool) string {
 	type col struct {
 		header string
@@ -405,7 +422,7 @@ func renderNetworkFocusHint(s *core.State, focused bool, ifaceCount int) string 
 	}
 	var text string
 	if focused {
-		text = "j/k · r reconfig · h DHCP · e edit · t routes · R reset · esc · backend: " + backend
+		text = "j/k · r reconfig · h DHCP · e edit · t routes · R reset · A airplane · esc · backend: " + backend
 	} else {
 		text = "enter to select an interface · backend: " + backend
 	}

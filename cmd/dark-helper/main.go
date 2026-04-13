@@ -23,6 +23,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -79,6 +80,147 @@ func main() {
 		if err := pacmanUpgrade(); err != nil {
 			fail(err.Error(), 1)
 		}
+	case "read-shadow":
+		if len(os.Args) != 2 {
+			fail("usage: dark-helper read-shadow", 2)
+		}
+		data, err := os.ReadFile("/etc/shadow")
+		if err != nil {
+			fail(err.Error(), 1)
+		}
+		os.Stdout.Write(data)
+
+	case "user-add":
+		if len(os.Args) < 3 {
+			fail("usage: dark-helper user-add <username> [--comment NAME] [--shell SHELL] [--admin]", 2)
+		}
+		if err := userAdd(os.Args[2], os.Args[3:]); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "user-remove":
+		if len(os.Args) < 3 {
+			fail("usage: dark-helper user-remove <username> [--remove-home]", 2)
+		}
+		if err := userRemove(os.Args[2], os.Args[3:]); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "user-shell":
+		if len(os.Args) != 4 {
+			fail("usage: dark-helper user-shell <username> <shell>", 2)
+		}
+		if err := userModify(os.Args[2], "-s", os.Args[3]); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "user-comment":
+		if len(os.Args) != 4 {
+			fail("usage: dark-helper user-comment <username> <comment>", 2)
+		}
+		if err := userModify(os.Args[2], "-c", os.Args[3]); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "user-lock":
+		if len(os.Args) != 3 {
+			fail("usage: dark-helper user-lock <username>", 2)
+		}
+		if err := userModify(os.Args[2], "-L"); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "user-unlock":
+		if len(os.Args) != 3 {
+			fail("usage: dark-helper user-unlock <username>", 2)
+		}
+		if err := userModify(os.Args[2], "-U"); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "user-group-add":
+		if len(os.Args) != 4 {
+			fail("usage: dark-helper user-group-add <username> <group>", 2)
+		}
+		if err := userGroupChange(os.Args[2], os.Args[3], true); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "user-group-remove":
+		if len(os.Args) != 4 {
+			fail("usage: dark-helper user-group-remove <username> <group>", 2)
+		}
+		if err := userGroupChange(os.Args[2], os.Args[3], false); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "user-passwd":
+		if len(os.Args) < 3 || len(os.Args) > 4 {
+			fail("usage: dark-helper user-passwd <username> [--verify]", 2)
+		}
+		verify := len(os.Args) == 4 && os.Args[3] == "--verify"
+		if err := userSetPassword(os.Args[2], verify); err != nil {
+			fail(err.Error(), 1)
+		}
+
+	case "resolved-set":
+		if len(os.Args) != 4 {
+			fail("usage: dark-helper resolved-set <key> <value>", 2)
+		}
+		if err := resolvedSet(os.Args[2], os.Args[3]); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "ufw-enable":
+		if err := runCmd("ufw", "--force", "enable"); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "ufw-disable":
+		if err := runCmd("ufw", "disable"); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "sshd-enable":
+		if err := runCmd("systemctl", "enable", "--now", "sshd"); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "sshd-disable":
+		if err := runCmd("systemctl", "disable", "--now", "sshd"); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "geoclue-enable":
+		if err := runCmd("systemctl", "start", "geoclue"); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "geoclue-disable":
+		if err := runCmd("systemctl", "stop", "geoclue"); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "iwd-mac-random":
+		if len(os.Args) != 3 {
+			fail("usage: dark-helper iwd-mac-random <disabled|once|network>", 2)
+		}
+		v := os.Args[2]
+		if v != "disabled" && v != "once" && v != "network" {
+			fail("value must be disabled, once, or network", 2)
+		}
+		if err := iwdSetMACRandom(v); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "indexer-enable":
+		// Try localsearch first, then tracker3.
+		_ = exec.Command("systemctl", "--user", "start", "localsearch-3").Run()
+		_ = exec.Command("systemctl", "--user", "start", "localsearch-control-3").Run()
+	case "indexer-disable":
+		_ = exec.Command("systemctl", "--user", "stop", "localsearch-3").Run()
+		_ = exec.Command("systemctl", "--user", "stop", "localsearch-control-3").Run()
+		_ = exec.Command("systemctl", "--user", "mask", "localsearch-3").Run()
+	case "resolved-set-coredump":
+		if len(os.Args) != 3 {
+			fail("usage: dark-helper resolved-set-coredump <external|journal|none>", 2)
+		}
+		if err := setCoredumpStorage(os.Args[2]); err != nil {
+			fail(err.Error(), 1)
+		}
+
+	case "logind-set":
+		if len(os.Args) != 4 {
+			fail("usage: dark-helper logind-set <key> <value>", 2)
+		}
+		if err := logindSet(os.Args[2], os.Args[3]); err != nil {
+			fail(err.Error(), 1)
+		}
+
 	default:
 		fail("dark-helper: unknown subcommand "+os.Args[1], 2)
 	}
@@ -223,6 +365,403 @@ func pacmanRemove(names []string) error {
 
 func pacmanUpgrade() error {
 	return runPacman("-Syu", "--noconfirm")
+}
+
+// validUsername matches valid Linux usernames.
+var validUsername = regexp.MustCompile(`^[a-z_][a-z0-9_-]*$`)
+
+func validateUsername(name string) error {
+	if name == "" {
+		return fmt.Errorf("empty username")
+	}
+	if len(name) > 32 {
+		return fmt.Errorf("username too long (max 32)")
+	}
+	if !validUsername.MatchString(name) {
+		return fmt.Errorf("invalid username %q", name)
+	}
+	// Reject system-critical names.
+	switch name {
+	case "root", "nobody", "daemon", "bin", "sys":
+		return fmt.Errorf("cannot modify system user %q", name)
+	}
+	return nil
+}
+
+var validGroupName = regexp.MustCompile(`^[a-z_][a-z0-9_-]*$`)
+
+func validateGroupName(name string) error {
+	if name == "" {
+		return fmt.Errorf("empty group name")
+	}
+	if !validGroupName.MatchString(name) {
+		return fmt.Errorf("invalid group name %q", name)
+	}
+	return nil
+}
+
+func validateShell(shell string) error {
+	if shell == "" {
+		return fmt.Errorf("empty shell path")
+	}
+	if !filepath.IsAbs(shell) {
+		return fmt.Errorf("shell %q must be absolute path", shell)
+	}
+	if _, err := os.Stat(shell); err != nil {
+		return fmt.Errorf("shell %q does not exist", shell)
+	}
+	return nil
+}
+
+func userAdd(username string, flags []string) error {
+	if err := validateUsername(username); err != nil {
+		return err
+	}
+
+	args := []string{"-m"} // create home directory
+	admin := false
+	for i := 0; i < len(flags); i++ {
+		switch flags[i] {
+		case "--comment":
+			if i+1 >= len(flags) {
+				return fmt.Errorf("--comment requires a value")
+			}
+			i++
+			args = append(args, "-c", flags[i])
+		case "--shell":
+			if i+1 >= len(flags) {
+				return fmt.Errorf("--shell requires a value")
+			}
+			i++
+			if err := validateShell(flags[i]); err != nil {
+				return err
+			}
+			args = append(args, "-s", flags[i])
+		case "--admin":
+			admin = true
+		default:
+			return fmt.Errorf("unknown flag %q", flags[i])
+		}
+	}
+
+	args = append(args, username)
+	cmd := exec.Command("useradd", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("useradd: %w", err)
+	}
+
+	if admin {
+		cmd := exec.Command("gpasswd", "-a", username, "wheel")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("gpasswd (add to wheel): %w", err)
+		}
+	}
+
+	return nil
+}
+
+func userRemove(username string, flags []string) error {
+	if err := validateUsername(username); err != nil {
+		return err
+	}
+
+	args := []string{}
+	for _, f := range flags {
+		switch f {
+		case "--remove-home":
+			args = append(args, "-r")
+		default:
+			return fmt.Errorf("unknown flag %q", f)
+		}
+	}
+	args = append(args, username)
+
+	cmd := exec.Command("userdel", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("userdel: %w", err)
+	}
+	return nil
+}
+
+func userModify(username string, flags ...string) error {
+	if err := validateUsername(username); err != nil {
+		return err
+	}
+	// Validate shell if present.
+	for i, f := range flags {
+		if f == "-s" && i+1 < len(flags) {
+			if err := validateShell(flags[i+1]); err != nil {
+				return err
+			}
+		}
+	}
+	args := append(flags, username)
+	cmd := exec.Command("usermod", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("usermod: %w", err)
+	}
+	return nil
+}
+
+func userGroupChange(username, group string, add bool) error {
+	if err := validateUsername(username); err != nil {
+		return err
+	}
+	if err := validateGroupName(group); err != nil {
+		return err
+	}
+	flag := "-a"
+	if !add {
+		flag = "-d"
+	}
+	cmd := exec.Command("gpasswd", flag, username, group)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("gpasswd: %w", err)
+	}
+	return nil
+}
+
+func userSetPassword(username string, verify bool) error {
+	if err := validateUsername(username); err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+
+	if verify {
+		// Read and verify the current password first.
+		if !scanner.Scan() {
+			return fmt.Errorf("no current password provided")
+		}
+		currentPass := scanner.Text()
+		if err := verifyPassword(username, currentPass); err != nil {
+			return err
+		}
+	}
+
+	// Read the new password.
+	if !scanner.Scan() {
+		return fmt.Errorf("no new password provided")
+	}
+	newPass := scanner.Text()
+	if newPass == "" {
+		return fmt.Errorf("password cannot be empty")
+	}
+
+	// Set password via chpasswd.
+	cmd := exec.Command("chpasswd")
+	cmd.Stdin = strings.NewReader(username + ":" + newPass + "\n")
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("chpasswd: %w", err)
+	}
+	return nil
+}
+
+// verifyPassword checks the current password by attempting su.
+func verifyPassword(username, password string) error {
+	cmd := exec.Command("su", "-c", "true", username)
+	cmd.Stdin = strings.NewReader(password + "\n")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("current password is incorrect")
+	}
+	return nil
+}
+
+// resolvedSet updates a key in /etc/systemd/resolved.conf and restarts
+// systemd-resolved. Only a small set of keys is allowed.
+func resolvedSet(key, value string) error {
+	allowed := map[string]bool{"DNSOverTLS": true, "DNSSEC": true, "DNS": true, "FallbackDNS": true}
+	if !allowed[key] {
+		return fmt.Errorf("key %q not allowed", key)
+	}
+
+	data, err := os.ReadFile("/etc/systemd/resolved.conf")
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Match both active and commented-out lines.
+		bare := strings.TrimPrefix(trimmed, "#")
+		k, _, ok := strings.Cut(bare, "=")
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(k) == key {
+			lines[i] = key + "=" + value
+			found = true
+			break
+		}
+	}
+	if !found {
+		// Insert after [Resolve] header.
+		for i, line := range lines {
+			if strings.TrimSpace(line) == "[Resolve]" {
+				insert := key + "=" + value
+				lines = append(lines[:i+1], append([]string{insert}, lines[i+1:]...)...)
+				break
+			}
+		}
+	}
+
+	if err := os.WriteFile("/etc/systemd/resolved.conf", []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+		return err
+	}
+	return exec.Command("systemctl", "restart", "systemd-resolved").Run()
+}
+
+func iwdSetMACRandom(value string) error {
+	path := "/etc/iwd/main.conf"
+	data, _ := os.ReadFile(path)
+	content := string(data)
+
+	if !strings.Contains(content, "[General]") {
+		content = "[General]\nAddressRandomization=" + value + "\n" + content
+	} else {
+		lines := strings.Split(content, "\n")
+		found := false
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			bare := strings.TrimPrefix(trimmed, "#")
+			k, _, ok := strings.Cut(bare, "=")
+			if ok && strings.TrimSpace(k) == "AddressRandomization" {
+				lines[i] = "AddressRandomization=" + value
+				found = true
+				break
+			}
+		}
+		if !found {
+			for i, line := range lines {
+				if strings.TrimSpace(line) == "[General]" {
+					lines = append(lines[:i+1], append([]string{"AddressRandomization=" + value}, lines[i+1:]...)...)
+					break
+				}
+			}
+		}
+		content = strings.Join(lines, "\n")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return err
+	}
+	return exec.Command("systemctl", "restart", "iwd").Run()
+}
+
+func setCoredumpStorage(value string) error {
+	allowed := map[string]bool{"external": true, "journal": true, "none": true}
+	if !allowed[value] {
+		return fmt.Errorf("value must be external, journal, or none")
+	}
+
+	path := "/etc/systemd/coredump.conf"
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		bare := strings.TrimPrefix(trimmed, "#")
+		k, _, ok := strings.Cut(bare, "=")
+		if ok && strings.TrimSpace(k) == "Storage" {
+			lines[i] = "Storage=" + value
+			found = true
+			break
+		}
+	}
+	if !found {
+		for i, line := range lines {
+			if strings.TrimSpace(line) == "[Coredump]" {
+				lines = append(lines[:i+1], append([]string{"Storage=" + value}, lines[i+1:]...)...)
+				break
+			}
+		}
+	}
+	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+}
+
+func logindSet(key, value string) error {
+	allowed := map[string]bool{
+		"HandlePowerKey":                true,
+		"HandleLidSwitch":               true,
+		"HandleLidSwitchExternalPower":  true,
+		"HandleLidSwitchDocked":         true,
+	}
+	if !allowed[key] {
+		return fmt.Errorf("key %q not allowed for logind", key)
+	}
+	validValues := map[string]bool{
+		"ignore": true, "poweroff": true, "reboot": true,
+		"halt": true, "suspend": true, "hibernate": true,
+		"hybrid-sleep": true, "suspend-then-hibernate": true,
+		"lock": true,
+	}
+	if !validValues[value] {
+		return fmt.Errorf("value %q not allowed for logind", value)
+	}
+
+	const confPath = "/etc/systemd/logind.conf"
+	data, err := os.ReadFile(confPath)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		bare := strings.TrimPrefix(trimmed, "#")
+		k, _, ok := strings.Cut(bare, "=")
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(k) == key {
+			lines[i] = key + "=" + value
+			found = true
+			break
+		}
+	}
+	if !found {
+		for i, line := range lines {
+			if strings.TrimSpace(line) == "[Login]" {
+				insert := key + "=" + value
+				lines = append(lines[:i+1], append([]string{insert}, lines[i+1:]...)...)
+				break
+			}
+		}
+	}
+
+	if err := os.WriteFile(confPath, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+		return err
+	}
+	// Reload logind so changes take effect immediately.
+	_ = exec.Command("systemctl", "kill", "-s", "HUP", "systemd-logind").Run()
+	return nil
+}
+
+func runCmd(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func fail(msg string, code int) {

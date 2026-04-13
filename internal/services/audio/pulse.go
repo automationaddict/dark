@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/jfreymuth/pulse/proto"
@@ -215,12 +216,9 @@ func (b *pulseBackend) snapshotLocked() Snapshot {
 		if so == nil {
 			continue
 		}
-		// Filter out the Peak Detect / monitor streams that PipeWire's
-		// pavucontrol-style clients open continuously. Their MediaName
-		// is typically "Peak detect" and they aren't user-facing
-		// recording streams. Detecting them precisely requires reading
-		// PropList for application.id; for now we just keep everything
-		// and let the UI surface them.
+		if isMonitorStream(so.Properties, so.MediaName) {
+			continue
+		}
 		snap.SourceOutputs = append(snap.SourceOutputs, sourceOutputToStream(so, sourceNameByIndex))
 	}
 
@@ -261,6 +259,7 @@ func sinkInfoToDevice(s *proto.GetSinkInfoReply, defaultName string) Device {
 		State:        sinkStateString(s.State),
 		ActivePort:   s.ActivePortName,
 		MonitorIndex: s.MonitorSourceIndex,
+		MonitorName:  s.MonitorSourceName,
 	}
 	for _, p := range s.Ports {
 		d.Ports = append(d.Ports, Port{
@@ -593,6 +592,40 @@ func sinkInputToStream(si *proto.GetSinkInputInfoReply, sinkNames map[uint32]str
 		Channels:    len(si.ChannelVolumes),
 		Corked:      si.Corked,
 	}
+}
+
+// isMonitorStream returns true for PipeWire/PulseAudio internal streams
+// that aren't user-facing recording applications. These include peak-detect
+// streams (used for VU meters), PipeWire Manager housekeeping, and any
+// stream whose media.role is explicitly "abstract" or "filter".
+func isMonitorStream(props proto.PropList, mediaName string) bool {
+	if strings.EqualFold(mediaName, "Peak detect") {
+		return true
+	}
+	for _, key := range []string{"application.id", "application.name", "application.process.binary"} {
+		if v, ok := props[key]; ok {
+			s := v.String()
+			switch {
+			case strings.Contains(s, "peak detect"):
+				return true
+			case s == "darkd":
+				return true
+			case s == "PipeWire Manager":
+				return true
+			case s == "pipewire-media-session":
+				return true
+			case s == "wireplumber":
+				return true
+			}
+		}
+	}
+	if v, ok := props["media.role"]; ok {
+		role := v.String()
+		if role == "abstract" || role == "filter" {
+			return true
+		}
+	}
+	return false
 }
 
 func sourceOutputToStream(so *proto.GetSourceOutputInfoReply, sourceNames map[uint32]string) Stream {

@@ -13,9 +13,13 @@ import (
 )
 
 type powerActionRequest struct {
-	Profile  string `json:"profile,omitempty"`
-	Governor string `json:"governor,omitempty"`
-	EPP      string `json:"epp,omitempty"`
+	Profile   string `json:"profile,omitempty"`
+	Governor  string `json:"governor,omitempty"`
+	EPP       string `json:"epp,omitempty"`
+	IdleKind  string `json:"idle_kind,omitempty"`
+	IdleSec   int    `json:"idle_sec,omitempty"`
+	ButtonKey string `json:"button_key,omitempty"`
+	ButtonVal string `json:"button_val,omitempty"`
 }
 
 type powerActionResponse struct {
@@ -75,6 +79,29 @@ func wirePower(nc *nats.Conn, dn *daemonNotifier) func() {
 			return powerActionResponse{Error: "missing epp"}
 		}
 		if err := power.SetEPP(req.EPP); err != nil {
+			return powerActionResponse{Error: err.Error()}
+		}
+		return powerActionResponse{Snapshot: power.ReadSnapshot()}
+	})
+
+	register(bus.SubjectPowerIdleCmd, func(req powerActionRequest) powerActionResponse {
+		if req.IdleKind == "" {
+			return powerActionResponse{Error: "missing idle_kind"}
+		}
+		if req.IdleSec < 0 {
+			return powerActionResponse{Error: "idle_sec must be non-negative"}
+		}
+		if err := power.SetIdleTimeout(req.IdleKind, req.IdleSec); err != nil {
+			return powerActionResponse{Error: err.Error()}
+		}
+		return powerActionResponse{Snapshot: power.ReadSnapshot()}
+	})
+
+	register(bus.SubjectPowerButtonCmd, func(req powerActionRequest) powerActionResponse {
+		if req.ButtonKey == "" || req.ButtonVal == "" {
+			return powerActionResponse{Error: "missing button_key or button_val"}
+		}
+		if err := power.SetSystemButton(req.ButtonKey, req.ButtonVal); err != nil {
 			return powerActionResponse{Error: err.Error()}
 		}
 		return powerActionResponse{Snapshot: power.ReadSnapshot()}

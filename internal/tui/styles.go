@@ -379,8 +379,13 @@ func renderScrollableContentPane(s *core.State, width, height int, body string) 
 }
 
 // renderSidebarPane renders body inside sidebarStyle with exact height.
-func renderSidebarPane(height int, body string) string {
-	return sidebarStyle.
+// When focused is true the right border highlights with the accent color.
+func renderSidebarPane(height int, body string, focused ...bool) string {
+	style := sidebarStyle
+	if len(focused) > 0 && focused[0] {
+		style = style.BorderForeground(colorAccent)
+	}
+	return style.
 		Height(height).MaxHeight(height).
 		Render(body)
 }

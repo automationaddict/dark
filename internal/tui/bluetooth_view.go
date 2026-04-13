@@ -25,29 +25,46 @@ func renderBluetooth(s *core.State, width, height int) string {
 		)
 	}
 
+	secs := core.BluetoothSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebarFocused := s.ContentFocused && !s.BluetoothContentFocused
+	sidebar := renderInnerSidebarFocused(s, entries, s.BluetoothSectionIdx, height, sidebarFocused)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActiveBluetoothSection()
+	var content string
+	switch sec.ID {
+	case "adapters":
+		content = renderBluetoothAdaptersSection(s, contentWidth, height)
+	case "devices":
+		content = renderBluetoothDevicesSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+func renderBluetoothAdaptersSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
 	}
 
+	adapters := s.Bluetooth.Adapters
 	selected := s.BluetoothSelected
 	if selected >= len(adapters) {
 		selected = 0
 	}
-	focused := s.ContentFocused
 	selAdapter := adapters[selected]
 
 	toggle := renderBluetoothToggle(selAdapter, s.BluetoothBusy)
-
-	adaptersBorder := colorBorder
-	if focused && s.BluetoothFocus == core.BluetoothFocusAdapters {
-		adaptersBorder = colorAccent
-	}
 	adaptersBox := groupBoxSections("Adapters",
-		[]string{renderBluetoothAdaptersTable(adapters, selected, focused)},
-		innerWidth, adaptersBorder)
-
-	blocks := []string{toggle, "", adaptersBox}
+		[]string{renderBluetoothAdaptersTable(adapters, selected, s.BluetoothContentFocused)},
+		innerWidth, borderForFocus(s.BluetoothContentFocused))
 
 	detailsTitle := "Details"
 	if selAdapter.Name != "" {
@@ -55,30 +72,45 @@ func renderBluetooth(s *core.State, width, height int) string {
 	}
 	detailsBox := groupBoxSections(detailsTitle,
 		[]string{renderBluetoothAdapterDetails(selAdapter)}, innerWidth, colorBorder)
-	blocks = append(blocks, "", detailsBox)
 
-	devicesBorder := colorBorder
-	if focused && s.BluetoothFocus == core.BluetoothFocusDevices {
-		devicesBorder = colorAccent
+	blocks := []string{toggle, "", adaptersBox, "", detailsBox}
+	blocks = append(blocks, renderBluetoothFocusHint(s, s.BluetoothContentFocused, true, len(adapters)))
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderBluetoothDevicesSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
 	}
+
+	adapters := s.Bluetooth.Adapters
+	selected := s.BluetoothSelected
+	if selected >= len(adapters) {
+		selected = 0
+	}
+	selAdapter := adapters[selected]
+
+	var blocks []string
+
 	if s.BluetoothDeviceInfoOpen {
 		dev, ok := s.SelectedBluetoothDevice()
 		if ok {
 			infoBox := renderBluetoothDeviceInfoBox(dev, innerWidth)
-			blocks = append(blocks, "", infoBox)
+			blocks = append(blocks, infoBox)
 		} else {
-			devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, devicesBorder)
-			blocks = append(blocks, "", devicesBox)
+			devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, borderForFocus(s.BluetoothContentFocused))
+			blocks = append(blocks, devicesBox)
 		}
 	} else {
-		devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, devicesBorder)
-		blocks = append(blocks, "", devicesBox)
+		devicesBox := renderBluetoothDevicesBox(s, selAdapter, innerWidth, borderForFocus(s.BluetoothContentFocused))
+		blocks = append(blocks, devicesBox)
 	}
 
-	blocks = append(blocks, renderBluetoothFocusHint(s, focused, true, len(adapters)))
+	blocks = append(blocks, renderBluetoothFocusHint(s, s.BluetoothContentFocused, true, len(adapters)))
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-
-	return renderContentPane(width, height,body)
+	return renderContentPane(width, height, body)
 }
 
 func renderBluetoothToggle(a bluetooth.Adapter, busy bool) string {
@@ -211,7 +243,7 @@ func renderBluetoothDevicesBox(s *core.State, a bluetooth.Adapter, total int, bo
 	}
 
 	sel := -1
-	if s.ContentFocused && s.BluetoothDetailsOpen {
+	if s.BluetoothContentFocused {
 		sel = s.BluetoothDevSelected
 	}
 
@@ -380,16 +412,22 @@ func renderBluetoothFocusHint(s *core.State, focused, detailsOpen bool, adapterC
 	if adapterCount == 0 {
 		return ""
 	}
+	if !focused {
+		return statusBarStyle.Render("enter to select · w toggle · s scan")
+	}
+	sec := s.ActiveBluetoothSection()
 	var text string
-	switch {
-	case focused && s.BluetoothDeviceInfoOpen:
-		text = "esc back · c connect · d disconnect · t trust · b block · u unpair · w toggle"
-	case focused && s.BluetoothFocus == core.BluetoothFocusAdapters:
-		text = "tab · j/k select adapter · s scan · y/a disc/pair · r/R rename/reset · T timeout · F filter · w toggle · esc"
-	case focused:
-		text = "tab · j/k · enter info · c/d · p/x pair/cancel · u unpair · t trust · b block · s scan · y/a · r/R · w · esc"
+	switch sec.ID {
+	case "adapters":
+		text = "j/k select · s scan · w toggle · y discoverable · a pairable · r rename · R reset · T timeout · F filter · esc"
+	case "devices":
+		if s.BluetoothDeviceInfoOpen {
+			text = "esc back · c connect · d disconnect · t trust · b block · u unpair"
+		} else {
+			text = "j/k · enter info · c connect · d disconnect · p pair · x cancel · u unpair · t trust · b block · s scan · esc"
+		}
 	default:
-		text = "enter · w toggle · s scan · y/a disc/pair · r/R rename/reset · T timeout"
+		text = "esc"
 	}
 	return statusBarStyle.Render(text)
 }

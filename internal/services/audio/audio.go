@@ -35,6 +35,7 @@ type Device struct {
 	// metering pipeline to attach a peak-detect stream. Sources
 	// don't have a monitor; this field is meaningful only for sinks.
 	MonitorIndex uint32 `json:"monitor_index,omitempty"`
+	MonitorName  string `json:"monitor_name,omitempty"`
 }
 
 // Port is one routable jack/output exposed by a card. Direction is

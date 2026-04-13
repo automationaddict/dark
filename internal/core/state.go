@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/johnnelson/dark/internal/help"
+	"github.com/johnnelson/dark/internal/services/appearance"
 	"github.com/johnnelson/dark/internal/services/appstore"
 	"github.com/johnnelson/dark/internal/services/keybind"
 	"github.com/johnnelson/dark/internal/services/tuilink"
@@ -14,7 +15,9 @@ import (
 	"github.com/johnnelson/dark/internal/services/notifycfg"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/power"
+	"github.com/johnnelson/dark/internal/services/privacy"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
+	"github.com/johnnelson/dark/internal/services/users"
 	"github.com/johnnelson/dark/internal/services/wifi"
 )
 
@@ -57,6 +60,8 @@ type State struct {
 	WifiNetworkSelected int
 	WifiKnownSelected   int
 	WifiFocus           WifiFocus
+	WifiSectionIdx      int
+	WifiContentFocused  bool
 	WifiDetailsOpen     bool
 	WifiScanning        bool
 	WifiScanError       string
@@ -68,7 +73,9 @@ type State struct {
 	BluetoothLoaded         bool
 	BluetoothSelected       int
 	BluetoothDevSelected    int
-	BluetoothFocus          BluetoothFocus
+	BluetoothFocus            BluetoothFocus
+	BluetoothSectionIdx       int
+	BluetoothContentFocused   bool
 	BluetoothDetailsOpen    bool
 	BluetoothDeviceInfoOpen bool
 	BluetoothBusy           bool
@@ -107,8 +114,10 @@ type State struct {
 	AudioBusy             bool
 	AudioActionError      string
 
-	Power       power.Snapshot
-	PowerLoaded bool
+	Power           power.Snapshot
+	PowerLoaded     bool
+	PowerFocus      PowerFocus
+	PowerSectionIdx int
 
 	InputDevices       inputsvc.Snapshot
 	InputDevicesLoaded bool
@@ -118,6 +127,16 @@ type State struct {
 
 	DateTime       datetime.Snapshot
 	DateTimeLoaded bool
+
+	Privacy       privacy.Snapshot
+	PrivacyLoaded bool
+
+	Users       users.Snapshot
+	UsersLoaded bool
+	UsersIdx    int
+
+	Appearance       appearance.Snapshot
+	AppearanceLoaded bool
 
 	Appstore              appstore.Snapshot
 	AppstoreLoaded        bool
@@ -146,7 +165,9 @@ type State struct {
 	TUILinkIdx        int
 	Keybindings       keybind.Snapshot
 	KeybindingsLoaded bool
-	KeybindIdx        int
+	KeybindIdx          int
+	KeybindFilter       int // 0=All, 1=Default, 2=User
+	KeybindTableFocused bool
 	OmarchySidebarIdx int
 
 	ContentFocused bool
@@ -191,6 +212,37 @@ func (s *State) SetBusConnected(ok bool) {
 func (s *State) SetDateTime(snap datetime.Snapshot) {
 	s.DateTime = snap
 	s.DateTimeLoaded = true
+}
+
+func (s *State) SetPrivacy(snap privacy.Snapshot) {
+	s.Privacy = snap
+	s.PrivacyLoaded = true
+}
+
+func (s *State) SetUsers(snap users.Snapshot) {
+	s.Users = snap
+	s.UsersLoaded = true
+	if s.UsersIdx >= len(snap.Users) {
+		s.UsersIdx = 0
+	}
+}
+
+func (s *State) MoveUsersIdx(delta int) {
+	n := len(s.Users.Users)
+	if n == 0 {
+		return
+	}
+	s.UsersIdx = (s.UsersIdx + delta + n) % n
+}
+
+func (s *State) SelectedUser() (users.User, bool) {
+	if len(s.Users.Users) == 0 {
+		return users.User{}, false
+	}
+	if s.UsersIdx >= len(s.Users.Users) {
+		s.UsersIdx = 0
+	}
+	return s.Users.Users[s.UsersIdx], true
 }
 
 func (s *State) SetNotify(snap notifycfg.Snapshot) {
@@ -288,37 +340,10 @@ func (s *State) FocusContent() {
 	case "wifi":
 		if len(s.Wifi.Adapters) > 0 {
 			s.ContentFocused = true
-			s.WifiDetailsOpen = true
-			if s.WifiFocus == "" {
-				s.WifiFocus = WifiFocusNetworks
-			}
-			s.WifiNetworkSelected = 0
-			s.WifiKnownSelected = 0
-			if adapter := s.Wifi.Adapters[s.WifiSelected]; len(adapter.Networks) > 0 {
-				for i, n := range adapter.Networks {
-					if n.Connected {
-						s.WifiNetworkSelected = i
-						break
-					}
-				}
-			}
 		}
 	case "bluetooth":
 		if len(s.Bluetooth.Adapters) > 0 {
 			s.ContentFocused = true
-			s.BluetoothDetailsOpen = true
-			if s.BluetoothFocus == "" {
-				s.BluetoothFocus = BluetoothFocusDevices
-			}
-			s.BluetoothDevSelected = 0
-			if adapter := s.Bluetooth.Adapters[s.BluetoothSelected]; len(adapter.Devices) > 0 {
-				for i, d := range adapter.Devices {
-					if d.Connected {
-						s.BluetoothDevSelected = i
-						break
-					}
-				}
-			}
 		}
 	case "display":
 		if len(s.Display.Monitors) > 0 {
@@ -354,6 +379,18 @@ func (s *State) FocusContent() {
 		if len(s.Network.Interfaces) > 0 {
 			s.ContentFocused = true
 		}
+	case "privacy":
+		if s.PrivacyLoaded {
+			s.ContentFocused = true
+		}
+	case "users":
+		if s.UsersLoaded {
+			s.ContentFocused = true
+		}
+	case "appearance":
+		if s.AppearanceLoaded {
+			s.ContentFocused = true
+		}
 	}
 }
 
@@ -369,6 +406,9 @@ func (s *State) FocusSidebar() {
 	s.NetworkRoutesOpen = false
 	s.AppstoreDetailOpen = false
 	s.AppstoreFocus = AppstoreFocusSidebar
+	s.KeybindTableFocused = false
+	s.WifiContentFocused = false
+	s.BluetoothContentFocused = false
 }
 
 // OpenWifiDetails drills into the currently highlighted adapter and shows
@@ -392,6 +432,7 @@ func (s *State) OpenWifiDetails() {
 }
 
 // CycleWifiFocus cycles through Adapters → Networks → Known Networks.
+// Resets ContentScroll so the focused group is visible after tab.
 func (s *State) CycleWifiFocus() {
 	if !s.WifiDetailsOpen {
 		return
@@ -403,6 +444,17 @@ func (s *State) CycleWifiFocus() {
 		s.WifiFocus = WifiFocusKnown
 	default:
 		s.WifiFocus = WifiFocusAdapters
+	}
+	// Reset scroll — renderScrollableContentPane will clamp if needed.
+	switch s.WifiFocus {
+	case WifiFocusAdapters:
+		s.ContentScroll = 0
+	case WifiFocusNetworks:
+		// Adapters table + details box is roughly 20-30 lines.
+		s.ContentScroll = 20
+	case WifiFocusKnown:
+		// Networks table adds more. Go near the bottom.
+		s.ContentScroll = 999 // clamps to maxScroll
 	}
 }
 

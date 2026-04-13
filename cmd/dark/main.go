@@ -21,6 +21,9 @@ import (
 	dtsvc "github.com/johnnelson/dark/internal/services/datetime"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	keybindsvc "github.com/johnnelson/dark/internal/services/keybind"
+	appearancesvc "github.com/johnnelson/dark/internal/services/appearance"
+	privacysvc "github.com/johnnelson/dark/internal/services/privacy"
+	userssvc "github.com/johnnelson/dark/internal/services/users"
 	notifycfgsvc "github.com/johnnelson/dark/internal/services/notifycfg"
 	netsvc "github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
@@ -133,6 +136,9 @@ func main() {
 	powerActions := newPowerActions(nc)
 	appstoreActions := newAppstoreActions(nc)
 	keybindActions := newKeybindActions(nc)
+	usersActions := newUsersActions(nc)
+	privacyActions := newPrivacyActions(nc)
+	appearanceActions := newAppearanceActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -144,7 +150,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -360,6 +366,48 @@ func main() {
 	}
 	defer keybindSub.Unsubscribe()
 
+	usersSub, err := nc.Subscribe(bus.SubjectUsersSnapshot, func(m *nats.Msg) {
+		var snap userssvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Users", err)
+			return
+		}
+		p.Send(tui.UsersMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe users:", err)
+		os.Exit(1)
+	}
+	defer usersSub.Unsubscribe()
+
+	privacySub, err := nc.Subscribe(bus.SubjectPrivacySnapshot, func(m *nats.Msg) {
+		var snap privacysvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Privacy", err)
+			return
+		}
+		p.Send(tui.PrivacyMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe privacy:", err)
+		os.Exit(1)
+	}
+	defer privacySub.Unsubscribe()
+
+	appearanceSub, err := nc.Subscribe(bus.SubjectAppearanceSnapshot, func(m *nats.Msg) {
+		var snap appearancesvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Appearance", err)
+			return
+		}
+		p.Send(tui.AppearanceMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe appearance:", err)
+		os.Exit(1)
+	}
+	defer appearanceSub.Unsubscribe()
+
 	// Request current snapshots up front so each tab has data on the
 	// first frame instead of waiting for the next periodic publish.
 	if reply, err := nc.Request(bus.SubjectSystemInfoCmd, nil, core.TimeoutFast); err == nil {
@@ -417,6 +465,24 @@ func main() {
 		var snap keybindsvc.Snapshot
 		if err := json.Unmarshal(reply.Data, &snap); err == nil {
 			state.SetKeybindings(snap)
+		}
+	}
+	if reply, err := nc.Request(bus.SubjectUsersSnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap userssvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetUsers(snap)
+		}
+	}
+	if reply, err := nc.Request(bus.SubjectPrivacySnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap privacysvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetPrivacy(snap)
+		}
+	}
+	if reply, err := nc.Request(bus.SubjectAppearanceSnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap appearancesvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetAppearance(snap)
 		}
 	}
 

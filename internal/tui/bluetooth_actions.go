@@ -49,7 +49,7 @@ func (m *Model) inBluetoothContent() bool {
 }
 
 func (m *Model) inBluetoothDetails() bool {
-	return m.inBluetoothContent() && m.state.BluetoothDetailsOpen
+	return m.inBluetoothContent() && m.state.BluetoothContentFocused
 }
 
 // triggerBluetoothPowerToggle flips the radio on the selected adapter.

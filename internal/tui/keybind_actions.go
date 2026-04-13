@@ -91,7 +91,14 @@ func (m *Model) triggerKeybindEdit() tea.Cmd {
 	keybindRef := m.keybind
 	notifierRef := m.notifier
 	stateRef := m.state
-	excludeIdx := m.state.KeybindIdx
+	// Find the index in the full (unfiltered) bindings list for conflict detection.
+	excludeIdx := -1
+	for i, b := range stateRef.Keybindings.Bindings {
+		if b.Mods == old.Mods && b.Key == old.Key && b.Dispatcher == old.Dispatcher && b.Source == old.Source {
+			excludeIdx = i
+			break
+		}
+	}
 	m.dialog = NewDialog("Edit keybinding", []DialogFieldSpec{
 		{Key: "mods", Label: "Modifiers", Value: old.Mods},
 		{Key: "key", Label: "Key", Value: old.Key},

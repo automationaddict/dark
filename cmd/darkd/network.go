@@ -13,6 +13,7 @@ import (
 
 type networkActionRequest struct {
 	Interface string             `json:"interface,omitempty"`
+	Enabled   bool               `json:"enabled,omitempty"`
 	IPv4      *netsvc.IPv4Config `json:"ipv4,omitempty"`
 }
 
@@ -60,6 +61,12 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service, dn *daemonNotifier) func() 
 	register(bus.SubjectNetworkReconfigureCmd, handleNetworkReconfigure)
 	register(bus.SubjectNetworkConfigureIPv4Cmd, handleNetworkConfigureIPv4)
 	register(bus.SubjectNetworkResetCmd, handleNetworkReset)
+	register(bus.SubjectNetworkAirplaneCmd, func(svc *netsvc.Service, req networkActionRequest) networkActionResponse {
+		if err := netsvc.SetAirplaneMode(req.Enabled); err != nil {
+			return networkActionResponse{Error: err.Error()}
+		}
+		return networkActionResponse{Snapshot: svc.Snapshot()}
+	})
 
 	return func() {
 		data, err := json.Marshal(snapshotNetwork(svc))

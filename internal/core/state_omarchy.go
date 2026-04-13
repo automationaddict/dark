@@ -59,11 +59,15 @@ func (s *State) MoveOmarchyFocus(delta int) {
 		}
 		s.TUILinkIdx = (s.TUILinkIdx + delta + n) % n
 	case "keybindings":
-		n := len(s.Keybindings.Bindings)
-		if n == 0 {
-			return
+		if s.KeybindTableFocused {
+			n := len(s.FilteredKeybindings())
+			if n == 0 {
+				return
+			}
+			s.KeybindIdx = (s.KeybindIdx + delta + n) % n
+		} else {
+			s.MoveKeybindFilter(delta)
 		}
-		s.KeybindIdx = (s.KeybindIdx + delta + n) % n
 	}
 }
 
@@ -98,17 +102,67 @@ func (s *State) SelectedTUILink() (tuilink.TUIApp, bool) {
 func (s *State) SetKeybindings(snap keybind.Snapshot) {
 	s.Keybindings = snap
 	s.KeybindingsLoaded = true
-	if s.KeybindIdx >= len(snap.Bindings) {
+	filtered := s.FilteredKeybindings()
+	if s.KeybindIdx >= len(filtered) {
 		s.KeybindIdx = 0
 	}
 }
 
+func (s *State) FilteredKeybindings() []keybind.Binding {
+	switch s.KeybindFilter {
+	case 1:
+		var out []keybind.Binding
+		for _, b := range s.Keybindings.Bindings {
+			if b.Source == keybind.SourceDefault {
+				out = append(out, b)
+			}
+		}
+		return out
+	case 2:
+		var out []keybind.Binding
+		for _, b := range s.Keybindings.Bindings {
+			if b.Source == keybind.SourceUser {
+				out = append(out, b)
+			}
+		}
+		return out
+	default:
+		return s.Keybindings.Bindings
+	}
+}
+
+type KeybindSection struct {
+	ID    string
+	Icon  string
+	Label string
+}
+
+func KeybindSections() []KeybindSection {
+	return []KeybindSection{
+		{"all", "󰌌", "All"},
+		{"default", "󰒓", "Default"},
+		{"user", "󰀉", "User"},
+	}
+}
+
+func (s *State) CycleKeybindFilter() {
+	s.KeybindFilter = (s.KeybindFilter + 1) % 3
+	s.KeybindIdx = 0
+}
+
+func (s *State) MoveKeybindFilter(delta int) {
+	n := len(KeybindSections())
+	s.KeybindFilter = (s.KeybindFilter + delta + n) % n
+	s.KeybindIdx = 0
+}
+
 func (s *State) SelectedKeybinding() (keybind.Binding, bool) {
-	if len(s.Keybindings.Bindings) == 0 {
+	filtered := s.FilteredKeybindings()
+	if len(filtered) == 0 {
 		return keybind.Binding{}, false
 	}
-	if s.KeybindIdx >= len(s.Keybindings.Bindings) {
+	if s.KeybindIdx >= len(filtered) {
 		s.KeybindIdx = 0
 	}
-	return s.Keybindings.Bindings[s.KeybindIdx], true
+	return filtered[s.KeybindIdx], true
 }

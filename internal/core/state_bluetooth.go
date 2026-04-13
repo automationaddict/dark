@@ -29,11 +29,14 @@ func (s *State) SetBluetooth(snap bluetooth.Snapshot) {
 }
 
 // CycleBluetoothFocus tabs between Adapters and Devices sub-tables.
+// Adjusts ContentScroll so the focused group is visible.
 func (s *State) CycleBluetoothFocus() {
 	if s.BluetoothFocus == BluetoothFocusAdapters {
 		s.BluetoothFocus = BluetoothFocusDevices
+		s.ContentScroll = 15
 	} else {
 		s.BluetoothFocus = BluetoothFocusAdapters
+		s.ContentScroll = 0
 	}
 }
 
@@ -113,9 +116,6 @@ func (s *State) CloseBluetoothDetails() {
 // highlighted device, expanding the full property readout. Only valid
 // when the Devices list is already visible.
 func (s *State) OpenBluetoothDeviceInfo() {
-	if !s.BluetoothDetailsOpen {
-		return
-	}
 	if _, ok := s.SelectedBluetoothDevice(); !ok {
 		return
 	}

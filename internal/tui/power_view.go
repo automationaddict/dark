@@ -16,57 +16,148 @@ func renderPower(s *core.State, width, height int) string {
 			placeholderStyle.Render("loading power info…"))
 	}
 
+	secs := core.PowerSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebar := renderInnerSidebar(s, entries, s.PowerSectionIdx, height)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActivePowerSection()
+	var content string
+	switch sec.ID {
+	case "overview":
+		content = renderPowerOverview(s, contentWidth, height)
+	case "profile":
+		content = renderPowerProfileSection(s, contentWidth, height)
+	case "cpu":
+		content = renderPowerCPUSection(s, contentWidth, height)
+	case "thermal":
+		content = renderPowerThermalSection(s, contentWidth, height)
+	case "buttons":
+		content = renderPowerButtonsSection(s, contentWidth, height)
+	case "idle":
+		content = renderPowerIdleSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+func renderPowerOverview(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
 	}
-
 	var blocks []string
-
 	if bat := renderPowerBattery(s.Power, innerWidth); bat != "" {
 		blocks = append(blocks, bat)
 	}
-
-	if profile := renderPowerProfile(s.Power, innerWidth); profile != "" {
-		blocks = append(blocks, profile)
-	}
-
-	if cpu := renderPowerCPU(s.Power, innerWidth); cpu != "" {
-		blocks = append(blocks, cpu)
-	}
-
-	if thermal := renderPowerThermals(s.Power, innerWidth); thermal != "" {
-		blocks = append(blocks, thermal)
-	}
-
 	if gpu := renderPowerGPU(s.Power, innerWidth); gpu != "" {
 		blocks = append(blocks, gpu)
 	}
-
 	if fans := renderPowerFans(s.Power, innerWidth); fans != "" {
 		blocks = append(blocks, fans)
 	}
-
 	if periph := renderPowerPeripherals(s.Power, innerWidth); periph != "" {
 		blocks = append(blocks, periph)
 	}
-
-	blocks = append(blocks, renderPowerButtons(s.Power, innerWidth))
-
-	if idle := renderPowerIdle(s.Power, innerWidth); idle != "" {
-		blocks = append(blocks, idle)
-	}
-
 	if sleep := renderPowerSleep(s.Power, innerWidth); sleep != "" {
 		blocks = append(blocks, sleep)
 	}
-
 	if len(blocks) == 0 {
 		blocks = append(blocks, placeholderStyle.Render("No power data available."))
 	}
-
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
 	return renderScrollableContentPane(s, width, height, body)
+}
+
+func renderPowerProfileSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+	var blocks []string
+	blocks = append(blocks, renderPowerProfile(s.Power, innerWidth))
+
+	hint := lipgloss.NewStyle().Foreground(colorDim).Render("  p cycle profiles")
+	blocks = append(blocks, hint)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderPowerCPUSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+	var blocks []string
+	blocks = append(blocks, renderPowerCPU(s.Power, innerWidth))
+
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	hint := dim.Render("  ") +
+		accent.Render("g") + dim.Render(" governor  ") +
+		accent.Render("E") + dim.Render(" epp")
+	blocks = append(blocks, hint)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderPowerThermalSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+	var blocks []string
+	if thermal := renderPowerThermals(s.Power, innerWidth); thermal != "" {
+		blocks = append(blocks, thermal)
+	}
+	if gpu := renderPowerGPU(s.Power, innerWidth); gpu != "" {
+		blocks = append(blocks, gpu)
+	}
+	if fans := renderPowerFans(s.Power, innerWidth); fans != "" {
+		blocks = append(blocks, fans)
+	}
+	if len(blocks) == 0 {
+		blocks = append(blocks, placeholderStyle.Render("No thermal data available."))
+	}
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderScrollableContentPane(s, width, height, body)
+}
+
+func renderPowerButtonsSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+	var blocks []string
+	blocks = append(blocks, renderPowerButtons(s.Power, innerWidth))
+
+	hint := lipgloss.NewStyle().Foreground(colorDim).Render("  b edit system buttons")
+	blocks = append(blocks, hint)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderPowerIdleSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+	var blocks []string
+	blocks = append(blocks, renderPowerIdle(s.Power, innerWidth))
+
+	hint := lipgloss.NewStyle().Foreground(colorDim).Render("  i edit idle timers")
+	blocks = append(blocks, hint)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
 }
 
 func renderPowerBattery(p power.Snapshot, total int) string {
@@ -168,6 +259,10 @@ func profileIcon(name string) string {
 }
 
 func renderPowerProfile(p power.Snapshot, total int) string {
+	return renderPowerProfileFocused(p, total, colorBorder)
+}
+
+func renderPowerProfileFocused(p power.Snapshot, total int, border lipgloss.Color) string {
 	if len(p.Profiles) == 0 {
 		return ""
 	}
@@ -187,10 +282,14 @@ func renderPowerProfile(p power.Snapshot, total int) string {
 	return groupBoxSections("Power Profile", []string{
 		strings.Join(parts, "\n"),
 		hint,
-	}, total, colorBorder)
+	}, total, border)
 }
 
 func renderPowerCPU(p power.Snapshot, total int) string {
+	return renderPowerCPUFocused(p, total, colorBorder)
+}
+
+func renderPowerCPUFocused(p power.Snapshot, total int, border lipgloss.Color) string {
 	if len(p.CPUs) == 0 {
 		return ""
 	}
@@ -237,7 +336,7 @@ func renderPowerCPU(p power.Snapshot, total int) string {
 				float64(p.CPUs[0].MinFreq)/1000, float64(p.CPUs[0].MaxFreq)/1000)))
 	}
 
-	return groupBoxSections("CPU", []string{strings.Join(lines, "\n")}, total, colorBorder)
+	return groupBoxSections("CPU", []string{strings.Join(lines, "\n")}, total, border)
 }
 
 func renderPowerThermals(p power.Snapshot, total int) string {
@@ -350,6 +449,10 @@ func renderPowerPeripherals(p power.Snapshot, total int) string {
 }
 
 func renderPowerButtons(p power.Snapshot, total int) string {
+	return renderPowerButtonsFocused(p, total, colorBorder)
+}
+
+func renderPowerButtonsFocused(p power.Snapshot, total int, border lipgloss.Color) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
@@ -368,7 +471,7 @@ func renderPowerButtons(p power.Snapshot, total int) string {
 	}
 	lines = append(lines, label.Render("Battery %")+pctStatus)
 
-	return groupBoxSections("System Buttons", []string{strings.Join(lines, "\n")}, total, colorBorder)
+	return groupBoxSections("System Buttons", []string{strings.Join(lines, "\n")}, total, border)
 }
 
 func formatTimeout(sec int) string {
@@ -387,6 +490,10 @@ func formatTimeout(sec int) string {
 }
 
 func renderPowerIdle(p power.Snapshot, total int) string {
+	return renderPowerIdleFocused(p, total, colorBorder)
+}
+
+func renderPowerIdleFocused(p power.Snapshot, total int, border lipgloss.Color) string {
 	idle := p.Idle
 
 	lw := 18
@@ -426,7 +533,7 @@ func renderPowerIdle(p power.Snapshot, total int) string {
 			Render("  hypridle not configured"))
 	}
 
-	return groupBoxSections("Screen & Idle", []string{strings.Join(lines, "\n")}, total, colorBorder)
+	return groupBoxSections("Screen & Idle", []string{strings.Join(lines, "\n")}, total, border)
 }
 
 func renderPowerSleep(p power.Snapshot, total int) string {

@@ -31,6 +31,10 @@ func renderDisplay(s *core.State, width, height int) string {
 
 	focused := s.ContentFocused
 
+	if s.DisplayLayoutOpen {
+		return renderDisplayLayoutFull(s, width, height, innerWidth)
+	}
+
 	var blocks []string
 
 	monBox := renderDisplayMonitorBox(s, innerWidth, focused)
@@ -196,6 +200,40 @@ func renderDisplayTags(mon display.Monitor) string {
 }
 
 
+func renderDisplayLayoutFull(s *core.State, width, height, innerWidth int) string {
+	canvasW := innerWidth - 8
+	canvasH := height - 12
+	if canvasW < 40 {
+		canvasW = 40
+	}
+	if canvasH < 10 {
+		canvasH = 10
+	}
+
+	grid := renderMonitorGrid(s.Display.Monitors, s.DisplayMonitorIdx, canvasW, canvasH)
+
+	mon, ok := s.SelectedMonitor()
+	var info string
+	if ok {
+		info = lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(mon.Description) +
+			lipgloss.NewStyle().Foreground(colorDim).Render(
+				fmt.Sprintf("  %dx%d at (%d, %d)", mon.Width, mon.Height, mon.X, mon.Y))
+	}
+
+	hint := lipgloss.NewStyle().Foreground(colorDim).
+		Render("  ←/→/↑/↓ nudge · j/k select monitor · i identify · esc close")
+
+	var blocks []string
+	blocks = append(blocks, groupBoxSections("Arrange Monitors", []string{grid}, innerWidth, colorAccent))
+	if info != "" {
+		blocks = append(blocks, info)
+	}
+	blocks = append(blocks, hint)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
 func renderDisplayLayoutCompact(s *core.State, total int) string {
 	canvasW := total - 8
 	canvasH := 8
@@ -356,6 +394,7 @@ func renderDisplayHints() string {
 	hints = append(hints, accent.Render("v")+" vrr")
 	hints = append(hints, accent.Render("R")+" mirror")
 	hints = append(hints, accent.Render("p")+" position")
+	hints = append(hints, accent.Render("a")+" arrange")
 	hints = append(hints, accent.Render("s")+" scale")
 	hints = append(hints, accent.Render("[/]")+" brightness")
 	hints = append(hints, accent.Render("{/}")+" kbd light")

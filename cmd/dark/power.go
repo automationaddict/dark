@@ -35,6 +35,22 @@ func newPowerActions(nc *nats.Conn) tui.PowerActions {
 				})
 			}
 		},
+		SetButton: func(key, value string) tea.Cmd {
+			return func() tea.Msg {
+				return powerRequest(nc, bus.SubjectPowerButtonCmd, map[string]string{
+					"button_key": key,
+					"button_val": value,
+				})
+			}
+		},
+		SetIdle: func(kind string, sec int) tea.Cmd {
+			return func() tea.Msg {
+				return powerRequest(nc, bus.SubjectPowerIdleCmd, map[string]any{
+					"idle_kind": kind,
+					"idle_sec":  sec,
+				})
+			}
+		},
 	}
 }
 

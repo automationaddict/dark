@@ -185,8 +185,10 @@ func (m Model) handleDisplayLayoutKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down":
 		return m.nudgeDisplayPosition(0, 1)
 	case "i":
-		if cmd := m.triggerDisplayIdentify(); cmd != nil {
-			return m, cmd
+		if m.display.Identify != nil {
+			m.state.DisplayBusy = true
+			m.state.DisplayActionError = ""
+			return m, m.display.Identify()
 		}
 	case "?":
 		m.state.OpenHelp()

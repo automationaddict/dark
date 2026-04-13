@@ -12,6 +12,7 @@ import (
 
 	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/help"
+	"github.com/johnnelson/dark/internal/services/appearance"
 	"github.com/johnnelson/dark/internal/services/appstore"
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
@@ -20,6 +21,8 @@ import (
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	"github.com/johnnelson/dark/internal/services/keybind"
 	"github.com/johnnelson/dark/internal/services/notifycfg"
+	privacysvc "github.com/johnnelson/dark/internal/services/privacy"
+	userssvc "github.com/johnnelson/dark/internal/services/users"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/power"
@@ -73,8 +76,11 @@ type Model struct {
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
 	keybind   KeybindActions
-	dialog    *Dialog
-	spinner   spinner.Model
+	users     UsersActions
+	privacy    PrivacyActions
+	appearance AppearanceActions
+	dialog     *Dialog
+	spinner    spinner.Model
 	width     int
 	height    int
 }
@@ -98,7 +104,7 @@ type TUILinksMsg []tuilink.TUIApp
 // NATS connection handlers when the link to darkd goes down or comes back.
 type BusStatusMsg bool
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions, keybindAct KeybindActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions, keybindAct KeybindActions, usersAct UsersActions, privacyAct PrivacyActions, appearanceAct AppearanceActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -116,7 +122,10 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		notifier:  notifier,
 		appstore:  appstore,
 		keybind:   keybindAct,
-		spinner:   sp,
+		users:     usersAct,
+		privacy:    privacyAct,
+		appearance: appearanceAct,
+		spinner:    sp,
 	}
 }
 
@@ -375,6 +384,46 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case keybindConflictMsg:
 		return m, m.handleKeybindConflict(msg)
 
+	case UsersMsg:
+		m.state.SetUsers(userssvc.Snapshot(msg))
+		return m, nil
+
+	case UsersActionResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Users", msg.Err)
+			return m, nil
+		}
+		m.state.SetUsers(msg.Snapshot)
+		return m, nil
+
+	case UsersElevatedMsg:
+		m.handleUsersElevated(msg)
+		return m, nil
+
+	case PrivacyMsg:
+		m.state.SetPrivacy(privacysvc.Snapshot(msg))
+		return m, nil
+
+	case PrivacyActionResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Privacy", msg.Err)
+			return m, nil
+		}
+		m.state.SetPrivacy(msg.Snapshot)
+		return m, nil
+
+	case AppearanceMsg:
+		m.state.SetAppearance(appearance.Snapshot(msg))
+		return m, nil
+
+	case AppearanceActionResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Appearance", msg.Err)
+			return m, nil
+		}
+		m.state.SetAppearance(msg.Snapshot)
+		return m, nil
+
 	case BusStatusMsg:
 		m.state.SetBusConnected(bool(msg))
 		return m, nil
@@ -403,6 +452,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.dialog = nil
 			}
 			return m, cmd
+		}
+		if m.state.DisplayLayoutOpen {
+			return m.handleDisplayLayoutKey(msg)
 		}
 		if m.state.HelpOpen {
 			return m.handleHelpKey(msg)
@@ -677,7 +729,7 @@ func (m *Model) inWifiContent() bool {
 }
 
 func (m *Model) inWifiDetails() bool {
-	return m.inWifiContent() && m.state.WifiDetailsOpen
+	return m.inWifiContent() && m.state.WifiContentFocused
 }
 
 // moveSelection routes vertical-arrow input to whichever region currently
@@ -709,20 +761,30 @@ func (m *Model) moveSelection(delta int) {
 	if m.state.ContentFocused {
 		switch m.state.ActiveSection().ID {
 		case "wifi":
-			switch m.state.WifiFocus {
-			case core.WifiFocusAdapters:
-				m.state.MoveWifiSelection(delta)
-			case core.WifiFocusKnown:
-				m.state.MoveWifiKnownSelection(delta)
-			default:
-				m.state.MoveWifiNetworkSelection(delta)
+			if m.state.WifiContentFocused {
+				sec := m.state.ActiveWifiSection()
+				switch sec.ID {
+				case "adapters":
+					m.state.MoveWifiSelection(delta)
+				case "networks":
+					m.state.MoveWifiNetworkSelection(delta)
+				case "known":
+					m.state.MoveWifiKnownSelection(delta)
+				}
+			} else {
+				m.state.MoveWifiSection(delta)
 			}
 		case "bluetooth":
-			switch m.state.BluetoothFocus {
-			case core.BluetoothFocusAdapters:
-				m.state.MoveBluetoothSelection(delta)
-			default:
-				m.state.MoveBluetoothDeviceSelection(delta)
+			if m.state.BluetoothContentFocused {
+				sec := m.state.ActiveBluetoothSection()
+				switch sec.ID {
+				case "adapters":
+					m.state.MoveBluetoothSelection(delta)
+				case "devices":
+					m.state.MoveBluetoothDeviceSelection(delta)
+				}
+			} else {
+				m.state.MoveBluetoothSection(delta)
 			}
 		case "display":
 			m.state.MoveDisplaySelection(delta)
@@ -734,7 +796,11 @@ func (m *Model) moveSelection(delta int) {
 			} else {
 				m.state.MoveNetworkSelection(delta)
 			}
-		case "power", "input", "notifications", "datetime":
+		case "users":
+			m.state.MoveUsersIdx(delta)
+		case "power":
+			m.state.MovePowerSection(delta)
+		case "input", "notifications", "datetime", "privacy", "appearance":
 			m.state.ScrollContent(delta)
 		}
 		return
@@ -838,6 +904,18 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.CloseAppstoreDetail()
 			return m, nil
 		}
+		if m.state.WifiContentFocused {
+			m.state.WifiContentFocused = false
+			return m, nil
+		}
+		if m.state.BluetoothContentFocused {
+			m.state.BluetoothContentFocused = false
+			return m, nil
+		}
+		if m.state.KeybindTableFocused {
+			m.state.KeybindTableFocused = false
+			return m, nil
+		}
 		if m.state.ContentFocused {
 			m.state.FocusSidebar()
 			return m, nil
@@ -878,13 +956,62 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case m.state.ActiveTab == core.TabSettings:
 			switch m.state.ActiveSection().ID {
+			case "wifi":
+				if !m.state.WifiContentFocused {
+					m.state.WifiContentFocused = true
+					// Initialize selection to the connected network.
+					sec := m.state.ActiveWifiSection()
+					if sec.ID == "networks" {
+						if adapter, ok := m.state.SelectedAdapter(); ok {
+							m.state.WifiNetworkSelected = 0
+							for i, n := range adapter.Networks {
+								if n.Connected {
+									m.state.WifiNetworkSelected = i
+									break
+								}
+							}
+						}
+					}
+					return m, nil
+				}
 			case "bluetooth":
-				if !m.state.BluetoothDeviceInfoOpen {
+				if !m.state.BluetoothContentFocused {
+					m.state.BluetoothContentFocused = true
+					// Initialize selection to the connected device.
+					sec := m.state.ActiveBluetoothSection()
+					if sec.ID == "devices" {
+						if sel := m.state.BluetoothSelected; sel < len(m.state.Bluetooth.Adapters) {
+							adapter := m.state.Bluetooth.Adapters[sel]
+							m.state.BluetoothDevSelected = 0
+							for i, d := range adapter.Devices {
+								if d.Connected {
+									m.state.BluetoothDevSelected = i
+									break
+								}
+							}
+						}
+					}
+					return m, nil
+				}
+				if m.state.ActiveBluetoothSection().ID == "devices" && !m.state.BluetoothDeviceInfoOpen {
 					m.state.OpenBluetoothDeviceInfo()
 				}
 			case "sound":
 				if !m.state.AudioDeviceInfoOpen {
 					m.state.OpenAudioDeviceInfo()
+				}
+			case "power":
+				switch m.state.ActivePowerSection().ID {
+				case "profile":
+					return m, m.triggerPowerProfileCycle()
+				case "cpu":
+					return m, m.triggerPowerGovernorCycle()
+				case "buttons":
+					m.triggerPowerButtonsDialog()
+					return m, nil
+				case "idle":
+					m.triggerPowerIdleDialog()
+					return m, nil
 				}
 			}
 		}
@@ -928,16 +1055,34 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down", "j":
 		m.moveSelection(1)
 	case "tab":
-		if m.inWifiContent() {
-			m.state.CycleWifiFocus()
-		}
-		if m.inBluetoothContent() && !m.state.BluetoothDeviceInfoOpen {
-			m.state.CycleBluetoothFocus()
-		}
 		if m.inSoundContent() {
 			m.state.CycleAudioFocus()
 		}
+	case "1":
+		if m.inPrivacyContent() {
+			m.triggerPrivacyScreensaverDialog()
+			return m, nil
+		}
+	case "2":
+		if m.inPrivacyContent() {
+			m.triggerPrivacyLockDialog()
+			return m, nil
+		}
+	case "3":
+		if m.inPrivacyContent() {
+			m.triggerPrivacyScreenOffDialog()
+			return m, nil
+		}
 	case "s":
+		if m.inPrivacyContent() {
+			if cmd := m.triggerPrivacySSHToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
+		if m.inUsersContent() {
+			m.triggerUserShellChange()
+			return m, nil
+		}
 		if m.inInputContent() {
 			if cmd := m.triggerInputSensitivityDelta(0.05); cmd != nil {
 				return m, cmd
@@ -954,6 +1099,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "c":
+		if m.inUsersContent() {
+			m.triggerUserRename()
+			return m, nil
+		}
 		if cmd := m.triggerWifiConnect(); cmd != nil {
 			return m, cmd
 		}
@@ -961,6 +1110,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "d":
+		if m.inUsersContent() {
+			m.triggerUserRemove()
+			return m, nil
+		}
 		if m.inNotifyContent() {
 			if cmd := m.triggerNotifyDNDToggle(); cmd != nil {
 				return m, cmd
@@ -979,11 +1132,21 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "z":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceBlurSize(1); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDateTimeContent() {
 			m.triggerDTTimezoneDialog()
 			return m, nil
 		}
 	case "f":
+		if m.inPrivacyContent() {
+			if cmd := m.triggerPrivacyFirewallToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDateTimeContent() {
 			if cmd := m.triggerDTClockFormatToggle(); cmd != nil {
 				return m, cmd
@@ -993,6 +1156,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "w":
+		if m.inUsersContent() {
+			if cmd := m.triggerUserAdminToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inNotifyContent() {
 			if cmd := m.triggerNotifyWidthDelta(20); cmd != nil {
 				return m, cmd
@@ -1008,6 +1176,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "a":
+		if m.inDisplayContent() && len(m.state.Display.Monitors) > 1 {
+			m.state.OpenDisplayLayout()
+			return m, nil
+		}
+		if m.inUsersContent() {
+			m.triggerUserAdd()
+			return m, nil
+		}
 		if m.inNotifyContent() {
 			m.triggerNotifyAddRuleDialog()
 			return m, nil
@@ -1037,6 +1213,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "e":
+		if m.inPrivacyContent() {
+			if cmd := m.triggerPrivacyDNSSECCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayToggleEnabled(); cmd != nil {
 			return m, cmd
 		}
@@ -1047,6 +1228,12 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "p":
+		if m.inUsersContent() {
+			if cmd := m.triggerUserPasswordChange(); cmd != nil {
+				return m, cmd
+			}
+			return m, nil
+		}
 		if m.inNotifyContent() {
 			if cmd := m.triggerNotifyAnchorCycle(); cmd != nil {
 				return m, cmd
@@ -1070,7 +1257,23 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerAudioCycleProfile(); cmd != nil {
 			return m, cmd
 		}
+	case "I":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceGapsIn(-1); cmd != nil {
+				return m, cmd
+			}
+		}
 	case "o":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceGapsOut(1); cmd != nil {
+				return m, cmd
+			}
+		}
+		if m.inPrivacyContent() {
+			if cmd := m.triggerPrivacyCoredumpCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inNotifyContent() {
 			m.triggerNotifySoundDialog()
 			return m, nil
@@ -1083,6 +1286,15 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "t":
+		if m.inAppearanceContent() {
+			m.triggerAppearanceThemeDialog()
+			return m, nil
+		}
+		if m.inPrivacyContent() {
+			if cmd := m.triggerPrivacyDNSTLSCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDateTimeContent() {
 			m.triggerDTSetTimeDialog()
 			return m, nil
@@ -1104,6 +1316,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "r":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceRounding(1); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDateTimeContent() {
 			if cmd := m.triggerDTRTCToggle(); cmd != nil {
 				return m, cmd
@@ -1118,7 +1335,29 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if cmd := m.triggerNetworkReconfigure(); cmd != nil {
 			return m, cmd
 		}
+	case "X":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceBlurPasses(-1); cmd != nil {
+				return m, cmd
+			}
+		}
+		if m.inDisplayContent() {
+			m.triggerDisplayDeleteProfile()
+			return m, nil
+		}
+		if m.state.ActiveTab == core.TabF2 {
+			return m, m.triggerAppstoreRemove()
+		}
 	case "b":
+		if m.inPowerContent() {
+			m.triggerPowerButtonsDialog()
+			return m, nil
+		}
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceBorderCycle(1); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerBluetoothBlockToggle(); cmd != nil {
 			return m, cmd
 		}
@@ -1129,18 +1368,42 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case "O":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceGapsOut(-1); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inNotifyContent() {
 			if cmd := m.triggerNotifySoundDisable(); cmd != nil {
 				return m, cmd
 			}
 		}
 	case "l":
+		if m.inPrivacyContent() {
+			if cmd := m.triggerPrivacyLocationToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
+		if m.inUsersContent() {
+			if cmd := m.triggerUserLockToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inNotifyContent() {
 			if cmd := m.triggerNotifyLayerToggle(); cmd != nil {
 				return m, cmd
 			}
 		}
 	case "x":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceBlurPasses(1); cmd != nil {
+				return m, cmd
+			}
+		}
+		if m.inPrivacyContent() {
+			m.triggerPrivacyClearRecent()
+			return m, nil
+		}
 		if m.inNotifyContent() {
 			m.triggerNotifyRemoveRuleDialog()
 			return m, nil
@@ -1149,6 +1412,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "R":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceRounding(-1); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDisplayContent() {
 			m.triggerDisplayMirrorDialog()
 			return m, nil
@@ -1185,6 +1453,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "Z":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceBlurSize(-1); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerAudioSuspendToggle(); cmd != nil {
 			return m, cmd
 		}
@@ -1193,19 +1466,25 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "i":
+		if m.inPowerContent() {
+			m.triggerPowerIdleDialog()
+			return m, nil
+		}
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceGapsIn(1); cmd != nil {
+				return m, cmd
+			}
+		}
+		if m.inPrivacyContent() {
+			if cmd := m.triggerPrivacyIndexerToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerDisplayIdentify(); cmd != nil {
 			return m, cmd
 		}
 		if m.state.ActiveTab == core.TabF2 {
 			return m, m.triggerAppstoreInstall()
-		}
-	case "X":
-		if m.inDisplayContent() {
-			m.triggerDisplayDeleteProfile()
-			return m, nil
-		}
-		if m.state.ActiveTab == core.TabF2 {
-			return m, m.triggerAppstoreRemove()
 		}
 	case "U":
 		if m.state.ActiveTab == core.TabF2 {
@@ -1216,7 +1495,23 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.OpenAppstoreSearch()
 			return m, nil
 		}
+	case "B":
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceBlurToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 	case "A":
+		if m.inNetworkContent() {
+			if cmd := m.triggerNetworkAirplaneToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
+		if m.inAppearanceContent() {
+			if cmd := m.triggerAppearanceAnimToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.state.ActiveTab == core.TabF2 {
 			m.state.AppstoreIncludeAUR = !m.state.AppstoreIncludeAUR
 			return m, nil
@@ -1228,6 +1523,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case "g":
+		if m.inUsersContent() {
+			m.triggerUserGroupAdd()
+			return m, nil
+		}
 		if m.inPowerContent() {
 			if cmd := m.triggerPowerGovernorCycle(); cmd != nil {
 				return m, cmd
@@ -1237,6 +1536,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "G":
+		if m.inUsersContent() {
+			m.triggerUserGroupRemove()
+			return m, nil
+		}
 		if cmd := m.triggerDisplayGammaDelta(5); cmd != nil {
 			return m, cmd
 		}
@@ -1313,6 +1616,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "m":
+		if m.inPrivacyContent() {
+			if cmd := m.triggerPrivacyMACCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inDisplayContent() {
 			m.triggerDisplayModeDialog()
 			return m, nil
