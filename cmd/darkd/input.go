@@ -19,6 +19,7 @@ type inputActionRequest struct {
 	Enabled *bool   `json:"enabled,omitempty"`
 	Factor  float64 `json:"factor,omitempty"`
 	Layout  string  `json:"layout,omitempty"`
+	Profile string  `json:"profile,omitempty"`
 }
 
 type inputActionResponse struct {
@@ -98,6 +99,32 @@ func wireInput(nc *nats.Conn, dn *daemonNotifier) func() {
 		}
 		return inputActionResponse{Snapshot: input.ReadSnapshot()}
 	})
+
+	register(bus.SubjectInputAccelProfileCmd, func(req inputActionRequest) inputActionResponse {
+		if err := input.SetAccelProfile(req.Profile); err != nil {
+			return inputActionResponse{Error: err.Error()}
+		}
+		return inputActionResponse{Snapshot: input.ReadSnapshot()}
+	})
+
+	registerBool := func(subject string, setter func(bool) error) {
+		register(subject, func(req inputActionRequest) inputActionResponse {
+			enabled := req.Enabled != nil && *req.Enabled
+			if err := setter(enabled); err != nil {
+				return inputActionResponse{Error: err.Error()}
+			}
+			return inputActionResponse{Snapshot: input.ReadSnapshot()}
+		})
+	}
+
+	registerBool(bus.SubjectInputForceNoAccelCmd, input.SetForceNoAccel)
+	registerBool(bus.SubjectInputLeftHandedCmd, input.SetLeftHanded)
+	registerBool(bus.SubjectInputDisableTypingCmd, input.SetDisableWhileTyping)
+	registerBool(bus.SubjectInputTapToClickCmd, input.SetTapToClick)
+	registerBool(bus.SubjectInputTapAndDragCmd, input.SetTapAndDrag)
+	registerBool(bus.SubjectInputDragLockCmd, input.SetDragLock)
+	registerBool(bus.SubjectInputMiddleBtnCmd, input.SetMiddleButtonEmu)
+	registerBool(bus.SubjectInputClickfingerCmd, input.SetClickfingerBehavior)
 
 	publish := func() {
 		data, err := json.Marshal(input.ReadSnapshot())

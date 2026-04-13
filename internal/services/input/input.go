@@ -2,6 +2,7 @@ package input
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -50,15 +51,32 @@ type LED struct {
 }
 
 type InputConfig struct {
-	KBLayout       string  `json:"kb_layout"`
-	KBOptions      string  `json:"kb_options"`
-	RepeatRate     int     `json:"repeat_rate"`
-	RepeatDelay    int     `json:"repeat_delay"`
-	NumlockDefault bool    `json:"numlock_default"`
-	Sensitivity    float64 `json:"sensitivity"`
-	ForceNoAccel   bool    `json:"force_no_accel"`
-	NaturalScroll  bool    `json:"natural_scroll"`
-	ScrollFactor   float64 `json:"scroll_factor"`
+	// Keyboard
+	KBLayout       string `json:"kb_layout"`
+	KBVariant      string `json:"kb_variant"`
+	KBModel        string `json:"kb_model"`
+	KBOptions      string `json:"kb_options"`
+	RepeatRate     int    `json:"repeat_rate"`
+	RepeatDelay    int    `json:"repeat_delay"`
+	NumlockDefault bool   `json:"numlock_default"`
+
+	// Mouse
+	Sensitivity  float64 `json:"sensitivity"`
+	AccelProfile string  `json:"accel_profile"`
+	ForceNoAccel bool    `json:"force_no_accel"`
+	LeftHanded   bool    `json:"left_handed"`
+	ScrollMethod string  `json:"scroll_method"`
+	FollowMouse  int     `json:"follow_mouse"`
+
+	// Touchpad
+	NaturalScroll       bool    `json:"natural_scroll"`
+	ScrollFactor        float64 `json:"scroll_factor"`
+	DisableWhileTyping  bool    `json:"disable_while_typing"`
+	TapToClick          bool    `json:"tap_to_click"`
+	TapAndDrag          bool    `json:"tap_and_drag"`
+	DragLock            bool    `json:"drag_lock"`
+	MiddleButtonEmu     bool    `json:"middle_button_emulation"`
+	ClickfingerBehavior bool    `json:"clickfinger_behavior"`
 }
 
 func ReadSnapshot() Snapshot {
@@ -114,6 +132,53 @@ func SetScrollFactor(factor float64) error {
 
 func SetKBLayout(layout string) error {
 	return hyprctl("keyword", "input:kb_layout", layout)
+}
+
+func SetAccelProfile(profile string) error {
+	return hyprctl("keyword", "input:accel_profile", profile)
+}
+
+func SetForceNoAccel(enabled bool) error {
+	return hyprctl("keyword", "input:force_no_accel", boolStr(enabled))
+}
+
+func SetLeftHanded(enabled bool) error {
+	return hyprctl("keyword", "input:left_handed", boolStr(enabled))
+}
+
+func SetFollowMouse(mode int) error {
+	return hyprctl("keyword", "input:follow_mouse", strconv.Itoa(mode))
+}
+
+func SetDisableWhileTyping(enabled bool) error {
+	return hyprctl("keyword", "input:touchpad:disable_while_typing", boolStr(enabled))
+}
+
+func SetTapToClick(enabled bool) error {
+	return hyprctl("keyword", "input:touchpad:tap-to-click", boolStr(enabled))
+}
+
+func SetTapAndDrag(enabled bool) error {
+	return hyprctl("keyword", "input:touchpad:tap-and-drag", boolStr(enabled))
+}
+
+func SetDragLock(enabled bool) error {
+	return hyprctl("keyword", "input:touchpad:drag_lock", boolStr(enabled))
+}
+
+func SetMiddleButtonEmu(enabled bool) error {
+	return hyprctl("keyword", "input:touchpad:middle_button_emulation", boolStr(enabled))
+}
+
+func SetClickfingerBehavior(enabled bool) error {
+	return hyprctl("keyword", "input:touchpad:clickfinger_behavior", boolStr(enabled))
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
 }
 
 func hyprctl(args ...string) error {
@@ -338,81 +403,98 @@ func readLEDs() []LED {
 
 func readHyprlandConfig() InputConfig {
 	cfg := InputConfig{
-		KBLayout:    "us",
-		RepeatRate:  25,
-		RepeatDelay: 600,
+		KBLayout:           "us",
+		RepeatRate:         25,
+		RepeatDelay:        600,
+		FollowMouse:        1,
+		DisableWhileTyping: true,
+		TapToClick:         true,
+		TapAndDrag:         true,
 	}
 
-	home := os.Getenv("HOME")
-	path := filepath.Join(home, ".config", "hypr", "input.conf")
-	f, err := os.Open(path)
-	if err != nil {
-		return cfg
-	}
-	defer f.Close()
+	cfg.KBLayout = hyprOptionStr("input:kb_layout", cfg.KBLayout)
+	cfg.KBVariant = hyprOptionStr("input:kb_variant", "")
+	cfg.KBModel = hyprOptionStr("input:kb_model", "")
+	cfg.KBOptions = hyprOptionStr("input:kb_options", "")
+	cfg.RepeatRate = hyprOptionInt("input:repeat_rate", cfg.RepeatRate)
+	cfg.RepeatDelay = hyprOptionInt("input:repeat_delay", cfg.RepeatDelay)
+	cfg.NumlockDefault = hyprOptionBool("input:numlock_by_default", false)
 
-	inTouchpad := false
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "#") || line == "" {
-			continue
-		}
+	cfg.Sensitivity = hyprOptionFloat("input:sensitivity", 0)
+	cfg.AccelProfile = hyprOptionStr("input:accel_profile", "")
+	cfg.ForceNoAccel = hyprOptionBool("input:force_no_accel", false)
+	cfg.LeftHanded = hyprOptionBool("input:left_handed", false)
+	cfg.ScrollMethod = hyprOptionStr("input:scroll_method", "")
+	cfg.FollowMouse = hyprOptionInt("input:follow_mouse", 1)
 
-		if strings.HasPrefix(line, "touchpad {") || strings.HasPrefix(line, "touchpad{") {
-			inTouchpad = true
-			continue
-		}
-		if line == "}" {
-			inTouchpad = false
-			continue
-		}
+	cfg.NaturalScroll = hyprOptionBool("input:touchpad:natural_scroll", false)
+	cfg.ScrollFactor = hyprOptionFloat("input:touchpad:scroll_factor", 1.0)
+	cfg.DisableWhileTyping = hyprOptionBool("input:touchpad:disable_while_typing", true)
+	cfg.TapToClick = hyprOptionBool("input:touchpad:tap-to-click", true)
+	cfg.TapAndDrag = hyprOptionBool("input:touchpad:tap-and-drag", true)
+	cfg.DragLock = hyprOptionBool("input:touchpad:drag_lock", false)
+	cfg.MiddleButtonEmu = hyprOptionBool("input:touchpad:middle_button_emulation", false)
+	cfg.ClickfingerBehavior = hyprOptionBool("input:touchpad:clickfinger_behavior", false)
 
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		val = strings.SplitN(val, "#", 2)[0]
-		val = strings.TrimSpace(val)
-
-		if inTouchpad {
-			switch key {
-			case "natural_scroll":
-				cfg.NaturalScroll = val == "true" || val == "yes" || val == "1"
-			case "scroll_factor":
-				if f, err := strconv.ParseFloat(val, 64); err == nil {
-					cfg.ScrollFactor = f
-				}
-			}
-			continue
-		}
-
-		switch key {
-		case "kb_layout":
-			cfg.KBLayout = val
-		case "kb_options":
-			cfg.KBOptions = val
-		case "repeat_rate":
-			if v, err := strconv.Atoi(val); err == nil {
-				cfg.RepeatRate = v
-			}
-		case "repeat_delay":
-			if v, err := strconv.Atoi(val); err == nil {
-				cfg.RepeatDelay = v
-			}
-		case "numlock_by_default":
-			cfg.NumlockDefault = val == "true" || val == "yes" || val == "1"
-		case "sensitivity":
-			if f, err := strconv.ParseFloat(val, 64); err == nil {
-				cfg.Sensitivity = f
-			}
-		case "force_no_accel":
-			cfg.ForceNoAccel = val == "true" || val == "yes" || val == "1"
-		}
-	}
 	return cfg
+}
+
+func hyprOptionStr(key, fallback string) string {
+	out, err := exec.Command("hyprctl", "getoption", key, "-j").Output()
+	if err != nil {
+		return fallback
+	}
+	// Parse JSON: {"option":"...","str":"value","int":0,"float":0.0,"set":true}
+	var result struct {
+		Str string `json:"str"`
+	}
+	if err := parseJSON(out, &result); err != nil {
+		return fallback
+	}
+	if result.Str == "[EMPTY]" || result.Str == "" {
+		return fallback
+	}
+	return result.Str
+}
+
+func hyprOptionInt(key string, fallback int) int {
+	out, err := exec.Command("hyprctl", "getoption", key, "-j").Output()
+	if err != nil {
+		return fallback
+	}
+	var result struct {
+		Int int `json:"int"`
+	}
+	if err := parseJSON(out, &result); err != nil {
+		return fallback
+	}
+	return result.Int
+}
+
+func hyprOptionFloat(key string, fallback float64) float64 {
+	out, err := exec.Command("hyprctl", "getoption", key, "-j").Output()
+	if err != nil {
+		return fallback
+	}
+	var result struct {
+		Float float64 `json:"float"`
+	}
+	if err := parseJSON(out, &result); err != nil {
+		return fallback
+	}
+	return result.Float
+}
+
+func hyprOptionBool(key string, fallback bool) bool {
+	v := hyprOptionInt(key, -1)
+	if v == -1 {
+		return fallback
+	}
+	return v == 1
+}
+
+func parseJSON(data []byte, v any) error {
+	return json.Unmarshal(data, v)
 }
 
 // --- Helpers ---

@@ -238,6 +238,19 @@ func renderDisplaySelectedDetail(s *core.State, total int) string {
 	lines = append(lines, label.Render("Rotation")+value.Render(mon.TransformLabel()))
 	lines = append(lines, label.Render("Position")+value.Render(fmt.Sprintf("%d, %d", mon.X, mon.Y)))
 
+	displayMode := "Extend"
+	if mon.Disabled {
+		displayMode = "Disabled"
+	} else if mon.MirrorOf != "" && mon.MirrorOf != "none" {
+		displayMode = "Mirror → " + mon.MirrorOf
+	}
+	dispModeLine := label.Render("Display Mode") + value.Render(displayMode)
+	if s.ContentFocused && len(s.Display.Monitors) > 1 {
+		dispModeLine += dim.Render("  (") + accent.Render("R") + dim.Render(" mirror · ") +
+			accent.Render("e") + dim.Render(" toggle)")
+	}
+	lines = append(lines, dispModeLine)
+
 	dpms := "On"
 	if !mon.DpmsStatus {
 		dpms = "Off"
@@ -249,12 +262,6 @@ func renderDisplaySelectedDetail(s *core.State, total int) string {
 		vrr = "On"
 	}
 	lines = append(lines, label.Render("VRR")+value.Render(vrr))
-
-	status := "Enabled"
-	if mon.Disabled {
-		status = "Disabled"
-	}
-	lines = append(lines, label.Render("Status")+value.Render(status))
 
 	if mon.Make != "" || mon.Model != "" {
 		hw := ""
@@ -347,6 +354,7 @@ func renderDisplayHints() string {
 	hints = append(hints, accent.Render("r")+" rotate")
 	hints = append(hints, accent.Render("+/-")+" scale")
 	hints = append(hints, accent.Render("v")+" vrr")
+	hints = append(hints, accent.Render("R")+" mirror")
 	hints = append(hints, accent.Render("p")+" position")
 	hints = append(hints, accent.Render("s")+" scale")
 	hints = append(hints, accent.Render("[/]")+" brightness")

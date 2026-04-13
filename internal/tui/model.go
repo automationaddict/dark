@@ -939,6 +939,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "a":
+		if m.inInputContent() {
+			if cmd := m.triggerInputAccelProfileCycle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerWifiAutoconnectToggle(); cmd != nil {
 			return m, cmd
 		}
@@ -996,6 +1001,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "t":
+		if m.inInputContent() {
+			if cmd := m.triggerInputTapToClickToggle(); cmd != nil {
+				return m, cmd
+			}
+		}
 		if cmd := m.triggerBluetoothTrustToggle(); cmd != nil {
 			return m, cmd
 		}
@@ -1026,6 +1036,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "R":
+		if m.inDisplayContent() {
+			m.triggerDisplayMirrorDialog()
+			return m, nil
+		}
 		if cmd := m.triggerBluetoothResetAlias(); cmd != nil {
 			return m, cmd
 		}

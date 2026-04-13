@@ -8,12 +8,21 @@ import (
 )
 
 type InputActions struct {
-	SetRepeatRate   func(rate int) tea.Cmd
-	SetRepeatDelay  func(delay int) tea.Cmd
-	SetSensitivity  func(sens float64) tea.Cmd
-	SetNaturalScroll func(enabled bool) tea.Cmd
-	SetScrollFactor func(factor float64) tea.Cmd
-	SetKBLayout     func(layout string) tea.Cmd
+	SetRepeatRate        func(rate int) tea.Cmd
+	SetRepeatDelay       func(delay int) tea.Cmd
+	SetSensitivity       func(sens float64) tea.Cmd
+	SetNaturalScroll     func(enabled bool) tea.Cmd
+	SetScrollFactor      func(factor float64) tea.Cmd
+	SetKBLayout          func(layout string) tea.Cmd
+	SetAccelProfile      func(profile string) tea.Cmd
+	SetForceNoAccel      func(enabled bool) tea.Cmd
+	SetLeftHanded        func(enabled bool) tea.Cmd
+	SetDisableWhileTyping func(enabled bool) tea.Cmd
+	SetTapToClick        func(enabled bool) tea.Cmd
+	SetTapAndDrag        func(enabled bool) tea.Cmd
+	SetDragLock          func(enabled bool) tea.Cmd
+	SetMiddleButtonEmu   func(enabled bool) tea.Cmd
+	SetClickfingerBehavior func(enabled bool) tea.Cmd
 }
 
 type InputMsg input.Snapshot
@@ -76,6 +85,29 @@ func (m *Model) triggerInputNaturalScrollToggle() tea.Cmd {
 		return nil
 	}
 	return m.input.SetNaturalScroll(!m.state.InputDevices.Config.NaturalScroll)
+}
+
+func (m *Model) triggerInputTapToClickToggle() tea.Cmd {
+	if m.input.SetTapToClick == nil || !m.inInputContent() {
+		return nil
+	}
+	return m.input.SetTapToClick(!m.state.InputDevices.Config.TapToClick)
+}
+
+func (m *Model) triggerInputAccelProfileCycle() tea.Cmd {
+	if m.input.SetAccelProfile == nil || !m.inInputContent() {
+		return nil
+	}
+	profiles := []string{"", "adaptive", "flat"}
+	current := m.state.InputDevices.Config.AccelProfile
+	next := profiles[0]
+	for i, p := range profiles {
+		if p == current && i+1 < len(profiles) {
+			next = profiles[i+1]
+			break
+		}
+	}
+	return m.input.SetAccelProfile(next)
 }
 
 func (m *Model) triggerInputScrollFactorDelta(delta float64) tea.Cmd {

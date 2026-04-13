@@ -44,6 +44,27 @@ func newInputActions(nc *nats.Conn) tui.InputActions {
 				return inputRequest(nc, bus.SubjectInputKBLayoutCmd, map[string]any{"layout": layout})
 			}
 		},
+		SetAccelProfile: func(profile string) tea.Cmd {
+			return func() tea.Msg {
+				return inputRequest(nc, bus.SubjectInputAccelProfileCmd, map[string]any{"profile": profile})
+			}
+		},
+		SetForceNoAccel:      inputBoolAction(nc, bus.SubjectInputForceNoAccelCmd),
+		SetLeftHanded:        inputBoolAction(nc, bus.SubjectInputLeftHandedCmd),
+		SetDisableWhileTyping: inputBoolAction(nc, bus.SubjectInputDisableTypingCmd),
+		SetTapToClick:        inputBoolAction(nc, bus.SubjectInputTapToClickCmd),
+		SetTapAndDrag:        inputBoolAction(nc, bus.SubjectInputTapAndDragCmd),
+		SetDragLock:          inputBoolAction(nc, bus.SubjectInputDragLockCmd),
+		SetMiddleButtonEmu:   inputBoolAction(nc, bus.SubjectInputMiddleBtnCmd),
+		SetClickfingerBehavior: inputBoolAction(nc, bus.SubjectInputClickfingerCmd),
+	}
+}
+
+func inputBoolAction(nc *nats.Conn, subject string) func(bool) tea.Cmd {
+	return func(enabled bool) tea.Cmd {
+		return func() tea.Msg {
+			return inputRequest(nc, subject, map[string]any{"enabled": enabled})
+		}
 	}
 }
 

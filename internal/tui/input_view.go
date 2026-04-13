@@ -23,20 +23,24 @@ func renderInputDevices(s *core.State, width, height int) string {
 
 	var blocks []string
 
-	if cfg := renderInputConfig(s.InputDevices, innerWidth); cfg != "" {
-		blocks = append(blocks, cfg)
-	}
+	blocks = append(blocks, renderInputKeyboardSettings(s.InputDevices, innerWidth))
 
 	if kb := renderInputKeyboards(s.InputDevices, innerWidth); kb != "" {
 		blocks = append(blocks, kb)
 	}
 
-	if tp := renderInputTouchpads(s.InputDevices, innerWidth); tp != "" {
-		blocks = append(blocks, tp)
-	}
+	blocks = append(blocks, renderInputMouseSettings(s.InputDevices, innerWidth))
 
 	if m := renderInputMice(s.InputDevices, innerWidth); m != "" {
 		blocks = append(blocks, m)
+	}
+
+	if tp := renderInputTouchpadSettings(s.InputDevices, innerWidth); tp != "" {
+		blocks = append(blocks, tp)
+	}
+
+	if tp := renderInputTouchpads(s.InputDevices, innerWidth); tp != "" {
+		blocks = append(blocks, tp)
 	}
 
 	if leds := renderInputLEDs(s.InputDevices, innerWidth); leds != "" {
@@ -55,51 +59,114 @@ func renderInputDevices(s *core.State, width, height int) string {
 	return renderScrollableContentPane(s, width, height, body)
 }
 
-func renderInputConfig(snap input.Snapshot, total int) string {
+func renderInputKeyboardSettings(snap input.Snapshot, total int) string {
 	cfg := snap.Config
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 	dim := lipgloss.NewStyle().Foreground(colorDim)
 
 	var lines []string
 
 	lines = append(lines, label.Render("Layout")+
-		accent.Render(cfg.KBLayout)+
+		lipgloss.NewStyle().Foreground(colorAccent).Render(cfg.KBLayout)+
 		dim.Render("  (L to change)"))
 
+	if cfg.KBVariant != "" {
+		lines = append(lines, label.Render("Variant")+value.Render(cfg.KBVariant))
+	}
+	if cfg.KBModel != "" {
+		lines = append(lines, label.Render("Model")+value.Render(cfg.KBModel))
+	}
 	if cfg.KBOptions != "" {
 		lines = append(lines, label.Render("Options")+value.Render(cfg.KBOptions))
 	}
 
 	lines = append(lines, label.Render("Repeat Rate")+
 		value.Render(fmt.Sprintf("%d keys/sec", cfg.RepeatRate))+
-		dim.Render("  (+/- to adjust)"))
+		dim.Render("  (+/-)"))
 
 	lines = append(lines, label.Render("Repeat Delay")+
 		value.Render(fmt.Sprintf("%d ms", cfg.RepeatDelay))+
-		dim.Render("  ([/] to adjust)"))
+		dim.Render("  ([/])"))
 
-	numlock := "off"
-	if cfg.NumlockDefault {
-		numlock = "on"
-	}
-	lines = append(lines, label.Render("Numlock Default")+value.Render(numlock))
+	lines = append(lines, label.Render("Numlock Default")+value.Render(onOff(cfg.NumlockDefault)))
 
-	sens := fmt.Sprintf("%.2f", cfg.Sensitivity)
-	lines = append(lines, label.Render("Sensitivity")+
-		value.Render(sens)+
-		dim.Render("  (s/S to adjust)"))
-
-	accel := "enabled"
-	if cfg.ForceNoAccel {
-		accel = "disabled"
-	}
-	lines = append(lines, label.Render("Acceleration")+value.Render(accel))
-
-	return groupBoxSections("Settings", []string{strings.Join(lines, "\n")}, total, colorBorder)
+	return groupBoxSections("Keyboard Settings", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
+
+func renderInputMouseSettings(snap input.Snapshot, total int) string {
+	cfg := snap.Config
+	lw := 18
+	label := detailLabelStyle.Width(lw)
+	value := detailValueStyle
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+
+	var lines []string
+
+	lines = append(lines, label.Render("Sensitivity")+
+		value.Render(fmt.Sprintf("%.2f", cfg.Sensitivity))+
+		dim.Render("  (s/S)"))
+
+	accelProfile := cfg.AccelProfile
+	if accelProfile == "" {
+		accelProfile = "default"
+	}
+	lines = append(lines, label.Render("Accel Profile")+
+		value.Render(accelProfile)+
+		dim.Render("  (a)"))
+
+	lines = append(lines, label.Render("Force No Accel")+value.Render(onOff(cfg.ForceNoAccel)))
+	lines = append(lines, label.Render("Left Handed")+value.Render(onOff(cfg.LeftHanded)))
+
+	scrollMethod := cfg.ScrollMethod
+	if scrollMethod == "" {
+		scrollMethod = "default"
+	}
+	lines = append(lines, label.Render("Scroll Method")+value.Render(scrollMethod))
+
+	followLabels := map[int]string{0: "disabled", 1: "full", 2: "loose", 3: "lazy"}
+	follow := followLabels[cfg.FollowMouse]
+	if follow == "" {
+		follow = fmt.Sprintf("%d", cfg.FollowMouse)
+	}
+	lines = append(lines, label.Render("Follow Mouse")+value.Render(follow))
+
+	return groupBoxSections("Mouse Settings", []string{strings.Join(lines, "\n")}, total, colorBorder)
+}
+
+func renderInputTouchpadSettings(snap input.Snapshot, total int) string {
+	if len(snap.Touchpads) == 0 {
+		return ""
+	}
+	cfg := snap.Config
+	lw := 18
+	label := detailLabelStyle.Width(lw)
+	value := detailValueStyle
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+
+	var lines []string
+
+	lines = append(lines, label.Render("Natural Scroll")+
+		value.Render(onOff(cfg.NaturalScroll))+
+		dim.Render("  (n)"))
+
+	lines = append(lines, label.Render("Scroll Factor")+
+		value.Render(fmt.Sprintf("%.2f", cfg.ScrollFactor)))
+
+	lines = append(lines, label.Render("Tap to Click")+
+		value.Render(onOff(cfg.TapToClick))+
+		dim.Render("  (t)"))
+
+	lines = append(lines, label.Render("Tap and Drag")+value.Render(onOff(cfg.TapAndDrag)))
+	lines = append(lines, label.Render("Drag Lock")+value.Render(onOff(cfg.DragLock)))
+	lines = append(lines, label.Render("Disable Typing")+value.Render(onOff(cfg.DisableWhileTyping)))
+	lines = append(lines, label.Render("Middle Btn Emu")+value.Render(onOff(cfg.MiddleButtonEmu)))
+	lines = append(lines, label.Render("Clickfinger")+value.Render(onOff(cfg.ClickfingerBehavior)))
+
+	return groupBoxSections("Touchpad Settings", []string{strings.Join(lines, "\n")}, total, colorBorder)
+}
+
 
 func renderInputKeyboards(snap input.Snapshot, total int) string {
 	if len(snap.Keyboards) == 0 {
@@ -140,10 +207,9 @@ func renderInputTouchpads(snap input.Snapshot, total int) string {
 		return ""
 	}
 
-	lw := 16
+	lw := 14
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var sections []string
 	for _, tp := range snap.Touchpads {
@@ -154,17 +220,6 @@ func renderInputTouchpads(snap input.Snapshot, total int) string {
 			lines = append(lines, label.Render("ID")+
 				value.Render(tp.VendorID+":"+tp.ProductID))
 		}
-
-		natScroll := "off"
-		if snap.Config.NaturalScroll {
-			natScroll = accent.Render("on")
-		}
-		lines = append(lines, label.Render("Natural Scroll")+
-			lipgloss.NewStyle().Render(natScroll))
-
-		lines = append(lines, label.Render("Scroll Factor")+
-			value.Render(fmt.Sprintf("%.2f", snap.Config.ScrollFactor)))
-
 		if tp.Inhibited {
 			lines = append(lines, label.Render("Status")+
 				lipgloss.NewStyle().Foreground(colorRed).Render("inhibited"))
