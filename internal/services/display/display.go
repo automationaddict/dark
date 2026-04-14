@@ -48,6 +48,18 @@ func (m Monitor) RefreshRateHz() string {
 	return fmt.Sprintf("%.2fHz", m.RefreshRate)
 }
 
+// TransformCount is the number of valid Hyprland transform values
+// (0-3 rotations plus 4-7 flipped variants).
+const TransformCount = 8
+
+// NextTransform returns the next transform value in cycle order. Skips
+// flipped variants (4-7) because dark's cycle-through-rotations action
+// only walks the four cardinal orientations — users who need flips can
+// set them explicitly from the dialog.
+func NextTransform(current int) int {
+	return (current + 1) % 4
+}
+
 // TransformLabel returns a human-readable name for the Hyprland
 // transform integer.
 func (m Monitor) TransformLabel() string {

@@ -78,10 +78,9 @@ func (m *Model) triggerDisplayCycleTransform() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	next := (mon.Transform + 1) % 4
 	m.state.DisplayBusy = true
 	m.state.DisplayActionError = ""
-	return m.display.SetTransform(mon.Name, next)
+	return m.display.SetTransform(mon.Name, display.NextTransform(mon.Transform))
 }
 
 func (m *Model) triggerDisplayScaleUp() tea.Cmd {
