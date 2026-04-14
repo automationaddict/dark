@@ -84,7 +84,7 @@ func parsePacmanSl(out string) []Package {
 func enrichWithExpac(cat []Package, logger *slog.Logger) {
 	out, err := runCommand("expac", "-S", "%n\t%d\t%m\t%b")
 	if err != nil {
-		logger.Warn("appstore: expac failed, descriptions will be empty", "err", err)
+		logger.Warn("expac failed, descriptions will be empty", "err", err)
 		return
 	}
 	// Build a name -> metadata index from expac output. One line per

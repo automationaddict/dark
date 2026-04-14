@@ -32,7 +32,7 @@ func loadCategoryMaps(engine *scripting.Engine, logger *slog.Logger) categoryMap
 		return empty
 	}
 	if err := engine.LoadScript(categoriesScript); err != nil {
-		logger.Warn("appstore: failed to load categories script", "err", err)
+		logger.Warn("failed to load categories script", "err", err)
 		return empty
 	}
 	cm := empty
@@ -51,7 +51,7 @@ func loadCategoryMaps(engine *scripting.Engine, logger *slog.Logger) categoryMap
 			cm.featured = scripting.TableToStringSlice(t)
 		}
 	}
-	logger.Info("appstore: loaded category maps from Lua",
+	logger.Info("loaded category maps from Lua",
 		"curated_packages", len(cm.packages),
 		"xdg_entries", len(cm.xdgMap),
 		"featured", len(cm.featured))

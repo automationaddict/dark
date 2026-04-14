@@ -20,7 +20,7 @@ func Detect(logger *slog.Logger, engine *scripting.Engine) Backend {
 		logger = slog.Default()
 	}
 	if _, err := exec.LookPath("pacman"); err != nil {
-		logger.Info("appstore: pacman not found, using noop backend", "err", err)
+		logger.Info("pacman not found, using noop backend", "err", err)
 		return NewNoopBackend(BackendNone)
 	}
 	pacman := NewPacmanBackend(logger, engine)

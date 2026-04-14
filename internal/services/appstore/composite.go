@@ -26,7 +26,7 @@ func NewCompositeBackend(logger *slog.Logger, pacman, aur Backend) Backend {
 		logger = slog.Default()
 	}
 	return &compositeBackend{
-		logger: logger,
+		logger: logger.With("backend", "composite"),
 		pacman: pacman,
 		aur:    aur,
 	}
@@ -145,10 +145,10 @@ func (c *compositeBackend) Search(q SearchQuery) (SearchResult, error) {
 	pac := <-pacCh
 	aur := <-aurCh
 	if pac.err != nil {
-		c.logger.Warn("appstore: pacman search failed in composite", "err", pac.err)
+		c.logger.Warn("search failed", "source", "pacman", "query", q.Text, "err", pac.err)
 	}
 	if aur.err != nil {
-		c.logger.Warn("appstore: AUR search failed in composite", "err", aur.err)
+		c.logger.Warn("search failed", "source", "aur", "query", q.Text, "err", aur.err)
 	}
 
 	merged := make([]Package, 0, len(pac.res.Packages)+len(aur.res.Packages))

@@ -232,7 +232,7 @@ func (c *aurClient) do(endpoint string, v any) error {
 	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
 		return fmt.Errorf("decode AUR response: %w", err)
 	}
-	c.logger.Debug("appstore: AUR request", "endpoint", endpoint, "status", resp.StatusCode, "elapsed", time.Since(started))
+	c.logger.Debug("request completed", "endpoint", endpoint, "status", resp.StatusCode, "elapsed", time.Since(started))
 	return nil
 }
 

@@ -39,9 +39,10 @@ func NewAURBackend(logger *slog.Logger) Backend {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	logger = logger.With("backend", "aur")
 	dir, err := cacheDir()
 	if err != nil {
-		logger.Info("appstore: cache dir unavailable for AUR, running in-memory only", "err", err)
+		logger.Info("cache dir unavailable, running in-memory only", "err", err)
 	}
 	return &aurBackend{
 		logger: logger,
@@ -84,10 +85,10 @@ func (a *aurBackend) Refresh() error {
 	}
 	dir := filepath.Join(a.cache, "aur")
 	if err := removeDirContents(dir); err != nil {
-		a.logger.Warn("appstore: failed to clear AUR cache", "err", err)
+		a.logger.Warn("failed to clear cache", "dir", dir, "err", err)
 		return err
 	}
-	a.logger.Info("appstore: AUR cache cleared")
+	a.logger.Info("cache cleared", "dir", dir)
 	return nil
 }
 
@@ -119,7 +120,7 @@ func (a *aurBackend) Search(q SearchQuery) (SearchResult, error) {
 	cachePath := a.searchCachePath(text)
 	if cachePath != "" {
 		if cached, ok := readCache[SearchResult](cachePath, aurSearchCacheTTL); ok {
-			a.logger.Debug("appstore: AUR search cache hit", "query", text, "count", len(cached.Packages))
+			a.logger.Debug("search cache hit", "query", text, "count", len(cached.Packages))
 			cached.Query = q
 			cached.AURLimit = a.currentLimit()
 			return cached, nil
@@ -127,7 +128,7 @@ func (a *aurBackend) Search(q SearchQuery) (SearchResult, error) {
 	}
 
 	if limit := a.currentLimit(); limit.Active {
-		a.logger.Info("appstore: AUR search skipped due to rate limit", "query", text, "retry_after_unix", limit.RetryAfterUnix)
+		a.logger.Info("search skipped due to rate limit", "query", text, "retry_after_unix", limit.RetryAfterUnix)
 		return SearchResult{Query: q, AURLimit: limit}, nil
 	}
 
@@ -160,7 +161,7 @@ func (a *aurBackend) Search(q SearchQuery) (SearchResult, error) {
 	}
 	if cachePath != "" {
 		if err := writeCache(cachePath, result); err != nil {
-			a.logger.Warn("appstore: AUR search cache write failed", "err", err)
+			a.logger.Warn("search cache write failed", "query", text, "err", err)
 		}
 	}
 	result.AURLimit = a.currentLimit()
@@ -177,7 +178,7 @@ func (a *aurBackend) Detail(req DetailRequest) (Detail, error) {
 	cachePath := a.detailCachePath(req.Name)
 	if cachePath != "" {
 		if cached, ok := readCache[Detail](cachePath, aurDetailCacheTTL); ok {
-			a.logger.Debug("appstore: AUR detail cache hit", "name", req.Name)
+			a.logger.Debug("detail cache hit", "name", req.Name)
 			return cached, nil
 		}
 	}
@@ -197,7 +198,7 @@ func (a *aurBackend) Detail(req DetailRequest) (Detail, error) {
 	detail := rows[0].toDetail()
 	if cachePath != "" {
 		if err := writeCache(cachePath, detail); err != nil {
-			a.logger.Warn("appstore: AUR detail cache write failed", "err", err)
+			a.logger.Warn("detail cache write failed", "name", req.Name, "err", err)
 		}
 	}
 	return detail, nil
@@ -230,7 +231,7 @@ func (a *aurBackend) recordError(err error) {
 	}
 	retryAfter, throttled := classifyAURError(err)
 	if !throttled {
-		a.logger.Warn("appstore: AUR request failed", "err", err)
+		a.logger.Warn("request failed", "kind", "transient", "err", err)
 		return
 	}
 	a.mu.Lock()
@@ -255,8 +256,10 @@ func (a *aurBackend) recordError(err error) {
 		RetryAfterUnix: time.Now().Add(retryAfter).Unix(),
 		Message:        fmt.Sprintf("AUR rate limited — retrying in %s", retryAfter.Round(time.Second)),
 	}
-	a.logger.Warn("appstore: AUR backing off",
+	a.logger.Warn("backing off",
+		"kind", "throttle",
 		"retry_after", retryAfter,
+		"retry_after_unix", a.lastLimit.RetryAfterUnix,
 		"err", err)
 }
 

@@ -70,9 +70,10 @@ func NewPacmanBackend(logger *slog.Logger, engine *scripting.Engine) Backend {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	logger = logger.With("backend", "pacman")
 	dir, err := cacheDir()
 	if err != nil {
-		logger.Info("appstore: cache dir unavailable, running in-memory only", "err", err)
+		logger.Info("cache dir unavailable, running in-memory only", "err", err)
 	}
 	p := &pacmanBackend{
 		logger: logger,
@@ -82,7 +83,7 @@ func NewPacmanBackend(logger *slog.Logger, engine *scripting.Engine) Backend {
 	if _, err := exec.LookPath("expac"); err == nil {
 		p.expacAvailable = true
 	} else {
-		logger.Info("appstore: expac not found, catalog will ship without descriptions until phase 2")
+		logger.Info("expac not found, catalog will ship without descriptions until phase 2")
 	}
 	return p
 }
@@ -102,7 +103,7 @@ func (p *pacmanBackend) Refresh() error {
 	if p.cache != "" {
 		_ = removeIfExists(filepath.Join(p.cache, pacmanCatalogCacheFile))
 	}
-	p.logger.Info("appstore: pacman catalog cache cleared")
+	p.logger.Info("catalog cache cleared")
 	return nil
 }
 
@@ -230,7 +231,7 @@ func (p *pacmanBackend) ensureCatalog() {
 
 	if p.cache != "" {
 		if cached, ok := readCache[[]Package](filepath.Join(p.cache, pacmanCatalogCacheFile), pacmanCatalogTTL); ok {
-			p.logger.Debug("appstore: loaded pacman catalog from disk cache", "count", len(cached))
+			p.logger.Debug("loaded catalog from disk cache", "count", len(cached))
 			cm := loadCategoryMaps(p.engine, p.logger)
 			desktop := desktopCategories(p.logger)
 			p.catCounts = assignCategories(cached, cm, desktop)
@@ -246,14 +247,14 @@ func (p *pacmanBackend) ensureCatalog() {
 	start := time.Now()
 	cat, err := p.buildCatalogLocked()
 	if err != nil {
-		p.logger.Error("appstore: failed to build pacman catalog", "err", err)
+		p.logger.Error("failed to build catalog", "err", err)
 		return
 	}
 	p.installCatalogLocked(cat)
 	p.lastLoad = time.Now()
 	p.refreshInstalledLocked()
 	p.lastInstallCheck = p.lastLoad
-	p.logger.Info("appstore: built pacman catalog",
+	p.logger.Info("built catalog",
 		"packages", len(cat),
 		"installed", len(p.installed),
 		"expac", p.expacAvailable,
@@ -261,7 +262,7 @@ func (p *pacmanBackend) ensureCatalog() {
 
 	if p.cache != "" {
 		if err := writeCache(filepath.Join(p.cache, pacmanCatalogCacheFile), cat); err != nil {
-			p.logger.Warn("appstore: failed to write pacman catalog cache", "err", err)
+			p.logger.Warn("failed to write catalog cache", "err", err)
 		}
 	}
 }
@@ -279,8 +280,9 @@ func (p *pacmanBackend) buildCatalogLocked() ([]Package, error) {
 	desktop := desktopCategories(p.logger)
 	p.catCounts = assignCategories(cat, cm, desktop)
 	p.featured = cm.featured
-	p.logger.Info("appstore: categories assigned",
+	p.logger.Info("categories assigned",
 		"categorized", countCategorized(cat),
+		"total", len(cat),
 		"featured", len(cm.featured),
 		"counts", p.catCounts)
 	return cat, nil
@@ -307,7 +309,7 @@ func (p *pacmanBackend) installCatalogLocked(cat []Package) {
 func (p *pacmanBackend) refreshInstalledLocked() {
 	out, err := runCommand("pacman", "-Qq")
 	if err != nil {
-		p.logger.Warn("appstore: pacman -Qq failed", "err", err)
+		p.logger.Warn("pacman -Qq failed", "err", err)
 		return
 	}
 	installed := make(map[string]struct{}, 512)

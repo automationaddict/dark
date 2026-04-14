@@ -47,7 +47,7 @@ func desktopCategories(logger *slog.Logger) map[string][]string {
 			result[pkg] = cats
 		}
 	}
-	logger.Debug("appstore: parsed .desktop categories",
+	logger.Debug("parsed .desktop categories",
 		"files", len(files),
 		"packages_with_categories", len(result))
 	return result
@@ -67,7 +67,7 @@ func desktopOwnership(logger *slog.Logger) map[string]string {
 	args := append([]string{"-Qo"}, files...)
 	out, err := runCommand("pacman", args...)
 	if err != nil {
-		logger.Debug("appstore: pacman -Qo failed for .desktop files", "err", err)
+		logger.Debug("pacman -Qo failed for .desktop files", "err", err)
 		return nil
 	}
 
