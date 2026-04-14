@@ -18,6 +18,12 @@ const (
 	ifaceProps = "org.freedesktop.DBus.Properties"
 )
 
+// fwupd device flag bits. Full list lives in fwupd's libfwupd/fwupd-enums.h.
+const (
+	flagUpdatable       uint64 = 1 << 1 // FWUPD_DEVICE_FLAG_UPDATABLE
+	flagUpdatableHidden uint64 = 1 << 3 // FWUPD_DEVICE_FLAG_UPDATABLE_HIDDEN
+)
+
 // Device represents a firmware-capable hardware component.
 type Device struct {
 	ID       string `json:"id"`
@@ -105,9 +111,7 @@ func (s *Service) GetDevices() ([]Device, error) {
 			Summary: varStr(d, "Summary"),
 		}
 		flags := varUint64(d, "Flags")
-		// Bit 1 (0x2) = FWUPD_DEVICE_FLAG_UPDATABLE
-		// Bit 3 (0x8) = FWUPD_DEVICE_FLAG_UPDATABLE_HIDDEN
-		dev.Updatable = flags&0x2 != 0 || flags&0x8 != 0
+		dev.Updatable = flags&flagUpdatable != 0 || flags&flagUpdatableHidden != 0
 		devices = append(devices, dev)
 	}
 	return devices, nil
