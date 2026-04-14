@@ -98,6 +98,29 @@ func TestSelectedAdapter_OutOfBounds(t *testing.T) {
 	}
 }
 
+func TestOpenWifiDetails_ClampsSelection(t *testing.T) {
+	s := NewState(TabSettings, "/bin/dark")
+	s.SetWifi(wifi.Snapshot{Adapters: []wifi.Adapter{{Name: "a"}}})
+	s.WifiSelected = 5 // out of bounds
+	s.ContentFocused = true
+	s.OpenWifiDetails()
+	if s.WifiSelected != 0 {
+		t.Errorf("WifiSelected not clamped: %d", s.WifiSelected)
+	}
+	if !s.WifiDetailsOpen {
+		t.Error("details should be open")
+	}
+}
+
+func TestOpenWifiDetails_EmptyAdapters(t *testing.T) {
+	s := NewState(TabSettings, "/bin/dark")
+	s.ContentFocused = true
+	s.OpenWifiDetails() // should not panic
+	if s.WifiDetailsOpen {
+		t.Error("details should not open with empty adapters")
+	}
+}
+
 // --- Bluetooth state ---
 
 func TestSetBluetooth_ClampsIndices(t *testing.T) {
@@ -125,6 +148,33 @@ func TestCycleBluetoothFocus(t *testing.T) {
 	s.CycleBluetoothFocus()
 	if s.BluetoothFocus != BluetoothFocusAdapters {
 		t.Errorf("expected adapters, got %s", s.BluetoothFocus)
+	}
+}
+
+func TestOpenBluetoothDetails_ClampsSelection(t *testing.T) {
+	s := NewState(TabSettings, "/bin/dark")
+	s.SetBluetooth(bluetooth.Snapshot{
+		Adapters: []bluetooth.Adapter{{Name: "hci0", Devices: []bluetooth.Device{{Address: "aa"}}}},
+	})
+	s.BluetoothSelected = 5 // out of bounds
+	s.ContentFocused = true
+	s.SettingsFocus = 1 // bluetooth section
+	s.OpenBluetoothDetails()
+	if s.BluetoothSelected != 0 {
+		t.Errorf("BluetoothSelected not clamped: %d", s.BluetoothSelected)
+	}
+	if !s.BluetoothDetailsOpen {
+		t.Error("details should be open")
+	}
+}
+
+func TestOpenBluetoothDetails_EmptyAdapters(t *testing.T) {
+	s := NewState(TabSettings, "/bin/dark")
+	s.ContentFocused = true
+	s.SettingsFocus = 1
+	s.OpenBluetoothDetails() // should not panic
+	if s.BluetoothDetailsOpen {
+		t.Error("details should not open with empty adapters")
 	}
 }
 

@@ -95,6 +95,9 @@ func (s *State) OpenBluetoothDetails() {
 	if !s.ContentFocused || s.ActiveSection().ID != "bluetooth" || len(s.Bluetooth.Adapters) == 0 {
 		return
 	}
+	if s.BluetoothSelected >= len(s.Bluetooth.Adapters) {
+		s.BluetoothSelected = 0
+	}
 	s.BluetoothDetailsOpen = true
 	s.BluetoothDevSelected = 0
 	adapter := s.Bluetooth.Adapters[s.BluetoothSelected]

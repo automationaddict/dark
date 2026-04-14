@@ -72,6 +72,9 @@ func (s *State) OpenWifiDetails() {
 	if !s.ContentFocused || s.ActiveSection().ID != "wifi" || len(s.Wifi.Adapters) == 0 {
 		return
 	}
+	if s.WifiSelected >= len(s.Wifi.Adapters) {
+		s.WifiSelected = 0
+	}
 	s.WifiDetailsOpen = true
 	s.WifiFocus = WifiFocusNetworks
 	s.WifiNetworkSelected = 0
