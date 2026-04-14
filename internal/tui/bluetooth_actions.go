@@ -82,14 +82,14 @@ func (m *Model) triggerBluetoothScanToggle() tea.Cmd {
 	}
 	if adapter.Discovering {
 		if m.bluetooth.StopDiscovery == nil {
-			return nil
+			return m.notifyUnavailable("Bluetooth")
 		}
 		m.state.BluetoothBusy = true
 		m.state.BluetoothActionError = ""
 		return m.bluetooth.StopDiscovery(adapter.Path)
 	}
 	if m.bluetooth.StartDiscovery == nil {
-		return nil
+		return m.notifyUnavailable("Bluetooth")
 	}
 	m.state.BluetoothBusy = true
 	m.state.BluetoothActionError = ""

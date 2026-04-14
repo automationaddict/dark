@@ -52,6 +52,15 @@ func (m *Model) notifyError(section, message string) {
 	})
 }
 
+// notifyUnavailable fires a desktop notification when the user tries an
+// action whose backend function is not wired in (e.g. the daemon was
+// started without the corresponding service). Returns a no-op tea.Cmd
+// so the caller can return it to prevent key fallthrough.
+func (m *Model) notifyUnavailable(section string) tea.Cmd {
+	m.notifyError(section, "service unavailable — is the daemon running?")
+	return func() tea.Msg { return nil }
+}
+
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Tick, loadLinksCmd())
 }

@@ -9,8 +9,11 @@ import (
 )
 
 func (m *Model) triggerBluetoothConnect() tea.Cmd {
-	if m.bluetooth.Connect == nil || !m.inBluetoothDetails() || m.state.BluetoothBusy {
+	if !m.inBluetoothDetails() || m.state.BluetoothBusy {
 		return nil
+	}
+	if m.bluetooth.Connect == nil {
+		return m.notifyUnavailable("Bluetooth")
 	}
 	dev, ok := m.state.SelectedBluetoothDevice()
 	if !ok || dev.Path == "" {
@@ -22,8 +25,11 @@ func (m *Model) triggerBluetoothConnect() tea.Cmd {
 }
 
 func (m *Model) triggerBluetoothDisconnect() tea.Cmd {
-	if m.bluetooth.Disconnect == nil || !m.inBluetoothDetails() || m.state.BluetoothBusy {
+	if !m.inBluetoothDetails() || m.state.BluetoothBusy {
 		return nil
+	}
+	if m.bluetooth.Disconnect == nil {
+		return m.notifyUnavailable("Bluetooth")
 	}
 	dev, ok := m.state.SelectedBluetoothDevice()
 	if !ok || dev.Path == "" {

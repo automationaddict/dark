@@ -13,8 +13,11 @@ import (
 // Returns nil if the key should be a no-op (wrong section, nothing to
 // scan, already scanning, or no scan function wired in).
 func (m *Model) triggerWifiScan() tea.Cmd {
-	if m.wifi.Scan == nil || !m.inWifiContent() || m.state.WifiScanning {
+	if !m.inWifiContent() || m.state.WifiScanning {
 		return nil
+	}
+	if m.wifi.Scan == nil {
+		return m.notifyUnavailable("Wi-Fi")
 	}
 	adapter, ok := m.state.SelectedAdapter()
 	if !ok || adapter.Name == "" {
@@ -30,8 +33,11 @@ func (m *Model) triggerWifiScan() tea.Cmd {
 // opens a password dialog first and defers the actual connect command
 // until the user submits.
 func (m *Model) triggerWifiConnect() tea.Cmd {
-	if m.wifi.Connect == nil || !m.inWifiDetails() || m.state.WifiBusy {
+	if !m.inWifiDetails() || m.state.WifiBusy {
 		return nil
+	}
+	if m.wifi.Connect == nil {
+		return m.notifyUnavailable("Wi-Fi")
 	}
 	adapter, ok := m.state.SelectedAdapter()
 	if !ok || adapter.Name == "" {
@@ -194,8 +200,11 @@ func (m *Model) openHiddenNetworkDialog(adapter string) {
 // need a network selection — acts on whatever the adapter is connected
 // to right now.
 func (m *Model) triggerWifiDisconnect() tea.Cmd {
-	if m.wifi.Disconnect == nil || !m.inWifiContent() || m.state.WifiBusy {
+	if !m.inWifiContent() || m.state.WifiBusy {
 		return nil
+	}
+	if m.wifi.Disconnect == nil {
+		return m.notifyUnavailable("Wi-Fi")
 	}
 	adapter, ok := m.state.SelectedAdapter()
 	if !ok || adapter.Name == "" {

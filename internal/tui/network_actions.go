@@ -48,8 +48,11 @@ func (m *Model) inNetworkDetails() bool {
 // thing" verb that triggers a DHCP refresh on systemd-networkd and a
 // connection reapply on NetworkManager.
 func (m *Model) triggerNetworkAirplaneToggle() tea.Cmd {
-	if m.network.SetAirplane == nil || !m.inNetworkContent() || m.state.NetworkBusy {
+	if !m.inNetworkContent() || m.state.NetworkBusy {
 		return nil
+	}
+	if m.network.SetAirplane == nil {
+		return m.notifyUnavailable("Network")
 	}
 	m.state.NetworkBusy = true
 	m.state.NetworkActionError = ""
@@ -57,8 +60,11 @@ func (m *Model) triggerNetworkAirplaneToggle() tea.Cmd {
 }
 
 func (m *Model) triggerNetworkReconfigure() tea.Cmd {
-	if m.network.Reconfigure == nil || !m.inNetworkDetails() || m.state.NetworkBusy {
+	if !m.inNetworkDetails() || m.state.NetworkBusy {
 		return nil
+	}
+	if m.network.Reconfigure == nil {
+		return m.notifyUnavailable("Network")
 	}
 	iface, ok := m.state.SelectedNetworkInterface()
 	if !ok || iface.Name == "" {

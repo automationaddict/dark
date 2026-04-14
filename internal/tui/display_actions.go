@@ -52,8 +52,11 @@ func (m *Model) inDisplayDetails() bool {
 }
 
 func (m *Model) triggerDisplayDpmsToggle() tea.Cmd {
-	if m.display.SetDpms == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
+	if !m.inDisplayDetails() || m.state.DisplayBusy {
 		return nil
+	}
+	if m.display.SetDpms == nil {
+		return m.notifyUnavailable("Displays")
 	}
 	mon, ok := m.state.SelectedMonitor()
 	if !ok {
@@ -65,8 +68,11 @@ func (m *Model) triggerDisplayDpmsToggle() tea.Cmd {
 }
 
 func (m *Model) triggerDisplayCycleTransform() tea.Cmd {
-	if m.display.SetTransform == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
+	if !m.inDisplayDetails() || m.state.DisplayBusy {
 		return nil
+	}
+	if m.display.SetTransform == nil {
+		return m.notifyUnavailable("Displays")
 	}
 	mon, ok := m.state.SelectedMonitor()
 	if !ok {
