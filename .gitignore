@@ -1,3 +1,7 @@
 tmp/
 build-errors.log
-dark-helper
+# Compiled binaries at the repo root. Anchored so they don't shadow
+# the cmd/dark-helper/ source directory.
+/dark-helper
+/dark
+/darkd
