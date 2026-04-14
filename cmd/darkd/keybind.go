@@ -41,7 +41,7 @@ type keybindResponse struct {
 func wireKeybind(nc *nats.Conn, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectKeybindSnapshotCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(keybind.ReadSnapshot())
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectKeybindSnapshotCmd, "error", err)
 		os.Exit(1)
@@ -53,12 +53,12 @@ func wireKeybind(nc *nats.Conn, dn *daemonNotifier) func() {
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := keybindResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(req)
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 		}); err != nil {
 			slog.Error("subscribe failed", "subject", subject, "error", err)
 			os.Exit(1)

@@ -128,7 +128,7 @@ func main() {
 	// TUI doesn't have to wait for the next periodic publish to render.
 	if _, err := nc.Subscribe(bus.SubjectSystemInfoCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(sysinfo.Gather(binPath))
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectSystemInfoCmd, "error", err); os.Exit(1)
 	}
@@ -137,7 +137,7 @@ func main() {
 	// startup so every poll reuses the same D-Bus connection.
 	if _, err := nc.Subscribe(bus.SubjectWifiAdaptersCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(snapshotWifi(wifiService))
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectWifiAdaptersCmd, "error", err); os.Exit(1)
 	}
@@ -151,7 +151,7 @@ func main() {
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := wifiActionResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(wifiService, req)
@@ -292,7 +292,7 @@ func main() {
 				Seq:     seq,
 				Version: sysinfo.DarkVersion,
 			})
-			_ = nc.Publish(bus.SubjectDaemonHeartbeat, data)
+			publish(nc, bus.SubjectDaemonHeartbeat, data)
 		case <-sysTick.C:
 			publishSysInfo(nc, binPath, dn)
 		case <-wifiTick.C:

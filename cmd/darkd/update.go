@@ -17,7 +17,7 @@ func wireUpdate(nc *nats.Conn, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectUpdateSnapshotCmd, func(m *nats.Msg) {
 		snap := updatesvc.Check()
 		data, _ := json.Marshal(snap)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectUpdateSnapshotCmd, "error", err)
 		os.Exit(1)
@@ -32,10 +32,10 @@ func wireUpdate(nc *nats.Conn, dn *daemonNotifier) func() {
 		// Refresh the snapshot after update
 		resp.Snapshot = updatesvc.Check()
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 		// Publish updated snapshot
 		snapData, _ := json.Marshal(resp.Snapshot)
-		_ = nc.Publish(bus.SubjectUpdateSnapshot, snapData)
+		publish(nc, bus.SubjectUpdateSnapshot, snapData)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectUpdateRunCmd, "error", err)
 		os.Exit(1)
@@ -48,7 +48,7 @@ func wireUpdate(nc *nats.Conn, dn *daemonNotifier) func() {
 		if err := json.Unmarshal(m.Data, &req); err != nil {
 			resp := updateChannelResponse{Error: "malformed request: " + err.Error()}
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 			return
 		}
 		err := updatesvc.ChangeChannel(helperPath, req.Channel)
@@ -58,9 +58,9 @@ func wireUpdate(nc *nats.Conn, dn *daemonNotifier) func() {
 		}
 		resp.Snapshot = updatesvc.Check()
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 		snapData, _ := json.Marshal(resp.Snapshot)
-		_ = nc.Publish(bus.SubjectUpdateSnapshot, snapData)
+		publish(nc, bus.SubjectUpdateSnapshot, snapData)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectUpdateChannelCmd, "error", err)
 		os.Exit(1)

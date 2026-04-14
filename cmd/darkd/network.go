@@ -28,7 +28,7 @@ type networkActionResponse struct {
 func wireNetwork(nc *nats.Conn, svc *netsvc.Service, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectNetworkSnapshotCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(snapshotNetwork(svc))
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectNetworkSnapshotCmd, "error", err); os.Exit(1)
 	}
@@ -39,7 +39,7 @@ func wireNetwork(nc *nats.Conn, svc *netsvc.Service, dn *daemonNotifier) func() 
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := networkActionResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(svc, req)

@@ -18,7 +18,7 @@ func wireFirmware(nc *nats.Conn, svc *fwsvc.Service, dn *daemonNotifier) func() 
 			snap = svc.Snapshot()
 		}
 		data, _ := json.Marshal(snap)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectFirmwareSnapshotCmd, "error", err)
 		os.Exit(1)

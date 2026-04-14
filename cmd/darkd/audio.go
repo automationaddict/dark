@@ -39,7 +39,7 @@ type audioActionResponse struct {
 func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectAudioDevicesCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(snapshotAudio(svc))
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectAudioDevicesCmd, "error", err); os.Exit(1)
 	}
@@ -50,7 +50,7 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := audioActionResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(svc, req)
@@ -133,7 +133,9 @@ func wireAudio(nc *nats.Conn, svc *audiosvc.Service, dn *daemonNotifier) func() 
 			if err != nil {
 				continue
 			}
-			_ = nc.Publish(bus.SubjectAudioLevels, data)
+			if err := nc.Publish(bus.SubjectAudioLevels, data); err != nil {
+				slog.Warn("nats publish failed", "subject", bus.SubjectAudioLevels, "error", err)
+			}
 		}
 	}()
 

@@ -27,7 +27,7 @@ type appearanceActionResponse struct {
 func wireAppearance(nc *nats.Conn, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectAppearanceSnapshotCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(appearance.ReadSnapshot())
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectAppearanceSnapshotCmd, "error", err)
 		os.Exit(1)
@@ -39,12 +39,12 @@ func wireAppearance(nc *nats.Conn, dn *daemonNotifier) func() {
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := appearanceActionResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(req)
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 		}); err != nil {
 			slog.Error("subscribe failed", "subject", subject, "error", err)
 			os.Exit(1)

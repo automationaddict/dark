@@ -27,7 +27,7 @@ type privacyResponse struct {
 func wirePrivacy(nc *nats.Conn, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectPrivacySnapshotCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(privacy.ReadSnapshot())
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectPrivacySnapshotCmd, "error", err)
 		os.Exit(1)
@@ -39,12 +39,12 @@ func wirePrivacy(nc *nats.Conn, dn *daemonNotifier) func() {
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := privacyResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(req)
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 		}); err != nil {
 			slog.Error("subscribe failed", "subject", subject, "error", err)
 			os.Exit(1)
@@ -140,7 +140,7 @@ func wirePrivacy(nc *nats.Conn, dn *daemonNotifier) func() {
 		}
 		resp.Snapshot = privacy.ReadSnapshot()
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectPrivacyClearCmd, "error", err)
 		os.Exit(1)

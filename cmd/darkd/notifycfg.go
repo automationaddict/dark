@@ -28,7 +28,7 @@ type notifyCfgResponse struct {
 func wireNotifyCfg(nc *nats.Conn, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectNotifySnapshotCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(notifycfg.ReadSnapshot())
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectNotifySnapshotCmd, "error", err)
 		os.Exit(1)
@@ -42,7 +42,7 @@ func wireNotifyCfg(nc *nats.Conn, dn *daemonNotifier) func() {
 			}
 			resp.Snapshot = notifycfg.ReadSnapshot()
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 		}); err != nil {
 			slog.Error("subscribe failed", "subject", subject, "error", err)
 			os.Exit(1)
@@ -58,12 +58,12 @@ func wireNotifyCfg(nc *nats.Conn, dn *daemonNotifier) func() {
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := notifyCfgResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(req)
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 		}); err != nil {
 			slog.Error("subscribe failed", "subject", subject, "error", err)
 			os.Exit(1)

@@ -43,7 +43,7 @@ type displayActionResponse struct {
 func wireDisplay(nc *nats.Conn, svc *displaysvc.Service, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectDisplayMonitorsCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(svc.Snapshot())
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectDisplayMonitorsCmd, "error", err)
 		os.Exit(1)
@@ -55,7 +55,7 @@ func wireDisplay(nc *nats.Conn, svc *displaysvc.Service, dn *daemonNotifier) fun
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := displayActionResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(svc, req)
@@ -98,7 +98,7 @@ func wireDisplay(nc *nats.Conn, svc *displaysvc.Service, dn *daemonNotifier) fun
 		if err := json.Unmarshal(m.Data, &req); err != nil {
 			resp := displayActionResponse{Error: "malformed request"}
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 			return
 		}
 		var resp displayActionResponse
@@ -111,7 +111,7 @@ func wireDisplay(nc *nats.Conn, svc *displaysvc.Service, dn *daemonNotifier) fun
 		}
 		resp.Snapshot = svc.Snapshot()
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectDisplayGPUModeCmd, "error", err)
 		os.Exit(1)
@@ -124,7 +124,7 @@ func wireDisplay(nc *nats.Conn, svc *displaysvc.Service, dn *daemonNotifier) fun
 		}
 		resp.Snapshot = svc.Snapshot()
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectDisplayIdentifyCmd, "error", err)
 		os.Exit(1)

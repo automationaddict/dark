@@ -30,7 +30,7 @@ func appstoreLogger() *slog.Logger {
 func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectAppstoreCatalogCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(svc.Snapshot())
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreCatalogCmd, "error", err); os.Exit(1)
 	}
@@ -40,7 +40,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		if err := json.Unmarshal(m.Data, &req); err != nil {
 			resp := appstoreSearchResponse{Error: "malformed search request: " + err.Error()}
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 			return
 		}
 		res, err := svc.Search(req)
@@ -49,7 +49,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 			resp.Error = err.Error()
 		}
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreSearchCmd, "error", err); os.Exit(1)
 	}
@@ -59,7 +59,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		if err := json.Unmarshal(m.Data, &req); err != nil {
 			resp := appstoreDetailResponse{Error: "malformed detail request: " + err.Error()}
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 			return
 		}
 		detail, err := svc.Detail(req)
@@ -68,7 +68,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 			resp.Error = err.Error()
 		}
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreDetailCmd, "error", err); os.Exit(1)
 	}
@@ -98,7 +98,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		if err := json.Unmarshal(m.Data, &req); err != nil {
 			resp := appstoreActionResponse{Error: "malformed install request: " + err.Error()}
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 			return
 		}
 		out, err := svc.Install(req)
@@ -108,10 +108,10 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		} else {
 			resp.Snapshot = svc.Snapshot()
 			snapData, _ := json.Marshal(resp.Snapshot)
-			_ = nc.Publish(bus.SubjectAppstoreCatalog, snapData)
+			publish(nc, bus.SubjectAppstoreCatalog, snapData)
 		}
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreInstallCmd, "error", err); os.Exit(1)
 	}
@@ -123,7 +123,7 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		if err := json.Unmarshal(m.Data, &req); err != nil {
 			resp := appstoreActionResponse{Error: "malformed remove request: " + err.Error()}
 			data, _ := json.Marshal(resp)
-			_ = m.Respond(data)
+			respond(m, data)
 			return
 		}
 		out, err := svc.Remove(req.Names)
@@ -133,10 +133,10 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		} else {
 			resp.Snapshot = svc.Snapshot()
 			snapData, _ := json.Marshal(resp.Snapshot)
-			_ = nc.Publish(bus.SubjectAppstoreCatalog, snapData)
+			publish(nc, bus.SubjectAppstoreCatalog, snapData)
 		}
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreRemoveCmd, "error", err); os.Exit(1)
 	}
@@ -149,10 +149,10 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 		} else {
 			resp.Snapshot = svc.Snapshot()
 			snapData, _ := json.Marshal(resp.Snapshot)
-			_ = nc.Publish(bus.SubjectAppstoreCatalog, snapData)
+			publish(nc, bus.SubjectAppstoreCatalog, snapData)
 		}
 		data, _ := json.Marshal(resp)
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectAppstoreUpgradeCmd, "error", err); os.Exit(1)
 	}

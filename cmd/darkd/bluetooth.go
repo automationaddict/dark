@@ -34,7 +34,7 @@ type bluetoothActionResponse struct {
 func wireBluetooth(nc *nats.Conn, svc *btsvc.Service, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectBluetoothAdaptersCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(snapshotBluetooth(svc))
-		_ = m.Respond(data)
+		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectBluetoothAdaptersCmd, "error", err); os.Exit(1)
 	}
@@ -45,7 +45,7 @@ func wireBluetooth(nc *nats.Conn, svc *btsvc.Service, dn *daemonNotifier) func()
 			if err := json.Unmarshal(m.Data, &req); err != nil {
 				resp := bluetoothActionResponse{Error: "malformed request: " + err.Error()}
 				data, _ := json.Marshal(resp)
-				_ = m.Respond(data)
+				respond(m, data)
 				return
 			}
 			resp := handler(svc, req)
