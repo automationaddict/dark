@@ -9,6 +9,9 @@ func (s *State) HelpKey() string {
 	case TabSettings:
 		return s.ActiveSection().ID
 	case TabF2:
+		if s.F2OnUpdates() {
+			return "updates"
+		}
 		return "appstore"
 	case TabF3:
 		switch s.ActiveOmarchySection().ID {
