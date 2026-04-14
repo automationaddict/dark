@@ -10,6 +10,15 @@ func (s *State) HelpKey() string {
 		return s.ActiveSection().ID
 	case TabF2:
 		return "appstore"
+	case TabF3:
+		switch s.ActiveOmarchySection().ID {
+		case "limine":
+			return "limine"
+		case "keybindings":
+			return "keybindings"
+		case "links":
+			return "links"
+		}
 	}
 	return "default"
 }
