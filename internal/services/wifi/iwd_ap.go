@@ -63,7 +63,10 @@ func (b *iwdBackend) StopAP(ifaceName string) error {
 		return fmt.Errorf("iwd ap stop: %w", call.Err)
 	}
 	// Move the device back to station mode so the Networks / Known
-	// Networks UI becomes meaningful again.
-	_ = b.SetMode(ifaceName, "station")
+	// Networks UI becomes meaningful again. If this fails the device
+	// is stuck in AP mode with no AP running, so surface it.
+	if err := b.SetMode(ifaceName, "station"); err != nil {
+		return fmt.Errorf("restore station mode after ap stop: %w", err)
+	}
 	return nil
 }
