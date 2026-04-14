@@ -89,7 +89,8 @@ func (s *State) OpenWifiDetails() {
 }
 
 // CycleWifiFocus cycles through Adapters -> Networks -> Known Networks.
-// Resets ContentScroll so the focused group is visible after tab.
+// Scroll reset is delegated to the TUI render pass, which knows the
+// actual measured line offsets for each sub-table.
 func (s *State) CycleWifiFocus() {
 	if !s.WifiDetailsOpen {
 		return
@@ -102,17 +103,7 @@ func (s *State) CycleWifiFocus() {
 	default:
 		s.WifiFocus = WifiFocusAdapters
 	}
-	// Reset scroll — renderScrollableContentPane will clamp if needed.
-	switch s.WifiFocus {
-	case WifiFocusAdapters:
-		s.ContentScroll = 0
-	case WifiFocusNetworks:
-		// Adapters table + details box is roughly 20-30 lines.
-		s.ContentScroll = 20
-	case WifiFocusKnown:
-		// Networks table adds more. Go near the bottom.
-		s.ContentScroll = 999 // clamps to maxScroll
-	}
+	s.ContentScroll = 0
 }
 
 // MoveWifiNetworkSelection walks the network row highlight up or down

@@ -29,15 +29,15 @@ func (s *State) SetBluetooth(snap bluetooth.Snapshot) {
 }
 
 // CycleBluetoothFocus tabs between Adapters and Devices sub-tables.
-// Adjusts ContentScroll so the focused group is visible.
+// Scroll reset is delegated to the TUI, which knows where each table
+// actually lives on screen.
 func (s *State) CycleBluetoothFocus() {
 	if s.BluetoothFocus == BluetoothFocusAdapters {
 		s.BluetoothFocus = BluetoothFocusDevices
-		s.ContentScroll = 15
 	} else {
 		s.BluetoothFocus = BluetoothFocusAdapters
-		s.ContentScroll = 0
 	}
+	s.ContentScroll = 0
 }
 
 // MoveBluetoothSelection walks the adapter row highlight.
