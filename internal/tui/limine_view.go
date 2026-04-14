@@ -67,19 +67,11 @@ func renderLimineSnapshots(s *core.State, width, height int) string {
 		return renderContentPane(width, height, body)
 	}
 
-	numW := 6
-	tsW := 22
-	typeW := 10
-	kernelW := 12
-	subvolW := innerWidth - numW - tsW - typeW - kernelW - 5
-	if subvolW < 16 {
-		subvolW = 16
-	}
-
 	selectedCell := lipgloss.NewStyle().
 		Foreground(colorBg).
 		Background(colorAccent)
 
+	headers := []string{"#", "Timestamp", "Type", "Kernel", "Subvol"}
 	var data [][]string
 	for _, snap := range s.Limine.Snapshots {
 		num := "-"
@@ -95,9 +87,39 @@ func renderLimineSnapshots(s *core.State, width, height int) string {
 		})
 	}
 
+	// Size each column to fit the widest of {header, every cell} plus
+	// two cells of padding that renderTable's padCell layer consumes.
+	// The subvol column is then clipped to whatever is left so the
+	// table never exceeds innerWidth.
+	colWidths := make([]int, len(headers))
+	for i, h := range headers {
+		colWidths[i] = lipgloss.Width(h) + 2
+	}
+	for _, row := range data {
+		for i, cell := range row {
+			if w := lipgloss.Width(cell) + 2; w > colWidths[i] {
+				colWidths[i] = w
+			}
+		}
+	}
+	// Reserve 1 border column between/around fields (len+1 separators)
+	// so the total grid width matches innerWidth. Absorb any surplus
+	// (or deficit) in the last column — Subvol — since snapshot paths
+	// are the most variable width and least important to show in full.
+	sep := len(headers) + 1
+	used := sep
+	for i := 0; i < len(colWidths)-1; i++ {
+		used += colWidths[i]
+	}
+	subvolIdx := len(colWidths) - 1
+	colWidths[subvolIdx] = innerWidth - used
+	if colWidths[subvolIdx] < 16 {
+		colWidths[subvolIdx] = 16
+	}
+
 	table := renderTable(
-		[]string{"#", "Timestamp", "Type", "Kernel", "Subvol"},
-		[]int{numW, tsW, typeW, kernelW, subvolW},
+		headers,
+		colWidths,
 		data,
 		s.LimineSnapshotIdx, s.LimineContentFocused, selectedCell,
 	)
