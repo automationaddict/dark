@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"log/slog"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -123,6 +125,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case WifiScanResultMsg:
 		m.state.WifiScanning = false
 		if msg.Err != "" {
+			slog.Warn("wifi scan failed", "error", msg.Err)
 			m.state.WifiScanError = msg.Err
 			m.notifyError("Wi-Fi", msg.Err)
 			return m, nil
@@ -134,6 +137,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case WifiActionResultMsg:
 		m.state.WifiBusy = false
 		if msg.Err != "" {
+			slog.Warn("wifi action failed", "error", msg.Err)
 			m.state.WifiActionError = msg.Err
 			m.notifyError("Wi-Fi", msg.Err)
 			return m, nil
@@ -149,6 +153,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case BluetoothActionResultMsg:
 		m.state.BluetoothBusy = false
 		if msg.Err != "" {
+			slog.Warn("bluetooth action failed", "error", msg.Err)
 			m.state.BluetoothActionError = msg.Err
 			m.notifyError("Bluetooth", msg.Err)
 			return m, nil
@@ -164,6 +169,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case DisplayActionResultMsg:
 		m.state.DisplayBusy = false
 		if msg.Err != "" {
+			slog.Warn("display action failed", "error", msg.Err)
 			m.state.DisplayActionError = msg.Err
 			m.notifyError("Displays", msg.Err)
 			return m, nil
@@ -178,6 +184,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case DateTimeActionResultMsg:
 		if msg.Err != "" {
+			slog.Warn("datetime action failed", "error", msg.Err)
 			m.notifyError("Date & Time", msg.Err)
 			return m, nil
 		}
@@ -190,6 +197,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case NotifyCfgActionResultMsg:
 		if msg.Err != "" {
+			slog.Warn("notification config action failed", "error", msg.Err)
 			m.notifyError("Notifications", msg.Err)
 			return m, nil
 		}
@@ -202,6 +210,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case InputActionResultMsg:
 		if msg.Err != "" {
+			slog.Warn("input action failed", "error", msg.Err)
 			m.notifyError("Input", msg.Err)
 			return m, nil
 		}
@@ -214,6 +223,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case PowerActionResultMsg:
 		if msg.Err != "" {
+			slog.Warn("power action failed", "error", msg.Err)
 			m.notifyError("Power", msg.Err)
 			return m, nil
 		}
@@ -235,6 +245,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NetworkActionResultMsg:
 		m.state.NetworkBusy = false
 		if msg.Err != "" {
+			slog.Warn("network action failed", "error", msg.Err)
 			m.state.NetworkActionError = msg.Err
 			m.notifyError("Network", msg.Err)
 			return m, nil
@@ -246,6 +257,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AudioActionResultMsg:
 		m.state.AudioBusy = false
 		if msg.Err != "" {
+			slog.Warn("audio action failed", "error", msg.Err)
 			m.state.AudioActionError = msg.Err
 			m.notifyError("Sound", msg.Err)
 			return m, nil
@@ -260,6 +272,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case AppstoreSearchResultMsg:
 		if msg.Err != "" {
+			slog.Warn("appstore search failed", "error", msg.Err)
 			m.state.SetAppstoreError(msg.Err)
 			m.notifyError("App Store", msg.Err)
 			return m, nil
@@ -269,6 +282,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case AppstoreDetailResultMsg:
 		if msg.Err != "" {
+			slog.Warn("appstore detail failed", "error", msg.Err)
 			m.state.SetAppstoreError(msg.Err)
 			m.notifyError("App Store", msg.Err)
 			return m, nil
@@ -279,6 +293,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AppstoreRefreshResultMsg:
 		m.state.AppstoreBusy = false
 		if msg.Err != "" {
+			slog.Warn("appstore refresh failed", "error", msg.Err)
 			m.state.SetAppstoreError(msg.Err)
 			m.notifyError("App Store", msg.Err)
 			return m, nil
@@ -290,6 +305,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AppstoreActionResultMsg:
 		m.state.AppstoreBusy = false
 		if msg.Err != "" {
+			slog.Warn("appstore action failed", "error", msg.Err)
 			m.state.SetAppstoreError(msg.Err)
 			return m, nil
 		}
@@ -303,6 +319,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case KeybindActionResultMsg:
 		if msg.Err != "" {
+			slog.Warn("keybind action failed", "error", msg.Err)
 			m.notifyError("Keybindings", msg.Err)
 			return m, nil
 		}
@@ -318,6 +335,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case UsersActionResultMsg:
 		if msg.Err != "" {
+			slog.Warn("users action failed", "error", msg.Err)
 			m.notifyError("Users", msg.Err)
 			return m, nil
 		}
@@ -334,6 +352,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case PrivacyActionResultMsg:
 		if msg.Err != "" {
+			slog.Warn("privacy action failed", "error", msg.Err)
 			m.notifyError("Privacy", msg.Err)
 			return m, nil
 		}
@@ -346,6 +365,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case AppearanceActionResultMsg:
 		if msg.Err != "" {
+			slog.Warn("appearance action failed", "error", msg.Err)
 			m.notifyError("Appearance", msg.Err)
 			return m, nil
 		}
@@ -362,6 +382,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case UpdateChannelResultMsg:
 		if msg.Err != "" {
+			slog.Warn("update channel change failed", "error", msg.Err)
 			m.notifyError("Updates", msg.Err)
 			return m, nil
 		}
@@ -370,6 +391,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case UpdateRunResultMsg:
 		if msg.Err != "" {
+			slog.Warn("system update failed", "error", msg.Err)
 			m.state.UpdateBusy = false
 			m.state.UpdateStatusMsg = msg.Err
 			m.notifyError("Updates", msg.Err)
@@ -390,6 +412,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.RestartRequested = true
 			return m, tea.Quit
 		}
+		slog.Warn("rebuild failed", "output", msg.Output)
 		m.state.BuildError = msg.Output
 		m.notifyError("Rebuild", msg.Output)
 		return m, nil
