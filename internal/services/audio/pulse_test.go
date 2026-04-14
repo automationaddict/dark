@@ -1,6 +1,9 @@
 package audio
 
 import (
+	"encoding/binary"
+	"math"
+	"sync"
 	"testing"
 
 	"github.com/jfreymuth/pulse/proto"
@@ -86,6 +89,49 @@ func TestSinkStateString(t *testing.T) {
 			t.Errorf("sinkStateString(%d) = %q, want %q", tt.state, got, tt.want)
 		}
 	}
+}
+
+// TestMeterConcurrentAccess runs Levels() and handleProtoMessage()
+// concurrently under -race. The previous fix introduced metersMu; this
+// is a regression guard so a future edit that drops the lock is caught
+// immediately.
+func TestMeterConcurrentAccess(t *testing.T) {
+	b := &pulseBackend{
+		meterStreams: map[uint32]meterEntry{
+			1: {kind: meterKindSink, deviceIndex: 10},
+			2: {kind: meterKindSource, deviceIndex: 20},
+		},
+		sinkLevels:   map[uint32][2]float32{10: {0.1, 0.2}},
+		sourceLevels: map[uint32][2]float32{20: {0.3, 0.4}},
+	}
+
+	// Build a valid stereo peak-detect DataPacket payload (one pair).
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint32(buf[0:4], math.Float32bits(0.5))
+	binary.LittleEndian.PutUint32(buf[4:8], math.Float32bits(0.6))
+
+	const iters = 500
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iters; i++ {
+			_ = b.Levels()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iters; i++ {
+			b.handleProtoMessage(&proto.DataPacket{StreamIndex: 1, Data: buf})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iters; i++ {
+			b.handleProtoMessage(&proto.DataPacket{StreamIndex: 2, Data: buf})
+		}
+	}()
+	wg.Wait()
 }
 
 func TestVolumeRoundTrip(t *testing.T) {
