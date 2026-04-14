@@ -77,14 +77,22 @@ func TestSnapPosition(t *testing.T) {
 		}
 	})
 
-	t.Run("horizontal alignment snap when moving vertically", func(t *testing.T) {
+	t.Run("vertical nudge preserves x coordinate", func(t *testing.T) {
+		// When dx is zero, snapPosition must leave X alone. An earlier
+		// iteration asserted an "alignment snap" where a slight X
+		// offset would close during a pure vertical nudge, but the
+		// shipped behavior is explicit: X only changes on horizontal
+		// nudges and Y only changes on vertical ones.
 		mons := []display.Monitor{
 			{Name: "A", X: 0, Y: 0, Width: 1920, Height: 1080},
 			{Name: "B", X: 10, Y: 1080, Width: 2560, Height: 1440},
 		}
-		x, _ := snapPosition(mons, 1, 0, -1)
-		if x != 0 {
-			t.Errorf("expected horizontal snap to x=0, got %d", x)
+		x, y := snapPosition(mons, 1, 0, -1)
+		if x != 10 {
+			t.Errorf("expected x to remain at 10, got %d", x)
+		}
+		if y >= 1080 {
+			t.Errorf("expected y to decrease from 1080, got %d", y)
 		}
 	})
 }
