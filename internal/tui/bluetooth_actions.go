@@ -152,6 +152,7 @@ func (m *Model) triggerBluetoothSetTimeout() tea.Cmd {
 	}
 	actions := m.bluetooth
 	state := m.state
+	notify := m.notifier
 	path := adapter.Path
 	title := "Discoverable timeout · " + adapter.Name
 	m.dialog = NewDialog(title,
@@ -170,7 +171,9 @@ func (m *Model) triggerBluetoothSetTimeout() tea.Cmd {
 			}
 			n, err := strconv.ParseUint(raw, 10, 32)
 			if err != nil {
-				state.BluetoothActionError = "invalid timeout: " + err.Error()
+				msg := "invalid timeout: " + err.Error()
+				state.BluetoothActionError = msg
+				sendNotifyError(notify, "Bluetooth", msg)
 				return nil
 			}
 			state.BluetoothBusy = true
@@ -197,6 +200,7 @@ func (m *Model) triggerBluetoothScanFilter() tea.Cmd {
 	}
 	actions := m.bluetooth
 	state := m.state
+	notify := m.notifier
 	path := adapter.Path
 
 	rssi := ""
@@ -230,14 +234,18 @@ func (m *Model) triggerBluetoothScanFilter() tea.Cmd {
 			switch transport {
 			case "", "auto", "bredr", "le":
 			default:
-				state.BluetoothActionError = "transport must be auto, bredr, or le"
+				msg := "transport must be auto, bredr, or le"
+				state.BluetoothActionError = msg
+				sendNotifyError(notify, "Bluetooth", msg)
 				return nil
 			}
 			var rssiVal int16
 			if raw := strings.TrimSpace(result["rssi"]); raw != "" {
 				n, err := strconv.ParseInt(raw, 10, 16)
 				if err != nil {
-					state.BluetoothActionError = "invalid rssi: " + err.Error()
+					msg := "invalid rssi: " + err.Error()
+					state.BluetoothActionError = msg
+					sendNotifyError(notify, "Bluetooth", msg)
 					return nil
 				}
 				rssiVal = int16(n)

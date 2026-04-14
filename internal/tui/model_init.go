@@ -52,6 +52,22 @@ func (m *Model) notifyError(section, message string) {
 	})
 }
 
+// sendNotifyError is a standalone variant of notifyError intended for
+// use inside dialog callback closures where the Model receiver isn't
+// easily accessible. Captures the notifier by value so a nil notifier
+// is safely handled.
+func sendNotifyError(n *notify.Notifier, section, message string) {
+	if n == nil || message == "" {
+		return
+	}
+	n.Send(notify.Message{
+		Summary: "dark · " + section,
+		Body:    message,
+		Urgency: notify.UrgencyCritical,
+		Icon:    "dialog-error",
+	})
+}
+
 // notifyUnavailable fires a desktop notification when the user tries an
 // action whose backend function is not wired in (e.g. the daemon was
 // started without the corresponding service). Returns a no-op tea.Cmd
