@@ -33,9 +33,17 @@ func (s *State) SetDisplay(snap display.Snapshot) {
 	}
 }
 
-func (s *State) SetNightLight(active bool, temp int) {
+// SetNightLight mirrors a night-light change back into cached state so
+// the next render reflects the new values immediately (rather than
+// waiting for the next daemon snapshot).
+func (s *State) SetNightLight(active bool, temp, gamma int) {
 	s.NightLightActive = active
-	s.NightLightTemp = temp
+	if temp > 0 {
+		s.NightLightTemp = temp
+	}
+	if gamma > 0 {
+		s.NightLightGamma = gamma
+	}
 }
 
 // MoveDisplaySelection walks the selected monitor row, wrapping at ends.
