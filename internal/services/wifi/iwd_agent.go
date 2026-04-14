@@ -1,6 +1,7 @@
 package wifi
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/godbus/dbus/v5"
@@ -22,7 +23,9 @@ func (b *iwdBackend) StartAgent() error {
 	}
 	manager := b.conn.Object(iwdBusName, "/net/connman/iwd")
 	if err := manager.Call("net.connman.iwd.AgentManager.RegisterAgent", 0, iwdAgentPath).Err; err != nil {
-		_ = b.conn.Export(nil, iwdAgentPath, "net.connman.iwd.Agent")
+		if unexportErr := b.conn.Export(nil, iwdAgentPath, "net.connman.iwd.Agent"); unexportErr != nil {
+			err = errors.Join(err, fmt.Errorf("unexport after failed register: %w", unexportErr))
+		}
 		b.agent = nil
 		return fmt.Errorf("register agent: %w", err)
 	}
@@ -31,16 +34,22 @@ func (b *iwdBackend) StartAgent() error {
 }
 
 // StopAgent unregisters the agent with iwd and removes the D-Bus
-// export. Errors from iwd are swallowed so shutdown doesn't stall on
-// a broken bus.
+// export. Both steps always run so a broken bus doesn't leave the
+// export dangling; any errors are joined and returned for the caller
+// to log without stalling shutdown.
 func (b *iwdBackend) StopAgent() error {
 	if !b.agentActive || b.conn == nil {
 		return nil
 	}
+	var errs []error
 	manager := b.conn.Object(iwdBusName, "/net/connman/iwd")
-	_ = manager.Call("net.connman.iwd.AgentManager.UnregisterAgent", 0, iwdAgentPath).Err
-	_ = b.conn.Export(nil, iwdAgentPath, "net.connman.iwd.Agent")
+	if err := manager.Call("net.connman.iwd.AgentManager.UnregisterAgent", 0, iwdAgentPath).Err; err != nil {
+		errs = append(errs, fmt.Errorf("unregister agent: %w", err))
+	}
+	if err := b.conn.Export(nil, iwdAgentPath, "net.connman.iwd.Agent"); err != nil {
+		errs = append(errs, fmt.Errorf("unexport agent: %w", err))
+	}
 	b.agent = nil
 	b.agentActive = false
-	return nil
+	return errors.Join(errs...)
 }
