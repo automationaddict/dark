@@ -27,23 +27,35 @@ const (
 
 // iwdBackend is the Backend implementation for Intel's iwd daemon. It
 // owns its own D-Bus connection and, when agents are registered, its
-// own Agent object exported on that connection.
+// own Agent object exported on that connection. done is closed by
+// Close so in-flight polling loops (notably TriggerScan) can bail out
+// promptly on daemon shutdown instead of sleeping through the rest of
+// their timeout window.
 type iwdBackend struct {
 	conn        *dbus.Conn
 	agent       *Agent
 	agentActive bool
+	done        chan struct{}
 }
 
 func newIwdBackend(conn *dbus.Conn) *iwdBackend {
-	return &iwdBackend{conn: conn}
+	return &iwdBackend{conn: conn, done: make(chan struct{})}
 }
 
 // Name implements Backend.
 func (b *iwdBackend) Name() string { return BackendIWD }
 
-// Close releases the D-Bus connection. StopAgent is called implicitly
-// if an agent was registered.
+// Close releases the D-Bus connection and signals in-flight polling
+// loops to exit. StopAgent is called implicitly if an agent was
+// registered.
 func (b *iwdBackend) Close() {
+	if b.done != nil {
+		select {
+		case <-b.done: // already closed
+		default:
+			close(b.done)
+		}
+	}
 	if b.agentActive {
 		_ = b.StopAgent()
 	}
@@ -274,7 +286,13 @@ func (b *iwdBackend) TriggerScan(ifaceName string, timeout time.Duration) error 
 		if !scanning {
 			return nil
 		}
-		time.Sleep(iwdScanPollInterval)
+		// Sleep responsively: wake on shutdown so daemon exit
+		// doesn't have to drain the full timeout window.
+		select {
+		case <-b.done:
+			return fmt.Errorf("iwd scan: cancelled")
+		case <-time.After(iwdScanPollInterval):
+		}
 	}
 	return fmt.Errorf("iwd scan: timeout after %s", timeout)
 }
