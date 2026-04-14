@@ -524,21 +524,7 @@ func renderAdapterDetailsInline(a wifi.Adapter, history []int16) string {
 		{"Rate", formatRate(a.RxRateBps, a.TxRateBps)},
 		{"Connected", formatDuration(a.ConnectedSecs)},
 	}
-
-	labelWidth := 0
-	for _, r := range rows {
-		if w := lipgloss.Width(r[0]); w > labelWidth {
-			labelWidth = w
-		}
-	}
-
-	lines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
-		value := detailValueStyle.Render(orDash(r[1]))
-		lines = append(lines, label+value)
-	}
-	return strings.Join(lines, "\n")
+	return renderDetailRows(rows)
 }
 
 // renderWifiFocusHint shows one line beneath the box reminding the user

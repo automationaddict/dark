@@ -116,20 +116,7 @@ func renderNetworkDNSSection(s *core.State, width, height int) string {
 		rows = append(rows, [2]string{"Source", dns.Source})
 	}
 
-	labelWidth := 0
-	for _, r := range rows {
-		if w := lipgloss.Width(r[0]); w > labelWidth {
-			labelWidth = w
-		}
-	}
-	lines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
-		value := detailValueStyle.Render(orDash(r[1]))
-		lines = append(lines, label+value)
-	}
-
-	box := groupBoxSections("DNS", []string{strings.Join(lines, "\n")}, innerWidth, colorBorder)
+	box := groupBoxSections("DNS", []string{renderDetailRows(rows)}, innerWidth, colorBorder)
 
 	// Also show per-interface DNS when available.
 	var blocks []string
@@ -375,23 +362,7 @@ func renderNetworkInterfaceDetails(iface network.Interface) string {
 		}
 	}
 
-	labelWidth := 0
-	for _, r := range rows {
-		if w := lipgloss.Width(r[0]); w > labelWidth {
-			labelWidth = w
-		}
-	}
-	lines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		if r[0] == "" && r[1] == "" {
-			lines = append(lines, "")
-			continue
-		}
-		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
-		value := detailValueStyle.Render(orDash(r[1]))
-		lines = append(lines, label+value)
-	}
-	return strings.Join(lines, "\n")
+	return renderDetailRows(rows)
 }
 
 func renderNetworkManagedRoutesTable(routes []network.RouteConfig, selected int) string {

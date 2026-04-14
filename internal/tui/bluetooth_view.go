@@ -212,19 +212,7 @@ func renderBluetoothAdapterDetails(a bluetooth.Adapter) string {
 		{"Discovering", yesNo(a.Discovering)},
 		{"Devices", fmt.Sprintf("%d", len(a.Devices))},
 	}
-	labelWidth := 0
-	for _, r := range rows {
-		if w := lipgloss.Width(r[0]); w > labelWidth {
-			labelWidth = w
-		}
-	}
-	lines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
-		value := detailValueStyle.Render(orDash(r[1]))
-		lines = append(lines, label+value)
-	}
-	return strings.Join(lines, "\n")
+	return renderDetailRows(rows)
 }
 
 func renderBluetoothDevicesBox(s *core.State, a bluetooth.Adapter, total int, border lipgloss.Color) string {
@@ -292,22 +280,7 @@ func renderBluetoothDeviceInfoBox(d bluetooth.Device, total int) string {
 		{"Battery", formatBluetoothBattery(d.Battery)},
 	}
 
-	labelWidth := 0
-	for _, r := range rows {
-		if w := lipgloss.Width(r[0]); w > labelWidth {
-			labelWidth = w
-		}
-	}
-
-	propLines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
-		value := detailValueStyle.Render(orDash(r[1]))
-		propLines = append(propLines, label+value)
-	}
-	properties := strings.Join(propLines, "\n")
-
-	sections := []string{properties}
+	sections := []string{renderDetailRows(rows)}
 	if len(d.UUIDs) > 0 {
 		sections = append(sections, renderBluetoothUUIDList(d.UUIDs))
 	}

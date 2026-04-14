@@ -238,20 +238,7 @@ func renderAudioDeviceInfoBox(s *core.State, d audio.Device, isSink bool, total 
 		{"Active Port", orDash(activePortLabel(d))},
 	}
 
-	labelWidth := 0
-	for _, r := range rows {
-		if w := lipgloss.Width(r[0]); w > labelWidth {
-			labelWidth = w
-		}
-	}
-	propLines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
-		value := detailValueStyle.Render(orDash(r[1]))
-		propLines = append(propLines, label+value)
-	}
-
-	sections := []string{strings.Join(propLines, "\n")}
+	sections := []string{renderDetailRows(rows)}
 	sections = append(sections, renderAudioVolumeSlider(s, d, isSink, innerWidth))
 	if balSlider := renderAudioBalanceSlider(d, innerWidth); balSlider != "" {
 		sections = append(sections, balSlider)
