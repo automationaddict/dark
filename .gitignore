@@ -1,5 +1,6 @@
 tmp/
 build-errors.log
+.claude/
 # Compiled binaries at the repo root. Anchored so they don't shadow
 # the cmd/dark-helper/ source directory.
 /dark-helper
