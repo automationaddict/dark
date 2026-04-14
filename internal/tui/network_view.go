@@ -249,12 +249,7 @@ func renderNetworkAirplane(s *core.State, total int) string {
 }
 
 func renderNetworkInterfacesTable(ifaces []network.Interface, selected int, focused bool) string {
-	type col struct {
-		header string
-		cell   func(network.Interface) string
-		accent func(network.Interface) bool
-	}
-	cols := []col{
+	cols := []accentColumn[network.Interface]{
 		{"Name", func(i network.Interface) string { return i.Name }, nil},
 		{"Type", func(i network.Interface) string { return orDash(i.Type) }, nil},
 		{"State", func(i network.Interface) string { return formatInterfaceState(i) },
@@ -264,54 +259,7 @@ func renderNetworkInterfacesTable(ifaces []network.Interface, selected int, focu
 		{"Speed", func(i network.Interface) string { return formatLinkSpeed(i.SpeedMbps) }, nil},
 		{"Rate", func(i network.Interface) string { return formatNetworkRate(i.RxRateBps, i.TxRateBps) }, nil},
 	}
-
-	colW := make([]int, len(cols))
-	for i, c := range cols {
-		colW[i] = lipgloss.Width(c.header)
-	}
-	for _, iface := range ifaces {
-		for i, c := range cols {
-			if w := lipgloss.Width(c.cell(iface)); w > colW[i] {
-				colW[i] = w
-			}
-		}
-	}
-
-	const gap = "  "
-	headerCells := make([]string, 0, len(cols))
-	for i, c := range cols {
-		headerCells = append(headerCells, tableHeaderStyle.Width(colW[i]).Render(c.header))
-	}
-	lines := []string{"  " + strings.Join(headerCells, gap)}
-
-	for i, iface := range ifaces {
-		isSel := i == selected
-		var marker string
-		switch {
-		case isSel && focused:
-			marker = tableSelectionMarker.Render("▸ ")
-		case isSel:
-			marker = tableSelectionMarkerDim.Render("▸ ")
-		default:
-			marker = "  "
-		}
-		cells := make([]string, 0, len(cols))
-		for j, c := range cols {
-			text := c.cell(iface)
-			var style lipgloss.Style
-			switch {
-			case isSel:
-				style = tableCellSelected
-			case c.accent != nil && c.accent(iface):
-				style = tableCellAccent
-			default:
-				style = tableCellStyle
-			}
-			cells = append(cells, style.Width(colW[j]).Render(text))
-		}
-		lines = append(lines, marker+strings.Join(cells, gap))
-	}
-	return strings.Join(lines, "\n")
+	return renderAccentTable(cols, ifaces, selected, focused, nil, nil)
 }
 
 func renderNetworkInterfaceDetails(iface network.Interface) string {

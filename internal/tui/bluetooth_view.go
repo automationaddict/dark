@@ -132,14 +132,8 @@ func renderBluetoothToggle(a bluetooth.Adapter, busy bool) string {
 	return label + "  " + state + "    " + hint
 }
 
-type btAdapterColumn struct {
-	header string
-	value  func(bluetooth.Adapter) string
-	accent func(bluetooth.Adapter) bool
-}
-
-func bluetoothAdapterColumns() []btAdapterColumn {
-	return []btAdapterColumn{
+func bluetoothAdapterColumns() []accentColumn[bluetooth.Adapter] {
+	return []accentColumn[bluetooth.Adapter]{
 		{"Name", func(a bluetooth.Adapter) string { return a.Name }, nil},
 		{"Alias", func(a bluetooth.Adapter) string { return orDash(a.Alias) }, nil},
 		{"Address", func(a bluetooth.Adapter) string { return orDash(a.Address) }, nil},
@@ -150,54 +144,7 @@ func bluetoothAdapterColumns() []btAdapterColumn {
 }
 
 func renderBluetoothAdaptersTable(adapters []bluetooth.Adapter, selected int, focused bool) string {
-	cols := bluetoothAdapterColumns()
-	widths := make([]int, len(cols))
-	for i, c := range cols {
-		widths[i] = lipgloss.Width(c.header)
-	}
-	for _, a := range adapters {
-		for i, c := range cols {
-			if w := lipgloss.Width(c.value(a)); w > widths[i] {
-				widths[i] = w
-			}
-		}
-	}
-
-	const gap = "  "
-	headerCells := make([]string, 0, len(cols))
-	for i, c := range cols {
-		headerCells = append(headerCells, tableHeaderStyle.Width(widths[i]).Render(c.header))
-	}
-	lines := []string{"  " + strings.Join(headerCells, gap)}
-
-	for i, a := range adapters {
-		isSel := i == selected
-		var marker string
-		switch {
-		case isSel && focused:
-			marker = tableSelectionMarker.Render("▸ ")
-		case isSel:
-			marker = tableSelectionMarkerDim.Render("▸ ")
-		default:
-			marker = "  "
-		}
-		cells := make([]string, 0, len(cols))
-		for j, c := range cols {
-			text := c.value(a)
-			var style lipgloss.Style
-			switch {
-			case isSel:
-				style = tableCellSelected
-			case c.accent != nil && c.accent(a):
-				style = tableCellAccent
-			default:
-				style = tableCellStyle
-			}
-			cells = append(cells, style.Width(widths[j]).Render(text))
-		}
-		lines = append(lines, marker+strings.Join(cells, gap))
-	}
-	return strings.Join(lines, "\n")
+	return renderAccentTable(bluetoothAdapterColumns(), adapters, selected, focused, nil, nil)
 }
 
 func renderBluetoothAdapterDetails(a bluetooth.Adapter) string {
@@ -311,59 +258,20 @@ func renderBluetoothUUIDList(uuids []string) string {
 // core Tier 1 surface: name, address, type, and the state flags that
 // drive the action keys (Paired, Trusted, Connected, RSSI, Battery).
 func renderBluetoothDevicesTable(devs []bluetooth.Device, selected int) string {
-	type col struct {
-		header string
-		cell   func(bluetooth.Device) string
+	cols := []accentColumn[bluetooth.Device]{
+		{"Name", func(d bluetooth.Device) string { return orDash(d.DisplayName()) }, nil},
+		{"Address", func(d bluetooth.Device) string { return orDash(d.Address) }, nil},
+		{"Type", func(d bluetooth.Device) string { return formatBluetoothIcon(d.Icon) }, nil},
+		{"Paired", func(d bluetooth.Device) string { return yesNo(d.Paired) }, nil},
+		{"Trusted", func(d bluetooth.Device) string { return yesNo(d.Trusted) }, nil},
+		{"Blocked", func(d bluetooth.Device) string { return yesNo(d.Blocked) }, nil},
+		{"RSSI", func(d bluetooth.Device) string { return formatBluetoothRSSI(d.RSSI) }, nil},
+		{"Battery", func(d bluetooth.Device) string { return formatBluetoothBattery(d.Battery) }, nil},
 	}
-	cols := []col{
-		{"Name", func(d bluetooth.Device) string { return orDash(d.DisplayName()) }},
-		{"Address", func(d bluetooth.Device) string { return orDash(d.Address) }},
-		{"Type", func(d bluetooth.Device) string { return formatBluetoothIcon(d.Icon) }},
-		{"Paired", func(d bluetooth.Device) string { return yesNo(d.Paired) }},
-		{"Trusted", func(d bluetooth.Device) string { return yesNo(d.Trusted) }},
-		{"Blocked", func(d bluetooth.Device) string { return yesNo(d.Blocked) }},
-		{"RSSI", func(d bluetooth.Device) string { return formatBluetoothRSSI(d.RSSI) }},
-		{"Battery", func(d bluetooth.Device) string { return formatBluetoothBattery(d.Battery) }},
-	}
-
-	widths := make([]int, len(cols))
-	for i, c := range cols {
-		widths[i] = lipgloss.Width(c.header)
-	}
-	for _, d := range devs {
-		for i, c := range cols {
-			if w := lipgloss.Width(c.cell(d)); w > widths[i] {
-				widths[i] = w
-			}
-		}
-	}
-
-	const gap = "  "
-	lines := make([]string, 0, len(devs)+1)
-
-	headerCells := make([]string, 0, len(cols))
-	for i, c := range cols {
-		headerCells = append(headerCells, tableHeaderStyle.Width(widths[i]).Render(c.header))
-	}
-	lines = append(lines, "   "+strings.Join(headerCells, gap))
-
-	for i, d := range devs {
-		isSel := selected >= 0 && i == selected
-		cells := make([]string, 0, len(cols))
-		for j, c := range cols {
-			text := c.cell(d)
-			style := tableCellStyle
-			switch {
-			case isSel:
-				style = tableCellSelected
-			case d.Connected:
-				style = tableCellAccent
-			}
-			cells = append(cells, style.Width(widths[j]).Render(text))
-		}
-		lines = append(lines, bluetoothRowMarker(isSel, d.Connected)+strings.Join(cells, gap))
-	}
-	return strings.Join(lines, "\n")
+	marker := func(sel, _ bool, d bluetooth.Device) string { return bluetoothRowMarker(sel, d.Connected) }
+	return renderAccentTable(cols, devs, selected, true,
+		func(d bluetooth.Device) bool { return d.Connected },
+		marker)
 }
 
 // bluetoothRowMarker is the 3-cell prefix: selection marker, status

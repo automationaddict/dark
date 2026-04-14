@@ -10,14 +10,8 @@ import (
 	"github.com/johnnelson/dark/internal/services/wifi"
 )
 
-type wifiColumn struct {
-	header string
-	value  func(wifi.Adapter) string
-	accent func(wifi.Adapter) bool
-}
-
-func wifiColumns() []wifiColumn {
-	return []wifiColumn{
+func wifiColumns() []accentColumn[wifi.Adapter] {
+	return []accentColumn[wifi.Adapter]{
 		{"Name", func(a wifi.Adapter) string { return a.Name }, nil},
 		{"Mode", func(a wifi.Adapter) string { return orDash(a.Mode) }, nil},
 		{"Powered", func(a wifi.Adapter) string { return onOff(a.Powered) }, func(a wifi.Adapter) bool { return a.Powered }},
@@ -201,65 +195,7 @@ func borderForFocus(focused bool) lipgloss.Color {
 // cells. When the content region is unfocused, the marker stays but is
 // rendered in the dim color so it reads as "selected but not active".
 func renderAdaptersTable(adapters []wifi.Adapter, selected int, focused bool) string {
-	cols := wifiColumns()
-	colW := make([]int, len(cols))
-	for i, c := range cols {
-		colW[i] = lipgloss.Width(c.header)
-	}
-	for _, a := range adapters {
-		for i, c := range cols {
-			if w := lipgloss.Width(c.value(a)); w > colW[i] {
-				colW[i] = w
-			}
-		}
-	}
-
-	var lines []string
-	lines = append(lines, buildHeaderRow(cols, colW))
-	for i, a := range adapters {
-		isSel := i == selected
-		lines = append(lines, buildDataRow(cols, colW, a, isSel, focused))
-	}
-	return strings.Join(lines, "\n")
-}
-
-func buildHeaderRow(cols []wifiColumn, widths []int) string {
-	const gap = "  "
-	cells := make([]string, 0, len(cols))
-	for i, c := range cols {
-		cells = append(cells, tableHeaderStyle.Width(widths[i]).Render(c.header))
-	}
-	// Leading "  " aligns the header with the row selection-marker column.
-	return "  " + strings.Join(cells, gap)
-}
-
-func buildDataRow(cols []wifiColumn, widths []int, a wifi.Adapter, selected, focused bool) string {
-	const gap = "  "
-	var marker string
-	switch {
-	case selected && focused:
-		marker = tableSelectionMarker.Render("▸ ")
-	case selected:
-		marker = tableSelectionMarkerDim.Render("▸ ")
-	default:
-		marker = "  "
-	}
-
-	parts := make([]string, 0, len(cols))
-	for i, c := range cols {
-		text := c.value(a)
-		var style lipgloss.Style
-		switch {
-		case selected:
-			style = tableCellSelected
-		case c.accent != nil && c.accent(a):
-			style = tableCellAccent
-		default:
-			style = tableCellStyle
-		}
-		parts = append(parts, style.Width(widths[i]).Render(text))
-	}
-	return marker + strings.Join(parts, gap)
+	return renderAccentTable(wifiColumns(), adapters, selected, focused, nil, nil)
 }
 
 // renderWifiToggle draws a single line above the Adapters box showing
@@ -397,107 +333,30 @@ func renderKnownNetworksBox(s *core.State, total int, border lipgloss.Color) str
 // selected < 0 the selection marker is suppressed (used when this
 // sub-table doesn't currently own focus).
 func renderNetworksTable(nets []wifi.Network, selected int) string {
-	type col struct {
-		header string
-		cell   func(wifi.Network) string
+	cols := []accentColumn[wifi.Network]{
+		{"SSID", func(n wifi.Network) string { return orDash(n.SSID) }, nil},
+		{"Security", func(n wifi.Network) string { return formatNetSecurity(n.Security) }, nil},
+		{"Signal", func(n wifi.Network) string { return fmt.Sprintf("%d dBm", n.SignalDBm) }, nil},
+		{"Bars", func(n wifi.Network) string { return signalBars(n.SignalDBm) }, nil},
+		{"BSS", func(n wifi.Network) string { return fmt.Sprintf("%d", n.BSSCount) }, nil},
 	}
-	cols := []col{
-		{"SSID", func(n wifi.Network) string { return orDash(n.SSID) }},
-		{"Security", func(n wifi.Network) string { return formatNetSecurity(n.Security) }},
-		{"Signal", func(n wifi.Network) string { return fmt.Sprintf("%d dBm", n.SignalDBm) }},
-		{"Bars", func(n wifi.Network) string { return signalBars(n.SignalDBm) }},
-		{"BSS", func(n wifi.Network) string { return fmt.Sprintf("%d", n.BSSCount) }},
-	}
-
-	widths := make([]int, len(cols))
-	for i, c := range cols {
-		widths[i] = lipgloss.Width(c.header)
-	}
-	for _, n := range nets {
-		for i, c := range cols {
-			if w := lipgloss.Width(c.cell(n)); w > widths[i] {
-				widths[i] = w
-			}
-		}
-	}
-
-	const gap = "  "
-	lines := make([]string, 0, len(nets)+1)
-
-	headerCells := make([]string, 0, len(cols))
-	for i, c := range cols {
-		headerCells = append(headerCells, tableHeaderStyle.Width(widths[i]).Render(c.header))
-	}
-	lines = append(lines, "   "+strings.Join(headerCells, gap))
-
-	for i, n := range nets {
-		cells := make([]string, 0, len(cols))
-		isSel := selected >= 0 && i == selected
-		for j, c := range cols {
-			text := c.cell(n)
-			style := tableCellStyle
-			switch {
-			case isSel:
-				style = tableCellSelected
-			case n.Connected:
-				style = tableCellAccent
-			}
-			cells = append(cells, style.Width(widths[j]).Render(text))
-		}
-		lines = append(lines, rowMarker(isSel, n.Connected)+strings.Join(cells, gap))
-	}
-	return strings.Join(lines, "\n")
+	marker := func(sel, _ bool, n wifi.Network) string { return rowMarker(sel, n.Connected) }
+	return renderAccentTable(cols, nets, selected, true,
+		func(n wifi.Network) bool { return n.Connected },
+		marker)
 }
 
 // renderKnownNetworksTable builds the saved-profile table.
 func renderKnownNetworksTable(nets []wifi.KnownNetwork, selected int) string {
-	type col struct {
-		header string
-		cell   func(wifi.KnownNetwork) string
+	cols := []accentColumn[wifi.KnownNetwork]{
+		{"SSID", func(k wifi.KnownNetwork) string { return orDash(k.SSID) }, nil},
+		{"Security", func(k wifi.KnownNetwork) string { return formatNetSecurity(k.Security) }, nil},
+		{"Auto", func(k wifi.KnownNetwork) string { return yesNo(k.AutoConnect) }, nil},
+		{"Hidden", func(k wifi.KnownNetwork) string { return yesNo(k.Hidden) }, nil},
+		{"Last seen", func(k wifi.KnownNetwork) string { return formatAge(k.LastConnectedTime) }, nil},
 	}
-	cols := []col{
-		{"SSID", func(k wifi.KnownNetwork) string { return orDash(k.SSID) }},
-		{"Security", func(k wifi.KnownNetwork) string { return formatNetSecurity(k.Security) }},
-		{"Auto", func(k wifi.KnownNetwork) string { return yesNo(k.AutoConnect) }},
-		{"Hidden", func(k wifi.KnownNetwork) string { return yesNo(k.Hidden) }},
-		{"Last seen", func(k wifi.KnownNetwork) string { return formatAge(k.LastConnectedTime) }},
-	}
-
-	widths := make([]int, len(cols))
-	for i, c := range cols {
-		widths[i] = lipgloss.Width(c.header)
-	}
-	for _, n := range nets {
-		for i, c := range cols {
-			if w := lipgloss.Width(c.cell(n)); w > widths[i] {
-				widths[i] = w
-			}
-		}
-	}
-
-	const gap = "  "
-	lines := make([]string, 0, len(nets)+1)
-
-	headerCells := make([]string, 0, len(cols))
-	for i, c := range cols {
-		headerCells = append(headerCells, tableHeaderStyle.Width(widths[i]).Render(c.header))
-	}
-	lines = append(lines, "   "+strings.Join(headerCells, gap))
-
-	for i, k := range nets {
-		isSel := selected >= 0 && i == selected
-		cells := make([]string, 0, len(cols))
-		for j, c := range cols {
-			text := c.cell(k)
-			style := tableCellStyle
-			if isSel {
-				style = tableCellSelected
-			}
-			cells = append(cells, style.Width(widths[j]).Render(text))
-		}
-		lines = append(lines, rowMarker(isSel, false)+strings.Join(cells, gap))
-	}
-	return strings.Join(lines, "\n")
+	marker := func(sel, _ bool, _ wifi.KnownNetwork) string { return rowMarker(sel, false) }
+	return renderAccentTable(cols, nets, selected, true, nil, marker)
 }
 
 // renderAdapterDetailsInline is the details section for the currently
