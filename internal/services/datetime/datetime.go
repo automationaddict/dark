@@ -159,23 +159,34 @@ func readTimedateD(s *Snapshot) {
 	obj := conn.Object("org.freedesktop.timedate1", "/org/freedesktop/timedate1")
 
 	if v, err := obj.GetProperty("org.freedesktop.timedate1.Timezone"); err == nil {
-		s.Timezone, _ = v.Value().(string)
+		if tz, ok := v.Value().(string); ok {
+			s.Timezone = tz
+		}
 	}
 	if v, err := obj.GetProperty("org.freedesktop.timedate1.NTP"); err == nil {
-		s.NTPEnabled, _ = v.Value().(bool)
+		if b, ok := v.Value().(bool); ok {
+			s.NTPEnabled = b
+		}
 	}
 	if v, err := obj.GetProperty("org.freedesktop.timedate1.NTPSynchronized"); err == nil {
-		s.NTPSynced, _ = v.Value().(bool)
+		if b, ok := v.Value().(bool); ok {
+			s.NTPSynced = b
+		}
 	}
 
-	localRTC := false
+	// Default to UTC when the property is missing or has an unexpected
+	// type, matching systemd's documented default.
+	s.RTCInUTC = true
 	if v, err := obj.GetProperty("org.freedesktop.timedate1.LocalRTC"); err == nil {
-		localRTC, _ = v.Value().(bool)
+		if local, ok := v.Value().(bool); ok {
+			s.RTCInUTC = !local
+		}
 	}
-	s.RTCInUTC = !localRTC
 
 	if v, err := obj.GetProperty("org.freedesktop.timedate1.CanNTP"); err == nil {
-		s.CanNTP, _ = v.Value().(bool)
+		if b, ok := v.Value().(bool); ok {
+			s.CanNTP = b
+		}
 	}
 }
 
@@ -187,7 +198,9 @@ func readTimesyncD(s *Snapshot) {
 	obj := conn.Object("org.freedesktop.timesync1", "/org/freedesktop/timesync1")
 
 	if v, err := obj.GetProperty("org.freedesktop.timesync1.Manager.ServerName"); err == nil {
-		s.NTPServer, _ = v.Value().(string)
+		if name, ok := v.Value().(string); ok {
+			s.NTPServer = name
+		}
 	}
 	if v, err := obj.GetProperty("org.freedesktop.timesync1.Manager.PollIntervalUSec"); err == nil {
 		if usec, ok := v.Value().(uint64); ok {
