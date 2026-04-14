@@ -61,12 +61,14 @@ func (m *Model) triggerBluetoothPair() tea.Cmd {
 
 	m.state.BluetoothBusy = true
 	m.state.BluetoothActionError = ""
+	m.notifyInfo("Bluetooth", "Pairing with "+dev.DisplayName()+"…")
 	return m.bluetooth.Pair(dev.Path, "")
 }
 
 func (m *Model) openLegacyPairDialog(devicePath, deviceName string) {
 	actions := m.bluetooth
 	state := m.state
+	notifier := m.notifier
 	title := "Pair " + deviceName + " (legacy PIN)"
 	if deviceName == "" {
 		title = "Pair device (legacy PIN)"
@@ -82,6 +84,11 @@ func (m *Model) openLegacyPairDialog(devicePath, deviceName string) {
 			}
 			state.BluetoothBusy = true
 			state.BluetoothActionError = ""
+			label := deviceName
+			if label == "" {
+				label = "device"
+			}
+			sendNotifyInfo(notifier, "Bluetooth", "Pairing with "+label+"…")
 			return actions.Pair(devicePath, pin)
 		},
 	)

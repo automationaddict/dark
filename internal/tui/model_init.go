@@ -52,6 +52,23 @@ func (m *Model) notifyError(section, message string) {
 	})
 }
 
+// notifyInfo fires a low-urgency desktop notification for user-visible
+// progress on long-running operations (Wi-Fi connect, Bluetooth pair,
+// AppStore refresh). Section works the same as notifyError. These
+// notifications are important for when the user has moved away from
+// the TUI while an operation is in flight.
+func (m *Model) notifyInfo(section, message string) {
+	if m.notifier == nil || message == "" {
+		return
+	}
+	m.notifier.Send(notify.Message{
+		Summary: "dark · " + section,
+		Body:    message,
+		Urgency: notify.UrgencyLow,
+		Icon:    "dialog-information",
+	})
+}
+
 // sendNotifyError is a standalone variant of notifyError intended for
 // use inside dialog callback closures where the Model receiver isn't
 // easily accessible. Captures the notifier by value so a nil notifier
@@ -65,6 +82,19 @@ func sendNotifyError(n *notify.Notifier, section, message string) {
 		Body:    message,
 		Urgency: notify.UrgencyCritical,
 		Icon:    "dialog-error",
+	})
+}
+
+// sendNotifyInfo is the dialog-closure companion for notifyInfo.
+func sendNotifyInfo(n *notify.Notifier, section, message string) {
+	if n == nil || message == "" {
+		return
+	}
+	n.Send(notify.Message{
+		Summary: "dark · " + section,
+		Body:    message,
+		Urgency: notify.UrgencyLow,
+		Icon:    "dialog-information",
 	})
 }
 

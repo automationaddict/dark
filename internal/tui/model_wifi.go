@@ -69,6 +69,7 @@ func (m *Model) triggerWifiConnect() tea.Cmd {
 	if known || openNet {
 		m.state.WifiBusy = true
 		m.state.WifiActionError = ""
+		m.notifyInfo("Wi-Fi", "Connecting to "+ssid+"…")
 		return m.wifi.Connect(adapter.Name, ssid, "")
 	}
 
@@ -161,6 +162,7 @@ func (m *Model) openPassphraseDialog(adapter, ssid string) {
 	title := "Connect to " + ssid
 	wifi := m.wifi
 	state := m.state
+	notifier := m.notifier
 	m.dialog = NewDialog(title,
 		[]DialogFieldSpec{
 			{Key: "passphrase", Label: "Passphrase", Kind: DialogFieldPassword},
@@ -168,6 +170,7 @@ func (m *Model) openPassphraseDialog(adapter, ssid string) {
 		func(result DialogResult) tea.Cmd {
 			state.WifiBusy = true
 			state.WifiActionError = ""
+			sendNotifyInfo(notifier, "Wi-Fi", "Connecting to "+ssid+"…")
 			return wifi.Connect(adapter, ssid, result["passphrase"])
 		},
 	)
