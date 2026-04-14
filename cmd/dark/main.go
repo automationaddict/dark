@@ -144,6 +144,7 @@ func main() {
 	appearanceActions := newAppearanceActions(nc)
 	updateActions := newUpdateActions(nc)
 	limineActions := newLimineActions(nc)
+	screensaverActions := newScreensaverActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -155,7 +156,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 

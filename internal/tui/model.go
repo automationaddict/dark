@@ -78,7 +78,9 @@ type Model struct {
 	privacy    PrivacyActions
 	appearance AppearanceActions
 	update     UpdateActions
+	screensaver ScreensaverActions
 	dialog     *Dialog
+	editor     *Editor
 	spinner    spinner.Model
 	width     int
 	height    int
@@ -451,6 +453,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// An open editor takes precedence over everything else. Its
+		// Update handles Ctrl+S (submit), Esc (cancel), and forwards
+		// everything else to the underlying textarea so typing,
+		// arrows, and word-jump all work.
+		if m.editor != nil {
+			cmd := m.editor.Update(msg)
+			if m.editor.Closed() {
+				m.editor = nil
+			}
+			return m, cmd
+		}
 		// An open dialog captures every key. The dialog's own Update
 		// handles esc/enter and decides when to close itself; any
 		// tea.Cmd returned here (typically a bus request spawned by

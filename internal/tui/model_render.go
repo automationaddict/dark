@@ -51,6 +51,9 @@ func (m Model) View() string {
 		base = overlayRight(base, panel, width, m.state.HelpWidth)
 	}
 
+	if m.editor != nil {
+		return overlayCenter(base, m.editor.View(width, height), width, height)
+	}
 	if m.dialog != nil {
 		return overlayCenter(base, m.dialog.View(), width, height)
 	}
