@@ -313,6 +313,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.AppstoreStatusMsg = ""
 		m.state.SetAppstore(msg.Snapshot)
+		// The daemon snapshot only carries sidebar counts, so patch
+		// the cached search results / open detail locally against the
+		// targeted package names. Upgrade touches too many packages
+		// to enumerate — re-run the current search so the whole list
+		// gets fresh Installed flags from the daemon.
+		switch msg.Action {
+		case "install":
+			m.state.ApplyAppstoreAction(msg.Names, true)
+		case "remove":
+			m.state.ApplyAppstoreAction(msg.Names, false)
+		case "upgrade":
+			if m.appstore.Search != nil && m.state.AppstoreResultsLoaded {
+				return m, m.appstore.Search(m.state.AppstoreResults.Query)
+			}
+		}
 		return m, nil
 
 	case KeybindMsg:

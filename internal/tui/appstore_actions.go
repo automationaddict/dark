@@ -49,9 +49,16 @@ type AppstoreRefreshResultMsg struct {
 
 // AppstoreActionResultMsg is the reply from an install, remove, or
 // upgrade command. Output carries stdout/stderr from pacman for the
-// status line. On success, Snapshot carries the refreshed catalog.
+// status line. On success, Snapshot carries the refreshed catalog
+// sidebar counts. Action and Names identify which packages were
+// targeted so the TUI can patch the cached search result list
+// locally — the daemon snapshot is intentionally light and doesn't
+// ship the full catalog, so without this we'd still render
+// freshly-removed packages as Installed until the next search.
 type AppstoreActionResultMsg struct {
 	Snapshot appstore.Snapshot
 	Output   string
 	Err      string
+	Action   string // "install", "remove", or "upgrade"
+	Names    []string
 }

@@ -47,6 +47,36 @@ func (s *State) SetAppstoreResults(res appstore.SearchResult) {
 	}
 }
 
+// ApplyAppstoreAction patches the cached search results and open
+// detail view after an install or remove completes. The daemon's
+// post-action Snapshot is intentionally light (sidebar counts only)
+// and does not carry the full catalog, so without this the list the
+// user is looking at would still render freshly-removed packages as
+// Installed until they run a new search. installed is the target
+// state to apply to every Package whose name is in names.
+func (s *State) ApplyAppstoreAction(names []string, installed bool) {
+	if len(names) == 0 {
+		return
+	}
+	set := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		set[n] = struct{}{}
+	}
+	for i := range s.AppstoreResults.Packages {
+		if _, ok := set[s.AppstoreResults.Packages[i].Name]; ok {
+			s.AppstoreResults.Packages[i].Installed = installed
+		}
+	}
+	for i := range s.Appstore.Featured {
+		if _, ok := set[s.Appstore.Featured[i].Name]; ok {
+			s.Appstore.Featured[i].Installed = installed
+		}
+	}
+	if _, ok := set[s.AppstoreDetail.Name]; ok {
+		s.AppstoreDetail.Installed = installed
+	}
+}
+
 // SetAppstoreDetail loads the full detail panel for one package and
 // shifts focus into it. Called from the tea.Cmd that answers a Detail
 // request.
