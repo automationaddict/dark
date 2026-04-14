@@ -44,21 +44,21 @@ func (b *pulseBackend) handleProtoMessage(msg interface{}) {
 		default:
 		}
 	case *proto.DataPacket:
+		// Decode outside the lock so expensive work (two float scans)
+		// doesn't block the meter-stream registration path.
+		peaks := decodeStereoPeakBytes(m.Data)
 		b.metersMu.Lock()
+		defer b.metersMu.Unlock()
 		entry, ok := b.meterStreams[m.StreamIndex]
-		b.metersMu.Unlock()
 		if !ok {
 			return
 		}
-		peaks := decodeStereoPeakBytes(m.Data)
-		b.metersMu.Lock()
 		switch entry.kind {
 		case meterKindSink:
 			b.sinkLevels[entry.deviceIndex] = peaks
 		case meterKindSource:
 			b.sourceLevels[entry.deviceIndex] = peaks
 		}
-		b.metersMu.Unlock()
 	}
 }
 
