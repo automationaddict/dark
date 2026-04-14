@@ -18,6 +18,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/power"
 	"github.com/johnnelson/dark/internal/services/privacy"
+	"github.com/johnnelson/dark/internal/services/screensaver"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/users"
 	"github.com/johnnelson/dark/internal/services/wifi"
@@ -153,6 +154,12 @@ type State struct {
 	Appearance          appearance.Snapshot
 	AppearanceLoaded    bool
 	AppearanceSectionIdx int
+
+	Screensaver         screensaver.Snapshot
+	ScreensaverLoaded   bool
+	ScreensaverBusy     bool
+	ScreensaverPreviewing bool
+	ScreensaverActionError string
 
 	F2SidebarIdx          int
 	Appstore              appstore.Snapshot
