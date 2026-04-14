@@ -6,6 +6,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/appstore"
 	"github.com/johnnelson/dark/internal/services/firmware"
 	"github.com/johnnelson/dark/internal/services/keybind"
+	"github.com/johnnelson/dark/internal/services/limine"
 	"github.com/johnnelson/dark/internal/services/links"
 	"github.com/johnnelson/dark/internal/services/update"
 	"github.com/johnnelson/dark/internal/services/audio"
@@ -199,6 +200,17 @@ type State struct {
 	OmarchySidebarIdx    int
 	OmarchyLinksIdx      int
 	OmarchyLinksFocused  bool
+
+	Limine               limine.Snapshot
+	LimineLoaded         bool
+	LimineSubIdx         int
+	LimineContentFocused bool
+	LimineSnapshotIdx    int
+	LimineBootCfgIdx     int
+	LimineSyncCfgIdx     int
+	LimineOmarchyCfgIdx  int
+	LimineBusy           bool
+	LimineActionError    string
 
 	ContentFocused bool
 

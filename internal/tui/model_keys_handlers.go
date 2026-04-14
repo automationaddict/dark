@@ -13,6 +13,11 @@ import (
 // handler here, keeping the top-level switch compact.
 
 func (m Model) handleActionS() (tea.Model, tea.Cmd) {
+	if m.state.ActiveTab == core.TabF3 &&
+		m.state.ActiveOmarchySection().ID == "limine" &&
+		m.state.ActiveLimineSection().ID == "snapshots" {
+		return m, m.triggerLimineSync()
+	}
 	if m.inPrivacyContent() {
 		if cmd := m.triggerPrivacySSHToggle(); cmd != nil {
 			return m, cmd

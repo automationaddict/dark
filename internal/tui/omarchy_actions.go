@@ -32,6 +32,15 @@ func (m *Model) triggerOmarchyEnter() tea.Cmd {
 			return nil
 		}
 		return m.triggerKeybindEdit()
+	case "limine":
+		if !m.state.LimineContentFocused {
+			m.state.LimineContentFocused = true
+			return nil
+		}
+		switch m.state.ActiveLimineSection().ID {
+		case "boot", "sync", "omarchy":
+			return m.triggerLimineEditRow()
+		}
 	}
 	return nil
 }
@@ -49,6 +58,10 @@ func (m *Model) triggerOmarchyAdd() tea.Cmd {
 		}
 	case "keybindings":
 		return m.triggerKeybindAdd()
+	case "limine":
+		if m.state.ActiveLimineSection().ID == "snapshots" {
+			return m.triggerLimineCreate()
+		}
 	}
 	return nil
 }
@@ -83,6 +96,10 @@ func (m *Model) triggerOmarchyDelete() tea.Cmd {
 		}
 	case "keybindings":
 		return m.triggerKeybindRemove()
+	case "limine":
+		if m.state.ActiveLimineSection().ID == "snapshots" {
+			return m.triggerLimineDelete()
+		}
 	}
 	return nil
 }

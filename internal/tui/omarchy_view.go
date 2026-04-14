@@ -24,6 +24,8 @@ func renderOmarchyTab(s *core.State, width, height int) string {
 		content = renderLinksSection(s, contentWidth, height)
 	case "keybindings":
 		content = renderKeybindings(s, contentWidth, height)
+	case "limine":
+		content = renderLimineSection(s, contentWidth, height)
 	default:
 		content = renderContentPane(contentWidth, height,
 			placeholderStyle.Render("Not implemented yet."))

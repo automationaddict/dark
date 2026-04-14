@@ -15,6 +15,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/datetime"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	"github.com/johnnelson/dark/internal/services/keybind"
+	"github.com/johnnelson/dark/internal/services/limine"
 	"github.com/johnnelson/dark/internal/services/notifycfg"
 	"github.com/johnnelson/dark/internal/services/network"
 	"github.com/johnnelson/dark/internal/services/notify"
@@ -72,6 +73,7 @@ type Model struct {
 	notifier  *notify.Notifier
 	appstore  AppstoreActions
 	keybind   KeybindActions
+	limine    LimineActions
 	users     UsersActions
 	privacy    PrivacyActions
 	appearance AppearanceActions
@@ -324,6 +326,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.state.SetKeybindings(msg.Snapshot)
+		return m, nil
+
+	case LimineMsg:
+		m.state.SetLimine(limine.Snapshot(msg))
+		return m, nil
+
+	case LimineActionResultMsg:
+		m.state.LimineBusy = false
+		if msg.Err != "" {
+			slog.Warn("limine action failed", "error", msg.Err)
+			m.state.LimineActionError = msg.Err
+			m.notifyError("Limine", msg.Err)
+			return m, nil
+		}
+		m.state.LimineActionError = ""
+		m.state.SetLimine(msg.Snapshot)
 		return m, nil
 
 	case keybindConflictMsg:

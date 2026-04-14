@@ -203,4 +203,15 @@ const (
 
 	SubjectFirmwareSnapshot    = "dark.firmware.snapshot"
 	SubjectFirmwareSnapshotCmd = "dark.cmd.firmware.snapshot"
+
+	SubjectLimineSnapshot         = "dark.limine.snapshot"
+	SubjectLimineSnapshotCmd      = "dark.cmd.limine.snapshot"
+	SubjectLimineCreateCmd        = "dark.cmd.limine.create"
+	SubjectLimineDeleteCmd        = "dark.cmd.limine.delete"
+	SubjectLimineSyncCmd          = "dark.cmd.limine.sync"
+	SubjectLimineDefaultEntryCmd  = "dark.cmd.limine.default_entry"
+	SubjectLimineBootConfigCmd    = "dark.cmd.limine.boot_config"
+	SubjectLimineSyncConfigCmd    = "dark.cmd.limine.sync_config"
+	SubjectLimineOmarchyConfigCmd = "dark.cmd.limine.omarchy_config"
+	SubjectLimineKernelCmdlineCmd = "dark.cmd.limine.kernel_cmdline"
 )

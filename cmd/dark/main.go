@@ -21,6 +21,7 @@ import (
 	dtsvc "github.com/johnnelson/dark/internal/services/datetime"
 	inputsvc "github.com/johnnelson/dark/internal/services/input"
 	keybindsvc "github.com/johnnelson/dark/internal/services/keybind"
+	liminesvc "github.com/johnnelson/dark/internal/services/limine"
 	appearancesvc "github.com/johnnelson/dark/internal/services/appearance"
 	privacysvc "github.com/johnnelson/dark/internal/services/privacy"
 	userssvc "github.com/johnnelson/dark/internal/services/users"
@@ -142,6 +143,7 @@ func main() {
 	privacyActions := newPrivacyActions(nc)
 	appearanceActions := newAppearanceActions(nc)
 	updateActions := newUpdateActions(nc)
+	limineActions := newLimineActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -153,7 +155,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -425,6 +427,20 @@ func main() {
 	}
 	defer updateSub.Unsubscribe()
 
+	limineSub, err := nc.Subscribe(bus.SubjectLimineSnapshot, func(m *nats.Msg) {
+		var snap liminesvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Limine", err)
+			return
+		}
+		p.Send(tui.LimineMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe limine:", err)
+		os.Exit(1)
+	}
+	defer limineSub.Unsubscribe()
+
 	firmwareSub, err := nc.Subscribe(bus.SubjectFirmwareSnapshot, func(m *nats.Msg) {
 		var snap fwsvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
@@ -524,6 +540,12 @@ func main() {
 		var snap fwsvc.Snapshot
 		if err := json.Unmarshal(reply.Data, &snap); err == nil {
 			state.SetFirmware(snap)
+		}
+	}
+	if reply, err := nc.Request(bus.SubjectLimineSnapshotCmd, nil, core.TimeoutNormal); err == nil {
+		var snap liminesvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetLimine(snap)
 		}
 	}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/johnnelson/dark/internal/scripting"
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	fwsvc "github.com/johnnelson/dark/internal/services/firmware"
+	liminesvc "github.com/johnnelson/dark/internal/services/limine"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	displaysvc "github.com/johnnelson/dark/internal/services/display"
@@ -209,6 +210,15 @@ func main() {
 	}
 	publishFirmware := wireFirmware(nc, firmwareService, dn)
 
+	limineService, err := liminesvc.NewService()
+	if err != nil {
+		dn.Warn("Limine", fmt.Sprintf("%v — limine controls unavailable", err))
+	}
+	if limineService != nil {
+		defer limineService.Close()
+	}
+	publishLimine := wireLimine(nc, limineService, dn)
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
@@ -255,6 +265,7 @@ func main() {
 	publishAppearance()
 	publishUpdate()
 	publishFirmware()
+	publishLimine()
 
 	var seq uint64
 	for {
@@ -279,6 +290,7 @@ func main() {
 				publishAppearance()
 				publishUpdate()
 				publishFirmware()
+				publishLimine()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())

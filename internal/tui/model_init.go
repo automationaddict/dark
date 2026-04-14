@@ -9,7 +9,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/notify"
 )
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions, keybindAct KeybindActions, usersAct UsersActions, privacyAct PrivacyActions, appearanceAct AppearanceActions, updateAct UpdateActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions, keybindAct KeybindActions, usersAct UsersActions, privacyAct PrivacyActions, appearanceAct AppearanceActions, updateAct UpdateActions, limineAct LimineActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -27,6 +27,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		notifier:  notifier,
 		appstore:  appstore,
 		keybind:   keybindAct,
+		limine:    limineAct,
 		users:     usersAct,
 		privacy:    privacyAct,
 		appearance: appearanceAct,

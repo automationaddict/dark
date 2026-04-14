@@ -15,6 +15,7 @@ func OmarchySections() []OmarchySection {
 	return []OmarchySection{
 		{"links", "󰖟", "Links"},
 		{"keybindings", "󰌌", "Keybindings"},
+		{"limine", "󰋊", "Limine"},
 	}
 }
 
@@ -120,6 +121,8 @@ func (s *State) MoveOmarchyFocus(delta int) {
 		} else {
 			s.MoveKeybindFilter(delta)
 		}
+	case "limine":
+		s.moveLimineFocus(delta)
 	}
 }
 
