@@ -32,15 +32,16 @@ func ProfileDir() string {
 	if err != nil {
 		return ""
 	}
-	dir := filepath.Join(home, ".config", "dark", "display-profiles")
-	_ = os.MkdirAll(dir, 0755)
-	return dir
+	return filepath.Join(home, ".config", "dark", "display-profiles")
 }
 
 func SaveProfile(name string, snap Snapshot) error {
 	dir := ProfileDir()
 	if dir == "" {
 		return fmt.Errorf("cannot determine profile directory")
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create profile directory: %w", err)
 	}
 	var configs []MonitorConfig
 	for _, m := range snap.Monitors {
