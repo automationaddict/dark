@@ -15,6 +15,7 @@ import (
 	"github.com/johnnelson/dark/internal/help"
 	"github.com/johnnelson/dark/internal/lock"
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
+	screensaversvc "github.com/johnnelson/dark/internal/services/screensaver"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	displaysvc "github.com/johnnelson/dark/internal/services/display"
@@ -456,6 +457,20 @@ func main() {
 	}
 	defer firmwareSub.Unsubscribe()
 
+	screensaverSub, err := nc.Subscribe(bus.SubjectScreensaverSnapshot, func(m *nats.Msg) {
+		var snap screensaversvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Screensaver", err)
+			return
+		}
+		p.Send(tui.ScreensaverMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe screensaver:", err)
+		os.Exit(1)
+	}
+	defer screensaverSub.Unsubscribe()
+
 	// Request current snapshots up front so each tab has data on the
 	// first frame instead of waiting for the next periodic publish.
 	if reply, err := nc.Request(bus.SubjectSystemInfoCmd, nil, core.TimeoutFast); err == nil {
@@ -547,6 +562,12 @@ func main() {
 		var snap liminesvc.Snapshot
 		if err := json.Unmarshal(reply.Data, &snap); err == nil {
 			state.SetLimine(snap)
+		}
+	}
+	if reply, err := nc.Request(bus.SubjectScreensaverSnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap screensaversvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetScreensaver(snap)
 		}
 	}
 

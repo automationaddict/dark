@@ -21,6 +21,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/notify"
 	"github.com/johnnelson/dark/internal/services/power"
 	privacysvc "github.com/johnnelson/dark/internal/services/privacy"
+	"github.com/johnnelson/dark/internal/services/screensaver"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/firmware"
 	"github.com/johnnelson/dark/internal/services/links"
@@ -359,6 +360,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.LimineActionError = ""
 		m.state.SetLimine(msg.Snapshot)
+		return m, nil
+
+	case ScreensaverMsg:
+		m.state.SetScreensaver(screensaver.Snapshot(msg))
+		return m, nil
+
+	case ScreensaverActionResultMsg:
+		m.state.ScreensaverBusy = false
+		if msg.Action == "preview" {
+			m.state.ScreensaverPreviewing = false
+		}
+		if msg.Err != "" {
+			slog.Warn("screensaver action failed", "action", msg.Action, "error", msg.Err)
+			m.state.ScreensaverActionError = msg.Err
+			m.notifyError("Screensaver", msg.Err)
+			return m, nil
+		}
+		m.state.ScreensaverActionError = ""
+		m.state.SetScreensaver(msg.Snapshot)
 		return m, nil
 
 	case keybindConflictMsg:

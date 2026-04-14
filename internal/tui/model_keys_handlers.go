@@ -46,6 +46,9 @@ func (m Model) handleActionS() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionC() (tea.Model, tea.Cmd) {
+	if m.inScreensaverContent() {
+		return m, m.triggerScreensaverEditContent()
+	}
 	if m.inF2Updates() {
 		return m, m.triggerChannelChange()
 	}
@@ -178,6 +181,9 @@ func (m Model) handleActionA() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionE() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerScreensaverToggle(); cmd != nil {
+		return m, cmd
+	}
 	if m.inPrivacyContent() {
 		if cmd := m.triggerPrivacyDNSSECCycle(); cmd != nil {
 			return m, cmd
@@ -196,6 +202,9 @@ func (m Model) handleActionE() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionP() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerScreensaverPreview(); cmd != nil {
+		return m, cmd
+	}
 	if m.inUsersContent() {
 		if cmd := m.triggerUserPasswordChange(); cmd != nil {
 			return m, cmd
