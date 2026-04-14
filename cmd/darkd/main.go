@@ -34,6 +34,9 @@ type heartbeatMsg struct {
 
 func main() {
 	logging.Setup("darkd")
+	lock.LogWarn = func(op string, err error) {
+		slog.Warn("lock lifecycle", "op", op, "error", err)
+	}
 
 	lk, err := lock.Acquire("darkd")
 	if err != nil {

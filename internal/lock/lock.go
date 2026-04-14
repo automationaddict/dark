@@ -22,6 +22,12 @@ type Lock struct {
 	path string
 }
 
+// LogWarn is the sink for non-fatal lock lifecycle errors (PID-write
+// failures, cleanup problems on Release). The lock package intentionally
+// does not import slog; main.go wires its logger here on startup so the
+// package stays dependency-free. Default is a no-op.
+var LogWarn = func(op string, err error) {}
+
 // Acquire takes the named lock or returns an error describing who holds it.
 // Callers should treat any non-nil error from Acquire as "another instance
 // is running" and exit, since the only failure modes are filesystem errors
@@ -53,22 +59,37 @@ func Acquire(name string) (*Lock, error) {
 		return nil, fmt.Errorf("flock: %w", err)
 	}
 
-	if err := f.Truncate(0); err == nil {
-		_, _ = f.WriteString(strconv.Itoa(os.Getpid()) + "\n")
-		_ = f.Sync()
+	// The lock is held either way; PID-write failures only impact
+	// HolderPID() diagnostics, so we keep the lock and warn.
+	if err := f.Truncate(0); err != nil {
+		LogWarn("truncate-lockfile", err)
+	} else {
+		if _, err := f.WriteString(strconv.Itoa(os.Getpid()) + "\n"); err != nil {
+			LogWarn("write-pid", err)
+		} else if err := f.Sync(); err != nil {
+			LogWarn("sync-lockfile", err)
+		}
 	}
 
 	return &Lock{file: f, path: path}, nil
 }
 
 // Release unlocks the file and removes it. Safe to call multiple times.
+// The kernel drops the flock on process exit even if Release is never
+// called, so Release errors are only logged — they are never fatal.
 func (l *Lock) Release() {
 	if l == nil || l.file == nil {
 		return
 	}
-	_ = syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
-	_ = l.file.Close()
-	_ = os.Remove(l.path)
+	if err := syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN); err != nil {
+		LogWarn("unlock", err)
+	}
+	if err := l.file.Close(); err != nil {
+		LogWarn("close-lockfile", err)
+	}
+	if err := os.Remove(l.path); err != nil && !os.IsNotExist(err) {
+		LogWarn("remove-lockfile", err)
+	}
 	l.file = nil
 }
 
