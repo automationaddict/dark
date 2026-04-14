@@ -45,8 +45,12 @@ func (m *Model) inUsersContent() bool {
 		m.state.ActiveSection().ID == "users"
 }
 
+func (m *Model) inUsersDetails() bool {
+	return m.inUsersContent() && m.state.UsersContentFocused
+}
+
 func (m *Model) triggerUserAdd() {
-	if m.users.AddUser == nil || !m.inUsersContent() {
+	if m.users.AddUser == nil || !m.inUsersDetails() {
 		return
 	}
 	shells := m.state.Users.Shells
@@ -69,7 +73,7 @@ func (m *Model) triggerUserAdd() {
 }
 
 func (m *Model) triggerUserRemove() {
-	if m.users.RemoveUser == nil || !m.inUsersContent() {
+	if m.users.RemoveUser == nil || !m.inUsersDetails() {
 		return
 	}
 	u, ok := m.state.SelectedUser()
@@ -87,7 +91,7 @@ func (m *Model) triggerUserRemove() {
 }
 
 func (m *Model) triggerUserShellChange() {
-	if m.users.SetShell == nil || !m.inUsersContent() {
+	if m.users.SetShell == nil || !m.inUsersDetails() {
 		return
 	}
 	u, ok := m.state.SelectedUser()
@@ -109,7 +113,7 @@ func (m *Model) triggerUserShellChange() {
 }
 
 func (m *Model) triggerUserRename() {
-	if m.users.SetFullName == nil || !m.inUsersContent() {
+	if m.users.SetFullName == nil || !m.inUsersDetails() {
 		return
 	}
 	u, ok := m.state.SelectedUser()
@@ -127,7 +131,7 @@ func (m *Model) triggerUserRename() {
 }
 
 func (m *Model) triggerUserLockToggle() tea.Cmd {
-	if !m.inUsersContent() {
+	if !m.inUsersDetails() {
 		return nil
 	}
 	u, ok := m.state.SelectedUser()
@@ -147,7 +151,7 @@ func (m *Model) triggerUserLockToggle() tea.Cmd {
 }
 
 func (m *Model) triggerUserAdminToggle() tea.Cmd {
-	if m.users.ToggleAdmin == nil || !m.inUsersContent() {
+	if m.users.ToggleAdmin == nil || !m.inUsersDetails() {
 		return nil
 	}
 	u, ok := m.state.SelectedUser()
@@ -158,7 +162,7 @@ func (m *Model) triggerUserAdminToggle() tea.Cmd {
 }
 
 func (m *Model) triggerUserGroupAdd() {
-	if m.users.AddToGroup == nil || !m.inUsersContent() {
+	if m.users.AddToGroup == nil || !m.inUsersDetails() {
 		return
 	}
 	u, ok := m.state.SelectedUser()
@@ -179,7 +183,7 @@ func (m *Model) triggerUserGroupAdd() {
 }
 
 func (m *Model) triggerUserGroupRemove() {
-	if m.users.RemoveFromGroup == nil || !m.inUsersContent() {
+	if m.users.RemoveFromGroup == nil || !m.inUsersDetails() {
 		return
 	}
 	u, ok := m.state.SelectedUser()
@@ -200,7 +204,7 @@ func (m *Model) triggerUserGroupRemove() {
 }
 
 func (m *Model) triggerUserPasswordChange() tea.Cmd {
-	if m.users.SetPassword == nil || !m.inUsersContent() {
+	if m.users.SetPassword == nil || !m.inUsersDetails() {
 		return nil
 	}
 	u, ok := m.state.SelectedUser()

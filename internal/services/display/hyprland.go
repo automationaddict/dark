@@ -52,6 +52,7 @@ func (b *hyprlandBackend) Snapshot() Snapshot {
 	if profiles, err := ListProfiles(); err == nil {
 		snap.Profiles = profiles
 	}
+	snap.GPU = ReadGPUInfo()
 	return snap
 }
 

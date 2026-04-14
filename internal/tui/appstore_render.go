@@ -226,23 +226,24 @@ func appstoreActionHint(p appstore.Package, width int) string {
 // where a result came from and whether it's already installed.
 // Matches the badge style used on the search bar for consistency.
 func appstoreOriginBadge(p appstore.Package, width int) string {
-	var text string
-	var style lipgloss.Style
-	switch {
-	case p.Installed:
-		text = "installed"
-		style = lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
-	case p.Origin == appstore.OriginAUR:
-		text = "AUR"
-		style = lipgloss.NewStyle().Foreground(colorGold)
-	default:
-		text = p.Repo
-		if text == "" {
-			text = "pacman"
-		}
-		style = lipgloss.NewStyle().Foreground(colorDim)
+	repo := p.Repo
+	if repo == "" && p.Origin == appstore.OriginAUR {
+		repo = "AUR"
+	} else if repo == "" {
+		repo = "pacman"
 	}
-	return style.Render(fitWidth(text, width))
+
+	if p.Installed {
+		label := repo + " ✓"
+		style := lipgloss.NewStyle().Foreground(colorGreen).Bold(true)
+		return style.Render(fitWidth(label, width))
+	}
+	if p.Origin == appstore.OriginAUR {
+		style := lipgloss.NewStyle().Foreground(colorGold)
+		return style.Render(fitWidth(repo, width))
+	}
+	style := lipgloss.NewStyle().Foreground(colorDim)
+	return style.Render(fitWidth(repo, width))
 }
 
 // fitWidth pads or truncates s to exactly w display columns. Used for

@@ -29,6 +29,7 @@ type DisplayActions struct {
 	SaveProfile      func(name string) tea.Cmd
 	ApplyProfile     func(name string) tea.Cmd
 	DeleteProfile    func(name string) tea.Cmd
+	SetGPUMode       func(mode string) tea.Cmd
 }
 
 // DisplayMsg is dispatched whenever darkd publishes a display snapshot.
@@ -46,8 +47,12 @@ func (m *Model) inDisplayContent() bool {
 		m.state.ActiveSection().ID == "display"
 }
 
+func (m *Model) inDisplayDetails() bool {
+	return m.inDisplayContent() && m.state.DisplayContentFocused
+}
+
 func (m *Model) triggerDisplayDpmsToggle() tea.Cmd {
-	if m.display.SetDpms == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.SetDpms == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return nil
 	}
 	mon, ok := m.state.SelectedMonitor()
@@ -60,7 +65,7 @@ func (m *Model) triggerDisplayDpmsToggle() tea.Cmd {
 }
 
 func (m *Model) triggerDisplayCycleTransform() tea.Cmd {
-	if m.display.SetTransform == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.SetTransform == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return nil
 	}
 	mon, ok := m.state.SelectedMonitor()
@@ -82,7 +87,7 @@ func (m *Model) triggerDisplayScaleDown() tea.Cmd {
 }
 
 func (m *Model) triggerDisplayScaleDelta(delta float64) tea.Cmd {
-	if m.display.SetScale == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.SetScale == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return nil
 	}
 	mon, ok := m.state.SelectedMonitor()
@@ -102,7 +107,7 @@ func (m *Model) triggerDisplayScaleDelta(delta float64) tea.Cmd {
 }
 
 func (m *Model) triggerDisplayVrrToggle() tea.Cmd {
-	if m.display.SetVrr == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.SetVrr == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return nil
 	}
 	mon, ok := m.state.SelectedMonitor()
@@ -270,3 +275,25 @@ func (m *Model) triggerDisplayNightLightTempDialog() {
 	)
 }
 
+func (m *Model) triggerGPUModeToggle() tea.Cmd {
+	if m.display.SetGPUMode == nil || !m.inDisplayContent() {
+		return nil
+	}
+	gpu := m.state.Display.GPU
+	if !gpu.HybridSupported {
+		return nil
+	}
+	var newMode, prompt string
+	if gpu.Mode == "Integrated" {
+		newMode = "hybrid"
+		prompt = "Enable dedicated GPU and reboot?"
+	} else {
+		newMode = "integrated"
+		prompt = "Use only integrated GPU and reboot?"
+	}
+	displayRef := m.display
+	m.dialog = NewDialog(prompt, nil, func(_ DialogResult) tea.Cmd {
+		return displayRef.SetGPUMode(newMode)
+	})
+	return nil
+}

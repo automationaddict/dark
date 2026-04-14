@@ -15,6 +15,35 @@ func renderPrivacy(s *core.State, width, height int) string {
 			placeholderStyle.Render("loading privacy settings…"))
 	}
 
+	secs := core.PrivacySections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebar := renderInnerSidebar(s, entries, s.PrivacySectionIdx, height)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActivePrivacySection()
+	var content string
+	switch sec.ID {
+	case "screenlock":
+		content = renderPrivacyScreenLockSection(s, contentWidth, height)
+	case "network":
+		content = renderPrivacyNetworkSection(s, contentWidth, height)
+	case "data":
+		content = renderPrivacyDataSection(s, contentWidth, height)
+	case "location":
+		content = renderPrivacyLocationSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+// ── Screen Lock section ─────────────────────────────────────────────
+
+func renderPrivacyScreenLockSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
@@ -22,46 +51,115 @@ func renderPrivacy(s *core.State, width, height int) string {
 
 	var blocks []string
 	blocks = append(blocks, renderPrivacyIdle(s, innerWidth))
+	blocks = append(blocks, renderPrivacyScreenLockHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderPrivacyScreenLockHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("1")+" screensaver")
+	hints = append(hints, accent.Render("2")+" lock screen")
+	hints = append(hints, accent.Render("3")+" screen off")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Network section ─────────────────────────────────────────────────
+
+func renderPrivacyNetworkSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
 	blocks = append(blocks, renderPrivacyDNS(s, innerWidth))
 	blocks = append(blocks, renderPrivacyFirewall(s, innerWidth))
 	blocks = append(blocks, renderPrivacySSH(s, innerWidth))
-	blocks = append(blocks, renderPrivacyLocation(s, innerWidth))
 	blocks = append(blocks, renderPrivacyMAC(s, innerWidth))
+	blocks = append(blocks, renderPrivacyNetworkHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderPrivacyNetworkHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("t")+" DNS-over-TLS")
+	hints = append(hints, accent.Render("e")+" DNSSEC")
+	hints = append(hints, accent.Render("f")+" firewall")
+	hints = append(hints, accent.Render("s")+" SSH")
+	hints = append(hints, accent.Render("m")+" MAC random")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Data section ────────────────────────────────────────────────────
+
+func renderPrivacyDataSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
 	blocks = append(blocks, renderPrivacyFiles(s, innerWidth))
 	blocks = append(blocks, renderPrivacyIndexer(s, innerWidth))
 	blocks = append(blocks, renderPrivacyCoredump(s, innerWidth))
+	blocks = append(blocks, renderPrivacyDataHint())
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderScrollableContentPane(s, width, height, body)
+	return renderContentPane(width, height, body)
 }
+
+func renderPrivacyDataHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("x")+" clear recent")
+	hints = append(hints, accent.Render("i")+" indexer toggle")
+	hints = append(hints, accent.Render("o")+" coredump cycle")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Location section ────────────────────────────────────────────────
+
+func renderPrivacyLocationSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
+	blocks = append(blocks, renderPrivacyLocation(s, innerWidth))
+	blocks = append(blocks, renderPrivacyLocationHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderPrivacyLocationHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	return dim.Render("  " + accent.Render("l") + " toggle location")
+}
+
+// ── Shared rendering helpers ────────────────────────────────────────
 
 func renderPrivacyIdle(s *core.State, total int) string {
 	p := s.Privacy
 	lw := 20
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
-
-	ssLine := label.Render("Screensaver") + value.Render(formatIdleDuration(p.ScreensaverTimeout))
-	if s.ContentFocused {
-		ssLine += dim.Render("  (") + accent.Render("1") + dim.Render(" set)")
-	}
-	lines = append(lines, ssLine)
-
-	lockLine := label.Render("Lock Screen") + value.Render(formatIdleDuration(p.LockTimeout))
-	if s.ContentFocused {
-		lockLine += dim.Render("  (") + accent.Render("2") + dim.Render(" set)")
-	}
-	lines = append(lines, lockLine)
-
-	offLine := label.Render("Screen Off") + value.Render(formatIdleDuration(p.ScreenOffTimeout))
-	if s.ContentFocused {
-		offLine += dim.Render("  (") + accent.Render("3") + dim.Render(" set)")
-	}
-	lines = append(lines, offLine)
+	lines = append(lines, label.Render("Screensaver")+value.Render(formatIdleDuration(p.ScreensaverTimeout)))
+	lines = append(lines, label.Render("Lock Screen")+value.Render(formatIdleDuration(p.LockTimeout)))
+	lines = append(lines, label.Render("Screen Off")+value.Render(formatIdleDuration(p.ScreenOffTimeout)))
 
 	sleepStr := lipgloss.NewStyle().Foreground(colorGreen).Render("yes")
 	if !p.LockOnSleep {
@@ -77,8 +175,6 @@ func renderPrivacyDNS(s *core.State, total int) string {
 	lw := 20
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -92,12 +188,8 @@ func renderPrivacyDNS(s *core.State, total int) string {
 	} else if p.DNSOverTLS == "opportunistic" {
 		tlsColor = colorGold
 	}
-	tlsLine := label.Render("DNS-over-TLS") +
-		lipgloss.NewStyle().Foreground(tlsColor).Render(p.DNSOverTLS)
-	if s.ContentFocused {
-		tlsLine += dim.Render("  (") + accent.Render("t") + dim.Render(" cycle)")
-	}
-	lines = append(lines, tlsLine)
+	lines = append(lines, label.Render("DNS-over-TLS")+
+		lipgloss.NewStyle().Foreground(tlsColor).Render(p.DNSOverTLS))
 
 	secColor := colorRed
 	if p.DNSSEC == "yes" {
@@ -105,12 +197,8 @@ func renderPrivacyDNS(s *core.State, total int) string {
 	} else if p.DNSSEC == "allow-downgrade" {
 		secColor = colorGold
 	}
-	secLine := label.Render("DNSSEC") +
-		lipgloss.NewStyle().Foreground(secColor).Render(p.DNSSEC)
-	if s.ContentFocused {
-		secLine += dim.Render("  (") + accent.Render("e") + dim.Render(" cycle)")
-	}
-	lines = append(lines, secLine)
+	lines = append(lines, label.Render("DNSSEC")+
+		lipgloss.NewStyle().Foreground(secColor).Render(p.DNSSEC))
 
 	if p.DNSProtocols != "" {
 		lines = append(lines, label.Render("Protocols")+value.Render(p.DNSProtocols))
@@ -127,7 +215,6 @@ func renderPrivacyFirewall(s *core.State, total int) string {
 	lw := 20
 	label := detailLabelStyle.Width(lw)
 	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -138,11 +225,7 @@ func renderPrivacyFirewall(s *core.State, total int) string {
 		if !p.FirewallActive {
 			status = lipgloss.NewStyle().Foreground(colorRed).Render("inactive")
 		}
-		fwLine := label.Render("Status") + status
-		if s.ContentFocused {
-			fwLine += dim.Render("  (") + accent.Render("f") + dim.Render(" toggle)")
-		}
-		lines = append(lines, fwLine)
+		lines = append(lines, label.Render("Status")+status)
 
 		if p.FirewallActive && len(p.FirewallRules) > 0 {
 			lines = append(lines, label.Render("Rules")+
@@ -161,7 +244,6 @@ func renderPrivacySSH(s *core.State, total int) string {
 	lw := 20
 	label := detailLabelStyle.Width(lw)
 	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -172,11 +254,7 @@ func renderPrivacySSH(s *core.State, total int) string {
 		if !p.SSHActive {
 			status = lipgloss.NewStyle().Foreground(colorDim).Render("stopped")
 		}
-		sshLine := label.Render("SSH Server") + status
-		if s.ContentFocused {
-			sshLine += dim.Render("  (") + accent.Render("s") + dim.Render(" toggle)")
-		}
-		lines = append(lines, sshLine)
+		lines = append(lines, label.Render("SSH Server")+status)
 
 		enabledStr := "enabled"
 		if !p.SSHEnabled {
@@ -192,17 +270,10 @@ func renderPrivacyFiles(s *core.State, total int) string {
 	p := s.Privacy
 	lw := 20
 	label := detailLabelStyle.Width(lw)
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
-
 	countStr := fmt.Sprintf("%d entries", p.RecentFileCount)
-	fileLine := label.Render("Recent Files") + detailValueStyle.Render(countStr)
-	if s.ContentFocused && p.RecentFileCount > 0 {
-		fileLine += dim.Render("  (") + accent.Render("x") + dim.Render(" clear)")
-	}
-	lines = append(lines, fileLine)
+	lines = append(lines, label.Render("Recent Files")+detailValueStyle.Render(countStr))
 
 	return groupBoxSections("File History", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
@@ -212,7 +283,6 @@ func renderPrivacyLocation(s *core.State, total int) string {
 	lw := 20
 	label := detailLabelStyle.Width(lw)
 	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -223,11 +293,7 @@ func renderPrivacyLocation(s *core.State, total int) string {
 		if !p.LocationActive {
 			status = lipgloss.NewStyle().Foreground(colorDim).Render("disabled")
 		}
-		locLine := label.Render("Location") + status
-		if s.ContentFocused {
-			locLine += dim.Render("  (") + accent.Render("l") + dim.Render(" toggle)")
-		}
-		lines = append(lines, locLine)
+		lines = append(lines, label.Render("Location")+status)
 	}
 
 	return groupBoxSections("Location Services", []string{strings.Join(lines, "\n")}, total, colorBorder)
@@ -237,8 +303,6 @@ func renderPrivacyMAC(s *core.State, total int) string {
 	p := s.Privacy
 	lw := 20
 	label := detailLabelStyle.Width(lw)
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -249,12 +313,8 @@ func renderPrivacyMAC(s *core.State, total int) string {
 	case "network":
 		macColor = colorGreen
 	}
-	macLine := label.Render("MAC Randomization") +
-		lipgloss.NewStyle().Foreground(macColor).Render(p.MACRandomization)
-	if s.ContentFocused {
-		macLine += dim.Render("  (") + accent.Render("m") + dim.Render(" cycle)")
-	}
-	lines = append(lines, macLine)
+	lines = append(lines, label.Render("MAC Randomization")+
+		lipgloss.NewStyle().Foreground(macColor).Render(p.MACRandomization))
 
 	return groupBoxSections("WiFi Privacy", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
@@ -264,7 +324,6 @@ func renderPrivacyIndexer(s *core.State, total int) string {
 	lw := 20
 	label := detailLabelStyle.Width(lw)
 	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -275,11 +334,7 @@ func renderPrivacyIndexer(s *core.State, total int) string {
 		if !p.IndexerActive {
 			status = lipgloss.NewStyle().Foreground(colorDim).Render("stopped")
 		}
-		idxLine := label.Render("File Indexer") + status
-		if s.ContentFocused {
-			idxLine += dim.Render("  (") + accent.Render("i") + dim.Render(" toggle)")
-		}
-		lines = append(lines, idxLine)
+		lines = append(lines, label.Render("File Indexer")+status)
 	}
 
 	return groupBoxSections("File Indexing", []string{strings.Join(lines, "\n")}, total, colorBorder)
@@ -290,8 +345,6 @@ func renderPrivacyCoredump(s *core.State, total int) string {
 	lw := 20
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -301,12 +354,8 @@ func renderPrivacyCoredump(s *core.State, total int) string {
 	} else if p.CoredumpStorage == "external" {
 		storageColor = colorRed
 	}
-	cdLine := label.Render("Crash Dumps") +
-		lipgloss.NewStyle().Foreground(storageColor).Render(p.CoredumpStorage)
-	if s.ContentFocused {
-		cdLine += dim.Render("  (") + accent.Render("o") + dim.Render(" cycle)")
-	}
-	lines = append(lines, cdLine)
+	lines = append(lines, label.Render("Crash Dumps")+
+		lipgloss.NewStyle().Foreground(storageColor).Render(p.CoredumpStorage))
 
 	if p.JournalSize != "" {
 		lines = append(lines, label.Render("Journal Size")+value.Render(p.JournalSize))

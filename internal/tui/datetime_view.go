@@ -14,41 +14,119 @@ func renderDateTime(s *core.State, width, height int) string {
 			placeholderStyle.Render("loading date & time…"))
 	}
 
+	secs := core.DateTimeSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebar := renderInnerSidebar(s, entries, s.DateTimeSectionIdx, height)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActiveDateTimeSection()
+	var content string
+	switch sec.ID {
+	case "time":
+		content = renderDTTimeSection(s, contentWidth, height)
+	case "sync":
+		content = renderDTSyncSection(s, contentWidth, height)
+	case "hardware":
+		content = renderDTHardwareSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+// ── Time section ────────────────────────────────────────────────────
+
+func renderDTTimeSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
 	}
 
 	var blocks []string
-
 	blocks = append(blocks, renderDTCurrent(s, innerWidth))
 	blocks = append(blocks, renderDTTimezone(s, innerWidth))
-	blocks = append(blocks, renderDTNTP(s, innerWidth))
-	blocks = append(blocks, renderDTFormat(s, innerWidth))
-	blocks = append(blocks, renderDTHardware(s, innerWidth))
+	blocks = append(blocks, renderDTTimeHint(s))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderScrollableContentPane(s, width, height, body)
+	return renderContentPane(width, height, body)
 }
+
+func renderDTTimeHint(s *core.State) string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("z")+" timezone")
+	if !s.DateTime.NTPEnabled {
+		hints = append(hints, accent.Render("t")+" set time")
+	}
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Sync section ────────────────────────────────────────────────────
+
+func renderDTSyncSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
+	blocks = append(blocks, renderDTNTP(s, innerWidth))
+	blocks = append(blocks, renderDTFormat(s, innerWidth))
+	blocks = append(blocks, renderDTSyncHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderDTSyncHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("n")+" NTP toggle")
+	hints = append(hints, accent.Render("f")+" clock format")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Hardware section ────────────────────────────────────────────────
+
+func renderDTHardwareSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
+	blocks = append(blocks, renderDTHardware(s, innerWidth))
+	blocks = append(blocks, renderDTHardwareHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderDTHardwareHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	return dim.Render("  " + accent.Render("r") + " toggle UTC/Local")
+}
+
+// ── Shared rendering helpers ────────────────────────────────────────
 
 func renderDTCurrent(s *core.State, total int) string {
 	dt := s.DateTime
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 	lines = append(lines, label.Render("Local Time")+value.Render(dt.LocalTime))
 	lines = append(lines, label.Render("UTC Time")+value.Render(dt.UTCTime))
 	if dt.Uptime != "" {
 		lines = append(lines, label.Render("Uptime")+value.Render(dt.Uptime))
-	}
-
-	if s.ContentFocused && !dt.NTPEnabled {
-		timeLine := dim.Render("  (") + accent.Render("t") + dim.Render(" set time manually)")
-		lines = append(lines, timeLine)
 	}
 
 	return groupBoxSections("Current Time", []string{strings.Join(lines, "\n")}, total, colorBorder)
@@ -59,15 +137,10 @@ func renderDTTimezone(s *core.State, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
 	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
-	tzLine := label.Render("Timezone") + accent.Render(dt.Timezone)
-	if s.ContentFocused {
-		tzLine += dim.Render("  (") + accent.Render("z") + dim.Render(" change)")
-	}
-	lines = append(lines, tzLine)
+	lines = append(lines, label.Render("Timezone")+accent.Render(dt.Timezone))
 	lines = append(lines, label.Render("Abbreviation")+value.Render(dt.TZAbbrev))
 	lines = append(lines, label.Render("UTC Offset")+value.Render(dt.UTCOffset))
 
@@ -79,8 +152,6 @@ func renderDTNTP(s *core.State, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -88,11 +159,7 @@ func renderDTNTP(s *core.State, total int) string {
 	if !dt.NTPEnabled {
 		ntpStatus = lipgloss.NewStyle().Foreground(colorRed).Render("disabled")
 	}
-	ntpLine := label.Render("NTP Service") + ntpStatus
-	if s.ContentFocused && dt.CanNTP {
-		ntpLine += dim.Render("  (") + accent.Render("n") + dim.Render(" toggle)")
-	}
-	lines = append(lines, ntpLine)
+	lines = append(lines, label.Render("NTP Service")+ntpStatus)
 
 	syncStatus := lipgloss.NewStyle().Foreground(colorGreen).Render("synchronized")
 	if !dt.NTPSynced {
@@ -118,16 +185,10 @@ func renderDTFormat(s *core.State, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
 	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
-
-	formatLine := label.Render("Clock Format") + accent.Render(dt.ClockFormat)
-	if s.ContentFocused {
-		formatLine += dim.Render("  (") + accent.Render("f") + dim.Render(" toggle 12h/24h)")
-	}
-	lines = append(lines, formatLine)
+	lines = append(lines, label.Render("Clock Format")+accent.Render(dt.ClockFormat))
 
 	if dt.Locale != "" {
 		lines = append(lines, label.Render("Locale")+value.Render(dt.Locale))
@@ -141,8 +202,6 @@ func renderDTHardware(s *core.State, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -154,14 +213,10 @@ func renderDTHardware(s *core.State, total int) string {
 	if !dt.RTCInUTC {
 		rtcMode = "Local"
 	}
-	rtcLine := label.Render("RTC Mode") + value.Render(rtcMode)
-	if s.ContentFocused {
-		rtcLine += dim.Render("  (") + accent.Render("r") + dim.Render(" toggle UTC/Local)")
-	}
-	lines = append(lines, rtcLine)
+	lines = append(lines, label.Render("RTC Mode")+value.Render(rtcMode))
 
 	if len(lines) == 0 {
-		return ""
+		lines = append(lines, placeholderStyle.Render("No hardware clock information available."))
 	}
 	return groupBoxSections("Hardware Clock", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }

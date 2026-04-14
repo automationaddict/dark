@@ -77,6 +77,20 @@ func newAppearanceActions(nc *nats.Conn) tui.AppearanceActions {
 				})
 			}
 		},
+		SetFont: func(name string) tea.Cmd {
+			return func() tea.Msg {
+				return appearanceRequest(nc, bus.SubjectAppearanceFontCmd, map[string]any{
+					"font": name,
+				})
+			}
+		},
+		SetFontSize: func(val int) tea.Cmd {
+			return func() tea.Msg {
+				return appearanceRequest(nc, bus.SubjectAppearanceFontSizeCmd, map[string]any{
+					"value": val,
+				})
+			}
+		},
 	}
 }
 

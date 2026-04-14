@@ -139,50 +139,51 @@ func TestSelectedBluetoothDevice_Empty(t *testing.T) {
 
 // --- Audio state ---
 
-func TestCycleAudioFocus_SkipsEmpty(t *testing.T) {
+func TestSyncAudioFocus_FromSection(t *testing.T) {
 	s := NewState(TabSettings, "/bin/dark")
 	s.SetAudio(audio.Snapshot{
 		Sinks:   []audio.Device{{Name: "speakers"}},
-		Sources: []audio.Device{}, // empty — should be skipped
+		Sources: []audio.Device{{Name: "mic"}},
 	})
-	s.AudioFocus = AudioFocusSinks
 
-	s.CycleAudioFocus()
-	// Should skip sources (empty) and play/record apps (empty)
-	// and wrap back to sinks.
+	s.AudioSectionIdx = 0
+	s.SyncAudioFocus()
 	if s.AudioFocus != AudioFocusSinks {
-		t.Errorf("expected sinks (only non-empty), got %s", s.AudioFocus)
+		t.Errorf("section 0 should sync to sinks, got %s", s.AudioFocus)
+	}
+
+	s.AudioSectionIdx = 1
+	s.SyncAudioFocus()
+	if s.AudioFocus != AudioFocusSources {
+		t.Errorf("section 1 should sync to sources, got %s", s.AudioFocus)
 	}
 }
 
-func TestCycleAudioFocus_AllPresent(t *testing.T) {
+func TestMoveAudioSection_Wraps(t *testing.T) {
 	s := NewState(TabSettings, "/bin/dark")
-	s.SetAudio(audio.Snapshot{
-		Sinks:         []audio.Device{{Name: "out"}},
-		Sources:       []audio.Device{{Name: "in"}},
-		SinkInputs:    []audio.Stream{{Index: 1}},
-		SourceOutputs: []audio.Stream{{Index: 2}},
-	})
-	s.AudioFocus = AudioFocusSinks
+	s.AudioSectionIdx = 3
 
-	expected := []AudioFocus{AudioFocusSources, AudioFocusPlayApps, AudioFocusRecordApps, AudioFocusSinks}
-	for _, want := range expected {
-		s.CycleAudioFocus()
-		if s.AudioFocus != want {
-			t.Errorf("expected %s, got %s", want, s.AudioFocus)
-		}
+	s.MoveAudioSection(1)
+	if s.AudioSectionIdx != 0 {
+		t.Errorf("expected wrap to 0, got %d", s.AudioSectionIdx)
+	}
+
+	s.MoveAudioSection(-1)
+	if s.AudioSectionIdx != 3 {
+		t.Errorf("expected wrap to 3, got %d", s.AudioSectionIdx)
 	}
 }
 
-func TestSetAudio_FallsBackFromEmptyApps(t *testing.T) {
+func TestSetAudio_SyncsFocusFromSection(t *testing.T) {
 	s := NewState(TabSettings, "/bin/dark")
-	s.AudioFocus = AudioFocusPlayApps
+	s.AudioSectionIdx = 2 // play_apps
 	s.SetAudio(audio.Snapshot{
 		Sinks:      []audio.Device{{Name: "out"}},
-		SinkInputs: []audio.Stream{}, // was focused, now empty
+		SinkInputs: []audio.Stream{}, // empty — section stays, focus syncs
 	})
-	if s.AudioFocus != AudioFocusSinks {
-		t.Errorf("should fall back to sinks, got %s", s.AudioFocus)
+	// AudioFocus should match the section, not fall back.
+	if s.AudioFocus != AudioFocusPlayApps {
+		t.Errorf("focus should sync to play_apps from section, got %s", s.AudioFocus)
 	}
 }
 

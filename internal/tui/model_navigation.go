@@ -13,12 +13,16 @@ import (
 func (m *Model) moveSelection(delta int) {
 	switch m.state.ActiveTab {
 	case core.TabF2:
+		if m.state.F2OnUpdates() {
+			m.state.MoveUpdateSection(delta)
+			return
+		}
 		if m.state.ContentFocused && m.state.AppstoreDetailOpen {
 			m.state.ScrollAppstoreDetail(delta)
 		} else if m.state.ContentFocused {
 			m.state.MoveAppstoreResult(delta)
 		} else {
-			m.state.MoveAppstoreCategory(delta)
+			m.state.MoveF2Sidebar(delta)
 		}
 		return
 	case core.TabF3:
@@ -61,21 +65,52 @@ func (m *Model) moveSelection(delta int) {
 				m.state.MoveBluetoothSection(delta)
 			}
 		case "display":
-			m.state.MoveDisplaySelection(delta)
-		case "sound":
-			m.state.MoveAudioSelection(delta)
-		case "network":
-			if m.state.NetworkRoutesOpen {
-				m.state.MoveNetworkRouteSelection(delta)
+			if m.state.DisplayContentFocused {
+				m.state.MoveDisplaySelection(delta)
 			} else {
-				m.state.MoveNetworkSelection(delta)
+				m.state.MoveDisplaySection(delta)
+			}
+		case "sound":
+			if m.state.AudioContentFocused {
+				m.state.MoveAudioSelection(delta)
+			} else {
+				m.state.MoveAudioSection(delta)
+				m.state.SyncAudioFocus()
+			}
+		case "network":
+			if m.state.NetworkContentFocused {
+				if m.state.NetworkRoutesOpen {
+					m.state.MoveNetworkRouteSelection(delta)
+				} else {
+					sec := m.state.ActiveNetworkSection()
+					switch sec.ID {
+					case "interfaces":
+						m.state.MoveNetworkSelection(delta)
+					}
+				}
+			} else {
+				m.state.MoveNetworkSection(delta)
 			}
 		case "users":
-			m.state.MoveUsersIdx(delta)
+			if m.state.UsersContentFocused {
+				m.state.MoveUsersIdx(delta)
+			} else {
+				m.state.MoveUsersSection(delta)
+			}
 		case "power":
 			m.state.MovePowerSection(delta)
-		case "input", "notifications", "datetime", "privacy", "appearance":
-			m.state.ScrollContent(delta)
+		case "input":
+			m.state.MoveInputSection(delta)
+		case "appearance":
+			m.state.MoveAppearanceSection(delta)
+		case "notifications":
+			m.state.MoveNotifySection(delta)
+		case "privacy":
+			m.state.MovePrivacySection(delta)
+		case "datetime":
+			m.state.MoveDateTimeSection(delta)
+		case "about":
+			m.state.MoveAboutSection(delta)
 		}
 		return
 	}

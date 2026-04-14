@@ -55,12 +55,16 @@ func (m *Model) inSoundContent() bool {
 		m.state.ActiveSection().ID == "sound"
 }
 
+func (m *Model) inSoundDetails() bool {
+	return m.inSoundContent() && m.state.AudioContentFocused
+}
+
 // triggerAudioVolumeDelta adjusts the volume of the currently selected
 // row by delta percentage points (typically ±5). Routes to sink,
 // source, sink input, or source output based on which sub-table has
 // focus.
 func (m *Model) triggerAudioVolumeDelta(delta int) tea.Cmd {
-	if !m.inSoundContent() || m.state.AudioBusy {
+	if !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 
@@ -105,7 +109,7 @@ func (m *Model) triggerAudioVolumeDelta(delta int) tea.Cmd {
 }
 
 func (m *Model) triggerAudioBalanceDelta(delta int) tea.Cmd {
-	if !m.inSoundContent() || m.state.AudioBusy {
+	if !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 	dev, isSink, ok := m.state.SelectedAudioDevice()
@@ -146,7 +150,7 @@ func clampVolume(v int) int {
 // triggerAudioMuteToggle flips mute on the selected row, routing
 // through the stream path when focus is on an apps sub-table.
 func (m *Model) triggerAudioMuteToggle() tea.Cmd {
-	if !m.inSoundContent() || m.state.AudioBusy {
+	if !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 
@@ -195,7 +199,7 @@ func (m *Model) triggerAudioMuteToggle() tea.Cmd {
 // isn't card-backed (virtual sinks like null sinks have CardIndex
 // equal to PulseAudio's "undefined" sentinel).
 func (m *Model) triggerAudioCycleProfile() tea.Cmd {
-	if m.audio.SetCardProfile == nil || !m.inSoundContent() || m.state.AudioBusy {
+	if m.audio.SetCardProfile == nil || !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 	dev, _, ok := m.state.SelectedAudioDevice()
@@ -247,7 +251,7 @@ func nextAvailableProfile(card audio.Card) string {
 // selected sink/source. Like profile cycling, skips unavailable ports
 // (e.g. headphones jack with nothing plugged in).
 func (m *Model) triggerAudioCyclePort() tea.Cmd {
-	if !m.inSoundContent() || m.state.AudioBusy {
+	if !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 	dev, isSink, ok := m.state.SelectedAudioDevice()

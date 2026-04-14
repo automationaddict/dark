@@ -17,6 +17,8 @@ type AppearanceActions struct {
 	SetBlurSize func(val int) tea.Cmd
 	SetBlurPass func(val int) tea.Cmd
 	SetAnim     func(enabled bool) tea.Cmd
+	SetFont     func(name string) tea.Cmd
+	SetFontSize func(val int) tea.Cmd
 }
 
 type AppearanceMsg appearance.Snapshot
@@ -142,6 +144,46 @@ func (m *Model) triggerAppearanceBlurPasses(delta int) tea.Cmd {
 		val = 10
 	}
 	return m.appearance.SetBlurPass(val)
+}
+
+func (m *Model) triggerAppearanceFontDialog() {
+	if m.appearance.SetFont == nil || !m.inAppearanceContent() {
+		return
+	}
+	fonts := m.state.Appearance.Fonts
+	if len(fonts) == 0 {
+		return
+	}
+	current := m.state.Appearance.CurrentFont
+	actRef := m.appearance
+	m.dialog = NewDialog("Set Font", []DialogFieldSpec{
+		{Key: "font", Label: "Font", Kind: DialogFieldSelect, Options: fonts, Value: current},
+	}, func(result DialogResult) tea.Cmd {
+		name := result["font"]
+		if name == "" || name == current {
+			return nil
+		}
+		return actRef.SetFont(name)
+	})
+}
+
+func (m *Model) inAppearanceFonts() bool {
+	return m.inAppearanceContent() &&
+		m.state.ActiveAppearanceSection().ID == "fonts"
+}
+
+func (m *Model) triggerAppearanceFontSize(delta int) tea.Cmd {
+	if m.appearance.SetFontSize == nil || !m.inAppearanceFonts() {
+		return nil
+	}
+	val := m.state.Appearance.CurrentFontSize + delta
+	if val < 4 {
+		val = 4
+	}
+	if val > 72 {
+		val = 72
+	}
+	return m.appearance.SetFontSize(val)
 }
 
 func (m *Model) triggerAppearanceAnimToggle() tea.Cmd {

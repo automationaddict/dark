@@ -16,31 +16,183 @@ func renderAppearance(s *core.State, width, height int) string {
 			placeholderStyle.Render("loading appearance info…"))
 	}
 
+	secs := core.AppearanceSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebar := renderInnerSidebar(s, entries, s.AppearanceSectionIdx, height)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActiveAppearanceSection()
+	var content string
+	switch sec.ID {
+	case "theme":
+		content = renderAppearanceThemeSection(s, contentWidth, height)
+	case "fonts":
+		content = renderAppearanceFontsSection(s, contentWidth, height)
+	case "windows":
+		content = renderAppearanceWindowsSection(s, contentWidth, height)
+	case "effects":
+		content = renderAppearanceEffectsSection(s, contentWidth, height)
+	case "cursor":
+		content = renderAppearanceCursorSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+// ── Theme section ───────────────────────────────────────────────────
+
+func renderAppearanceThemeSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
 	}
 
 	var blocks []string
-
 	blocks = append(blocks, renderAppearanceTheme(s.Appearance, innerWidth))
 	blocks = append(blocks, renderAppearanceColors(s.Appearance, innerWidth))
-	blocks = append(blocks, renderAppearanceGeneral(s.Appearance, innerWidth))
-	blocks = append(blocks, renderAppearanceDecoration(s.Appearance, innerWidth))
-	blocks = append(blocks, renderAppearanceBlur(s.Appearance, innerWidth))
-	blocks = append(blocks, renderAppearanceShadow(s.Appearance, innerWidth))
-	blocks = append(blocks, renderAppearanceAnimations(s.Appearance, innerWidth))
-	blocks = append(blocks, renderAppearanceLayout(s.Appearance, innerWidth))
-	blocks = append(blocks, renderAppearanceCursor(s.Appearance, innerWidth))
-	blocks = append(blocks, renderAppearanceGroupbar(s.Appearance, innerWidth))
 
 	if bg := renderAppearanceBackgrounds(s.Appearance, innerWidth); bg != "" {
 		blocks = append(blocks, bg)
 	}
 
+	blocks = append(blocks, renderAppearanceThemeHint())
+
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderScrollableContentPane(s, width, height, body)
+	return renderContentPane(width, height, body)
 }
+
+func renderAppearanceThemeHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	return dim.Render("  " + accent.Render("t") + " change theme")
+}
+
+// ── Fonts section ──────────────────────────────────────────────────
+
+func renderAppearanceFontsSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+	a := s.Appearance
+	label := detailLabelStyle.Width(14)
+	value := detailValueStyle
+
+	current := a.CurrentFont
+	if current == "" {
+		current = "—"
+	}
+	sizeStr := "—"
+	if a.CurrentFontSize > 0 {
+		sizeStr = fmt.Sprintf("%dpt", a.CurrentFontSize)
+	}
+
+	focused := s.ContentFocused
+	borderColor := colorBorder
+	if focused {
+		borderColor = colorAccent
+	}
+
+	var lines []string
+	lines = append(lines, label.Render("Family")+value.Render(current))
+	lines = append(lines, label.Render("Size")+value.Render(sizeStr))
+	lines = append(lines, label.Render("Available")+
+		value.Render(fmt.Sprintf("%d monospace", len(a.Fonts))))
+
+	fontBox := groupBoxSections("Font", []string{
+		strings.Join(lines, "\n"),
+	}, innerWidth, borderColor)
+
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	hint := dim.Render("  " +
+		accent.Render("f") + " change font  " +
+		accent.Render("+/-") + " font size")
+
+	body := lipgloss.JoinVertical(lipgloss.Left, fontBox, "", hint)
+	return renderContentPane(width, height, body)
+}
+
+// ── Windows section ─────────────────────────────────────────────────
+
+func renderAppearanceWindowsSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
+	blocks = append(blocks, renderAppearanceGeneral(s.Appearance, innerWidth))
+	blocks = append(blocks, renderAppearanceDecoration(s.Appearance, innerWidth))
+	blocks = append(blocks, renderAppearanceLayout(s.Appearance, innerWidth))
+	blocks = append(blocks, renderAppearanceWindowsHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderAppearanceWindowsHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("i/I")+" gaps in")
+	hints = append(hints, accent.Render("o/O")+" gaps out")
+	hints = append(hints, accent.Render("b")+" border")
+	hints = append(hints, accent.Render("r/R")+" rounding")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Effects section ─────────────────────────────────────────────────
+
+func renderAppearanceEffectsSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
+	blocks = append(blocks, renderAppearanceBlur(s.Appearance, innerWidth))
+	blocks = append(blocks, renderAppearanceShadow(s.Appearance, innerWidth))
+	blocks = append(blocks, renderAppearanceAnimations(s.Appearance, innerWidth))
+	blocks = append(blocks, renderAppearanceEffectsHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderAppearanceEffectsHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("B")+" blur toggle")
+	hints = append(hints, accent.Render("z/Z")+" blur size")
+	hints = append(hints, accent.Render("x/X")+" blur passes")
+	hints = append(hints, accent.Render("A")+" animations toggle")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Cursor section ──────────────────────────────────────────────────
+
+func renderAppearanceCursorSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
+	blocks = append(blocks, renderAppearanceCursor(s.Appearance, innerWidth))
+	blocks = append(blocks, renderAppearanceGroupbar(s.Appearance, innerWidth))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+// ── Shared rendering helpers ────────────────────────────────────────
 
 func renderAppearanceTheme(a appearance.Snapshot, total int) string {
 	lw := 18
@@ -85,12 +237,7 @@ func renderAppearanceTheme(a appearance.Snapshot, total int) string {
 			value.Render(fmt.Sprintf("%d installed", len(a.Fonts))))
 	}
 
-	hint := lipgloss.NewStyle().Foreground(colorDim).Render("  t change theme")
-
-	return groupBoxSections("Theme", []string{
-		strings.Join(lines, "\n"),
-		hint,
-	}, total, colorBorder)
+	return groupBoxSections("Theme", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
 func renderAppearanceColors(a appearance.Snapshot, total int) string {
@@ -171,13 +318,7 @@ func renderAppearanceGeneral(a appearance.Snapshot, total int) string {
 	lines = append(lines, label.Render("Resize on Border")+
 		boolIndicator(g.ResizeOnBorder))
 
-	hint := lipgloss.NewStyle().Foreground(colorDim).
-		Render("  i/I gaps in · o/O gaps out · b border · r/R rounding")
-
-	return groupBoxSections("General", []string{
-		strings.Join(lines, "\n"),
-		hint,
-	}, total, colorBorder)
+	return groupBoxSections("General", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
 func renderAppearanceDecoration(a appearance.Snapshot, total int) string {
@@ -215,13 +356,7 @@ func renderAppearanceBlur(a appearance.Snapshot, total int) string {
 	lines = append(lines, label.Render("Contrast")+value.Render(fmt.Sprintf("%.2f", b.Contrast)))
 	lines = append(lines, label.Render("Special WS")+boolIndicator(b.Special))
 
-	hint := lipgloss.NewStyle().Foreground(colorDim).
-		Render("  B toggle blur · z/Z blur size · x/X passes")
-
-	return groupBoxSections("Blur", []string{
-		strings.Join(lines, "\n"),
-		hint,
-	}, total, colorBorder)
+	return groupBoxSections("Blur", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
 func renderAppearanceShadow(a appearance.Snapshot, total int) string {
@@ -271,12 +406,7 @@ func renderAppearanceAnimations(a appearance.Snapshot, total int) string {
 		lines = append(lines, strings.Join(ruleLines, "\n"))
 	}
 
-	hint := lipgloss.NewStyle().Foreground(colorDim).Render("  A toggle animations")
-
-	return groupBoxSections("Animations", []string{
-		strings.Join(lines, "\n"),
-		hint,
-	}, total, colorBorder)
+	return groupBoxSections("Animations", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
 func renderAppearanceLayout(a appearance.Snapshot, total int) string {

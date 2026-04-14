@@ -2,8 +2,7 @@ package core
 
 import (
 	"github.com/johnnelson/dark/internal/services/keybind"
-	"github.com/johnnelson/dark/internal/services/tuilink"
-	"github.com/johnnelson/dark/internal/services/weblink"
+	"github.com/johnnelson/dark/internal/services/links"
 )
 
 type OmarchySection struct {
@@ -14,25 +13,65 @@ type OmarchySection struct {
 
 func OmarchySections() []OmarchySection {
 	return []OmarchySection{
-		{"weblinks", "󰖟", "Web Links"},
-		{"tuilinks", "󰆍", "TUI Links"},
+		{"links", "󰖟", "Links"},
 		{"keybindings", "󰌌", "Keybindings"},
 	}
 }
 
-func (s *State) SetWebLinks(apps []weblink.WebApp) {
-	s.WebLinks = apps
-	s.WebLinksLoaded = true
-	if s.WebLinkIdx >= len(apps) {
-		s.WebLinkIdx = 0
+// LinksSection describes a sub-section inside the "Links" omarchy section.
+type LinksSection struct {
+	ID    string
+	Icon  string
+	Label string
+}
+
+func LinksSections() []LinksSection {
+	return []LinksSection{
+		{"weblinks", "󰖟", "Web Links"},
+		{"tuilinks", "󰆍", "TUI Links"},
+		{"helplinks", "󰋗", "Help Links"},
 	}
 }
 
-func (s *State) SetTUILinks(apps []tuilink.TUIApp) {
-	s.TUILinks = apps
-	s.TUILinksLoaded = true
-	if s.TUILinkIdx >= len(apps) {
+func (s *State) SelectedHelpLink() (links.HelpLink, bool) {
+	if len(s.HelpLinks) == 0 {
+		return links.HelpLink{}, false
+	}
+	if s.HelpLinkIdx >= len(s.HelpLinks) {
+		s.HelpLinkIdx = 0
+	}
+	return s.HelpLinks[s.HelpLinkIdx], true
+}
+
+func (s *State) ActiveLinksSection() LinksSection {
+	secs := LinksSections()
+	if s.OmarchyLinksIdx >= len(secs) {
+		return secs[0]
+	}
+	return secs[s.OmarchyLinksIdx]
+}
+
+func (s *State) MoveLinksSection(delta int) {
+	n := len(LinksSections())
+	if n == 0 {
+		return
+	}
+	s.OmarchyLinksIdx = (s.OmarchyLinksIdx + delta + n) % n
+}
+
+func (s *State) SetLinks(lf links.LinksFile) {
+	s.WebLinks = lf.WebLinks
+	s.TUILinks = lf.TUILinks
+	s.HelpLinks = lf.HelpLinks
+	s.LinksLoaded = true
+	if s.WebLinkIdx >= len(lf.WebLinks) {
+		s.WebLinkIdx = 0
+	}
+	if s.TUILinkIdx >= len(lf.TUILinks) {
 		s.TUILinkIdx = 0
+	}
+	if s.HelpLinkIdx >= len(lf.HelpLinks) {
+		s.HelpLinkIdx = 0
 	}
 }
 
@@ -46,18 +85,31 @@ func (s *State) MoveOmarchySidebar(delta int) {
 
 func (s *State) MoveOmarchyFocus(delta int) {
 	switch s.ActiveOmarchySection().ID {
-	case "weblinks":
-		n := len(s.WebLinks)
-		if n == 0 {
-			return
+	case "links":
+		if s.OmarchyLinksFocused {
+			switch s.ActiveLinksSection().ID {
+			case "weblinks":
+				n := len(s.WebLinks)
+				if n == 0 {
+					return
+				}
+				s.WebLinkIdx = (s.WebLinkIdx + delta + n) % n
+			case "tuilinks":
+				n := len(s.TUILinks)
+				if n == 0 {
+					return
+				}
+				s.TUILinkIdx = (s.TUILinkIdx + delta + n) % n
+			case "helplinks":
+				n := len(s.HelpLinks)
+				if n == 0 {
+					return
+				}
+				s.HelpLinkIdx = (s.HelpLinkIdx + delta + n) % n
+			}
+		} else {
+			s.MoveLinksSection(delta)
 		}
-		s.WebLinkIdx = (s.WebLinkIdx + delta + n) % n
-	case "tuilinks":
-		n := len(s.TUILinks)
-		if n == 0 {
-			return
-		}
-		s.TUILinkIdx = (s.TUILinkIdx + delta + n) % n
 	case "keybindings":
 		if s.KeybindTableFocused {
 			n := len(s.FilteredKeybindings())
@@ -79,9 +131,9 @@ func (s *State) ActiveOmarchySection() OmarchySection {
 	return secs[s.OmarchySidebarIdx]
 }
 
-func (s *State) SelectedWebLink() (weblink.WebApp, bool) {
+func (s *State) SelectedWebLink() (links.WebLink, bool) {
 	if len(s.WebLinks) == 0 {
-		return weblink.WebApp{}, false
+		return links.WebLink{}, false
 	}
 	if s.WebLinkIdx >= len(s.WebLinks) {
 		s.WebLinkIdx = 0
@@ -89,9 +141,9 @@ func (s *State) SelectedWebLink() (weblink.WebApp, bool) {
 	return s.WebLinks[s.WebLinkIdx], true
 }
 
-func (s *State) SelectedTUILink() (tuilink.TUIApp, bool) {
+func (s *State) SelectedTUILink() (links.TUILink, bool) {
 	if len(s.TUILinks) == 0 {
-		return tuilink.TUIApp{}, false
+		return links.TUILink{}, false
 	}
 	if s.TUILinkIdx >= len(s.TUILinks) {
 		s.TUILinkIdx = 0

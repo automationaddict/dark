@@ -19,9 +19,10 @@ import (
 	"github.com/johnnelson/dark/internal/services/power"
 	privacysvc "github.com/johnnelson/dark/internal/services/privacy"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
-	"github.com/johnnelson/dark/internal/services/tuilink"
+	"github.com/johnnelson/dark/internal/services/firmware"
+	"github.com/johnnelson/dark/internal/services/links"
+	"github.com/johnnelson/dark/internal/services/update"
 	userssvc "github.com/johnnelson/dark/internal/services/users"
-	"github.com/johnnelson/dark/internal/services/weblink"
 	"github.com/johnnelson/dark/internal/services/wifi"
 )
 
@@ -72,6 +73,7 @@ type Model struct {
 	users     UsersActions
 	privacy    PrivacyActions
 	appearance AppearanceActions
+	update     UpdateActions
 	dialog     *Dialog
 	spinner    spinner.Model
 	width     int
@@ -87,11 +89,8 @@ type SysInfoMsg sysinfo.SystemInfo
 // WifiMsg is dispatched whenever darkd publishes a wifi adapter snapshot.
 type WifiMsg wifi.Snapshot
 
-// WebLinksMsg carries the list of installed web apps, loaded from .desktop files.
-type WebLinksMsg []weblink.WebApp
-
-// TUILinksMsg carries the list of installed TUI apps, loaded from .desktop files.
-type TUILinksMsg []tuilink.TUIApp
+// LinksMsg carries all links loaded from the YAML config file.
+type LinksMsg links.LinksFile
 
 // BusStatusMsg flips the connected/disconnected indicator. Sent from the
 // NATS connection handlers when the link to darkd goes down or comes back.
@@ -113,12 +112,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.SetSysInfo(sysinfo.SystemInfo(msg))
 		return m, nil
 
-	case WebLinksMsg:
-		m.state.SetWebLinks([]weblink.WebApp(msg))
-		return m, nil
-
-	case TUILinksMsg:
-		m.state.SetTUILinks([]tuilink.TUIApp(msg))
+	case LinksMsg:
+		m.state.SetLinks(links.LinksFile(msg))
 		return m, nil
 
 	case WifiMsg:
@@ -355,6 +350,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.state.SetAppearance(msg.Snapshot)
+		return m, nil
+
+	case FirmwareMsg:
+		m.state.SetFirmware(firmware.Snapshot(msg))
+		return m, nil
+
+	case UpdateMsg:
+		m.state.SetUpdate(update.Snapshot(msg))
+		return m, nil
+
+	case UpdateChannelResultMsg:
+		if msg.Err != "" {
+			m.notifyError("Updates", msg.Err)
+			return m, nil
+		}
+		m.state.SetUpdate(msg.Snapshot)
+		return m, nil
+
+	case UpdateRunResultMsg:
+		if msg.Err != "" {
+			m.state.UpdateBusy = false
+			m.state.UpdateStatusMsg = msg.Err
+			m.notifyError("Updates", msg.Err)
+			return m, nil
+		}
+		m.state.SetUpdateResult(msg.Result)
+		m.state.SetUpdate(msg.Snapshot)
 		return m, nil
 
 	case BusStatusMsg:

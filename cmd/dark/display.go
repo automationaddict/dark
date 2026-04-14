@@ -124,6 +124,13 @@ func newDisplayActions(nc *nats.Conn) tui.DisplayActions {
 				})
 			}
 		},
+		SetGPUMode: func(mode string) tea.Cmd {
+			return func() tea.Msg {
+				return displayRequest(nc, bus.SubjectDisplayGPUModeCmd, map[string]any{
+					"gpu_mode": mode,
+				})
+			}
+		},
 	}
 }
 

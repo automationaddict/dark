@@ -9,7 +9,7 @@ import (
 )
 
 func (m *Model) triggerDisplayToggleEnabled() tea.Cmd {
-	if m.display.ToggleEnabled == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.ToggleEnabled == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return nil
 	}
 	mon, ok := m.state.SelectedMonitor()
@@ -51,7 +51,7 @@ func (m *Model) triggerDisplayToggleEnabled() tea.Cmd {
 // triggerDisplayModeDialog pops a scrollable list of available modes
 // for the selected monitor. The current mode is pre-selected.
 func (m *Model) triggerDisplayModeDialog() {
-	if m.display.SetResolution == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.SetResolution == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return
 	}
 	mon, ok := m.state.SelectedMonitor()
@@ -91,7 +91,7 @@ func (m *Model) triggerDisplayModeDialog() {
 
 // triggerDisplayPositionDialog pops a dialog to set monitor position.
 func (m *Model) triggerDisplayPositionDialog() {
-	if m.display.SetPosition == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.SetPosition == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return
 	}
 	mon, ok := m.state.SelectedMonitor()
@@ -125,7 +125,7 @@ func (m *Model) triggerDisplayPositionDialog() {
 // triggerDisplayMirrorDialog pops a dialog to set which monitor to
 // mirror (or clear mirroring).
 func (m *Model) triggerDisplayMirrorDialog() {
-	if m.display.SetMirror == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.SetMirror == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return
 	}
 	mon, ok := m.state.SelectedMonitor()

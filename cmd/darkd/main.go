@@ -17,6 +17,7 @@ import (
 	"github.com/johnnelson/dark/internal/logging"
 	"github.com/johnnelson/dark/internal/scripting"
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
+	fwsvc "github.com/johnnelson/dark/internal/services/firmware"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	displaysvc "github.com/johnnelson/dark/internal/services/display"
@@ -194,6 +195,16 @@ func main() {
 	publishUsers := wireUsers(nc, dn)
 	publishPrivacy := wirePrivacy(nc, dn)
 	publishAppearance := wireAppearance(nc, dn)
+	publishUpdate := wireUpdate(nc, dn)
+
+	firmwareService, err := fwsvc.NewService()
+	if err != nil {
+		dn.Warn("Firmware", fmt.Sprintf("%v — firmware controls unavailable", err))
+	}
+	if firmwareService != nil {
+		defer firmwareService.Close()
+	}
+	publishFirmware := wireFirmware(nc, firmwareService, dn)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -239,6 +250,8 @@ func main() {
 	publishUsers()
 	publishPrivacy()
 	publishAppearance()
+	publishUpdate()
+	publishFirmware()
 
 	var seq uint64
 	for {
@@ -261,6 +274,8 @@ func main() {
 				publishUsers()
 				publishPrivacy()
 				publishAppearance()
+				publishUpdate()
+				publishFirmware()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())
@@ -275,7 +290,7 @@ func main() {
 			data, _ := json.Marshal(heartbeatMsg{
 				Time:    t,
 				Seq:     seq,
-				Version: "0.1.0-dev",
+				Version: sysinfo.DarkVersion,
 			})
 			_ = nc.Publish(bus.SubjectDaemonHeartbeat, data)
 		case <-sysTick.C:

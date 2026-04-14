@@ -15,7 +15,7 @@ var scalePresets = []string{
 }
 
 func (m *Model) triggerDisplayScaleDialog() {
-	if m.display.SetScale == nil || !m.inDisplayContent() || m.state.DisplayBusy {
+	if m.display.SetScale == nil || !m.inDisplayDetails() || m.state.DisplayBusy {
 		return
 	}
 	mon, ok := m.state.SelectedMonitor()

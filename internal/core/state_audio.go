@@ -21,9 +21,7 @@ const (
 func (s *State) SetAudio(snap audio.Snapshot) {
 	s.Audio = snap
 	s.AudioLoaded = true
-	if s.AudioFocus == "" {
-		s.AudioFocus = AudioFocusSinks
-	}
+	s.SyncAudioFocus()
 	if s.AudioSinkIdx >= len(snap.Sinks) {
 		s.AudioSinkIdx = 0
 	}
@@ -35,18 +33,6 @@ func (s *State) SetAudio(snap audio.Snapshot) {
 	}
 	if s.AudioRecordAppIdx >= len(snap.SourceOutputs) {
 		s.AudioRecordAppIdx = 0
-	}
-	// If the user was focused on an apps sub-table that just emptied
-	// out, fall back to Sinks so j/k still does something useful.
-	switch s.AudioFocus {
-	case AudioFocusPlayApps:
-		if len(snap.SinkInputs) == 0 {
-			s.AudioFocus = AudioFocusSinks
-		}
-	case AudioFocusRecordApps:
-		if len(snap.SourceOutputs) == 0 {
-			s.AudioFocus = AudioFocusSinks
-		}
 	}
 }
 
@@ -76,39 +62,22 @@ func (s *State) SourceLevel(index uint32) [2]float32 {
 	return s.AudioLevels.Sources[index]
 }
 
-// CycleAudioFocus advances through the four sub-tables in order,
-// skipping any that are currently empty so the user doesn't waste
-// keystrokes landing on a dead list.
-func (s *State) CycleAudioFocus() {
-	order := []AudioFocus{AudioFocusSinks, AudioFocusSources, AudioFocusPlayApps, AudioFocusRecordApps}
-	current := -1
-	for i, f := range order {
-		if f == s.AudioFocus {
-			current = i
-			break
-		}
+// syncAudioFocus keeps AudioFocus in sync with AudioSectionIdx so
+// existing action triggers that check AudioFocus still work.
+func (s *State) SyncAudioFocus() {
+	sec := s.ActiveAudioSection()
+	switch sec.ID {
+	case "sinks":
+		s.AudioFocus = AudioFocusSinks
+	case "sources":
+		s.AudioFocus = AudioFocusSources
+	case "play_apps":
+		s.AudioFocus = AudioFocusPlayApps
+	case "record_apps":
+		s.AudioFocus = AudioFocusRecordApps
+	default:
+		s.AudioFocus = AudioFocusSinks
 	}
-	for i := 1; i <= len(order); i++ {
-		next := order[(current+i)%len(order)]
-		if s.audioFocusHasContent(next) {
-			s.AudioFocus = next
-			return
-		}
-	}
-}
-
-func (s *State) audioFocusHasContent(f AudioFocus) bool {
-	switch f {
-	case AudioFocusSinks:
-		return len(s.Audio.Sinks) > 0
-	case AudioFocusSources:
-		return len(s.Audio.Sources) > 0
-	case AudioFocusPlayApps:
-		return len(s.Audio.SinkInputs) > 0
-	case AudioFocusRecordApps:
-		return len(s.Audio.SourceOutputs) > 0
-	}
-	return false
 }
 
 // MoveAudioSelection walks the selection within the focused sub-table.

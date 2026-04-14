@@ -39,6 +39,10 @@ func (m *Model) inNetworkContent() bool {
 		m.state.ActiveSection().ID == "network"
 }
 
+func (m *Model) inNetworkDetails() bool {
+	return m.inNetworkContent() && m.state.NetworkContentFocused
+}
+
 // triggerNetworkReconfigure asks the active backend to reapply the
 // current configuration to the highlighted interface. The "kick this
 // thing" verb that triggers a DHCP refresh on systemd-networkd and a
@@ -53,7 +57,7 @@ func (m *Model) triggerNetworkAirplaneToggle() tea.Cmd {
 }
 
 func (m *Model) triggerNetworkReconfigure() tea.Cmd {
-	if m.network.Reconfigure == nil || !m.inNetworkContent() || m.state.NetworkBusy {
+	if m.network.Reconfigure == nil || !m.inNetworkDetails() || m.state.NetworkBusy {
 		return nil
 	}
 	iface, ok := m.state.SelectedNetworkInterface()
@@ -71,7 +75,7 @@ func (m *Model) triggerNetworkReconfigure() tea.Cmd {
 // path. Surfaces a polkit dialog because the underlying file
 // write happens via the privileged helper on systemd-networkd.
 func (m *Model) triggerNetworkUseDHCP() tea.Cmd {
-	if m.network.ConfigureIPv4 == nil || !m.inNetworkContent() || m.state.NetworkBusy {
+	if m.network.ConfigureIPv4 == nil || !m.inNetworkDetails() || m.state.NetworkBusy {
 		return nil
 	}
 	iface, ok := m.state.SelectedNetworkInterface()
@@ -97,7 +101,7 @@ func (m *Model) triggerNetworkUseDHCP() tea.Cmd {
 // routes are preserved through the round trip because we copy them
 // from iface.Managed into the new IPv4Config.
 func (m *Model) triggerNetworkEditStatic() tea.Cmd {
-	if m.network.ConfigureIPv4 == nil || !m.inNetworkContent() || m.state.NetworkBusy {
+	if m.network.ConfigureIPv4 == nil || !m.inNetworkDetails() || m.state.NetworkBusy {
 		return nil
 	}
 	iface, ok := m.state.SelectedNetworkInterface()
@@ -321,7 +325,7 @@ func (m *Model) triggerNetworkRouteDelete() tea.Cmd {
 // but the helper still goes through pkexec so the user gets a polkit
 // prompt before the file is deleted.
 func (m *Model) triggerNetworkReset() tea.Cmd {
-	if m.network.ResetInterface == nil || !m.inNetworkContent() || m.state.NetworkBusy {
+	if m.network.ResetInterface == nil || !m.inNetworkDetails() || m.state.NetworkBusy {
 		return nil
 	}
 	iface, ok := m.state.SelectedNetworkInterface()

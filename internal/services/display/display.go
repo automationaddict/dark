@@ -106,6 +106,14 @@ type Snapshot struct {
 	NightLightTemp   int       `json:"night_light_temp"`
 	NightLightGamma  int       `json:"night_light_gamma"`
 	Profiles         []string  `json:"profiles,omitempty"`
+	GPU              GPUInfo   `json:"gpu"`
+}
+
+// GPUInfo holds hybrid GPU state.
+type GPUInfo struct {
+	HybridSupported bool   `json:"hybrid_supported"` // multiple GPUs detected
+	Mode            string `json:"mode"`              // "Hybrid", "Integrated", or ""
+	GPUs            []string `json:"gpus"`             // detected GPU names
 }
 
 // Service owns the chosen Backend and is the single entry point the

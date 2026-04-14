@@ -4,9 +4,10 @@ import (
 	"github.com/johnnelson/dark/internal/help"
 	"github.com/johnnelson/dark/internal/services/appearance"
 	"github.com/johnnelson/dark/internal/services/appstore"
+	"github.com/johnnelson/dark/internal/services/firmware"
 	"github.com/johnnelson/dark/internal/services/keybind"
-	"github.com/johnnelson/dark/internal/services/tuilink"
-	"github.com/johnnelson/dark/internal/services/weblink"
+	"github.com/johnnelson/dark/internal/services/links"
+	"github.com/johnnelson/dark/internal/services/update"
 	"github.com/johnnelson/dark/internal/services/audio"
 	"github.com/johnnelson/dark/internal/services/bluetooth"
 	"github.com/johnnelson/dark/internal/services/display"
@@ -54,6 +55,7 @@ type State struct {
 	BusConnected     bool
 	SysInfo          sysinfo.SystemInfo
 	SysInfoLoaded    bool
+	AboutSectionIdx  int
 	Wifi                wifi.Snapshot
 	WifiLoaded          bool
 	WifiSelected        int
@@ -85,27 +87,33 @@ type State struct {
 	Network              network.Snapshot
 	NetworkLoaded        bool
 	NetworkSelected      int
+	NetworkSectionIdx    int
+	NetworkContentFocused bool
 	NetworkRoutesOpen    bool
 	NetworkRouteSelected int
 	NetworkBusy          bool
 	NetworkActionError   string
 
-	Display              display.Snapshot
-	DisplayLoaded        bool
-	DisplayMonitorIdx    int
-	DisplayFocus         DisplayFocus
-	DisplayInfoOpen      bool
-	DisplayLayoutOpen    bool
-	DisplayBusy          bool
-	DisplayActionError   string
-	NightLightActive     bool
-	NightLightTemp       int
-	NightLightGamma      int
+	Display               display.Snapshot
+	DisplayLoaded         bool
+	DisplayMonitorIdx     int
+	DisplaySectionIdx     int
+	DisplayContentFocused bool
+	DisplayFocus          DisplayFocus
+	DisplayInfoOpen       bool
+	DisplayLayoutOpen     bool
+	DisplayBusy           bool
+	DisplayActionError    string
+	NightLightActive      bool
+	NightLightTemp        int
+	NightLightGamma       int
 
 	Audio                 audio.Snapshot
 	AudioLoaded           bool
 	AudioLevels           audio.Levels
 	AudioFocus            AudioFocus
+	AudioSectionIdx       int
+	AudioContentFocused   bool
 	AudioSinkIdx          int
 	AudioSourceIdx        int
 	AudioPlayAppIdx       int
@@ -121,23 +129,31 @@ type State struct {
 
 	InputDevices       inputsvc.Snapshot
 	InputDevicesLoaded bool
+	InputSectionIdx    int
 
-	Notify       notifycfg.Snapshot
-	NotifyLoaded bool
+	Notify           notifycfg.Snapshot
+	NotifyLoaded     bool
+	NotifySectionIdx int
 
-	DateTime       datetime.Snapshot
-	DateTimeLoaded bool
+	DateTime          datetime.Snapshot
+	DateTimeLoaded    bool
+	DateTimeSectionIdx int
 
-	Privacy       privacy.Snapshot
-	PrivacyLoaded bool
+	Privacy          privacy.Snapshot
+	PrivacyLoaded    bool
+	PrivacySectionIdx int
 
-	Users       users.Snapshot
-	UsersLoaded bool
-	UsersIdx    int
+	Users              users.Snapshot
+	UsersLoaded        bool
+	UsersIdx           int
+	UsersSectionIdx    int
+	UsersContentFocused bool
 
-	Appearance       appearance.Snapshot
-	AppearanceLoaded bool
+	Appearance          appearance.Snapshot
+	AppearanceLoaded    bool
+	AppearanceSectionIdx int
 
+	F2SidebarIdx          int
 	Appstore              appstore.Snapshot
 	AppstoreLoaded        bool
 	AppstoreCategoryIdx   int
@@ -157,18 +173,32 @@ type State struct {
 	AppstoreBusy          bool
 	AppstoreIncludeAUR    bool
 
-	WebLinks          []weblink.WebApp
-	WebLinksLoaded    bool
+	Update              update.Snapshot
+	UpdateLoaded        bool
+	UpdateBusy          bool
+	UpdateResult        *update.RunResult
+	UpdateStatusMsg     string
+	UpdateSectionIdx    int
+
+	Firmware            firmware.Snapshot
+	FirmwareLoaded      bool
+	FirmwareDeviceIdx   int
+
+	WebLinks          []links.WebLink
+	TUILinks          []links.TUILink
+	HelpLinks         []links.HelpLink
+	LinksLoaded       bool
 	WebLinkIdx        int
-	TUILinks          []tuilink.TUIApp
-	TUILinksLoaded    bool
 	TUILinkIdx        int
+	HelpLinkIdx       int
 	Keybindings       keybind.Snapshot
 	KeybindingsLoaded bool
 	KeybindIdx          int
 	KeybindFilter       int // 0=All, 1=Default, 2=User
 	KeybindTableFocused bool
-	OmarchySidebarIdx int
+	OmarchySidebarIdx    int
+	OmarchyLinksIdx      int
+	OmarchyLinksFocused  bool
 
 	ContentFocused bool
 

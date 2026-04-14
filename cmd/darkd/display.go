@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -30,6 +32,7 @@ type displayActionRequest struct {
 	Temperature int     `json:"temperature,omitempty"`
 	Gamma       int     `json:"gamma,omitempty"`
 	Profile     string  `json:"profile,omitempty"`
+	GPUMode     string  `json:"gpu_mode,omitempty"`
 }
 
 type displayActionResponse struct {
@@ -87,6 +90,32 @@ func wireDisplay(nc *nats.Conn, svc *displaysvc.Service, dn *daemonNotifier) fun
 	register(bus.SubjectDisplaySaveProfileCmd, handleDisplaySaveProfile)
 	register(bus.SubjectDisplayApplyProfileCmd, handleDisplayApplyProfile)
 	register(bus.SubjectDisplayDeleteProfileCmd, handleDisplayDeleteProfile)
+
+	// GPU mode toggle uses dark-helper for privileged config changes.
+	helperPath := findHelperPath()
+	if _, err := nc.Subscribe(bus.SubjectDisplayGPUModeCmd, func(m *nats.Msg) {
+		var req displayActionRequest
+		if err := json.Unmarshal(m.Data, &req); err != nil {
+			resp := displayActionResponse{Error: "malformed request"}
+			data, _ := json.Marshal(resp)
+			_ = m.Respond(data)
+			return
+		}
+		var resp displayActionResponse
+		cmd := exec.Command("pkexec", helperPath, "gpu-hybrid", req.GPUMode)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			resp.Error = strings.TrimSpace(string(out))
+			if resp.Error == "" {
+				resp.Error = err.Error()
+			}
+		}
+		resp.Snapshot = svc.Snapshot()
+		data, _ := json.Marshal(resp)
+		_ = m.Respond(data)
+	}); err != nil {
+		slog.Error("subscribe failed", "subject", bus.SubjectDisplayGPUModeCmd, "error", err)
+		os.Exit(1)
+	}
 
 	if _, err := nc.Subscribe(bus.SubjectDisplayIdentifyCmd, func(m *nats.Msg) {
 		var resp displayActionResponse

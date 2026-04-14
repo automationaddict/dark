@@ -19,9 +19,10 @@ func renderSettings(s *core.State, width, height int) string {
 // sections) and F2 (appstore categories) use this so the sidebar
 // rendering code is shared — same styles, same width, same function.
 type sidebarEntry struct {
-	Icon    string
-	Label   string
-	Enabled bool
+	Icon      string
+	Label     string
+	Enabled   bool
+	Separator bool // render a divider line above this entry
 }
 
 // renderSidebarGeneric renders a sidebar from a list of entries with
@@ -36,6 +37,11 @@ func renderSidebarGeneric(s *core.State, entries []sidebarEntry, selected int, h
 
 	var rows []string
 	for i, e := range entries {
+		if e.Separator {
+			sep := lipgloss.NewStyle().Foreground(colorBorder).
+				Width(itemWidth).Render(strings.Repeat("─", itemWidth))
+			rows = append(rows, sep)
+		}
 		line := e.Icon + "  " + e.Label
 		if i == selected {
 			rows = append(rows, active.Render(line))

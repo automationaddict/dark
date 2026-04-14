@@ -91,22 +91,34 @@ func (s *State) MarkAppstoreBusy() {
 	s.AppstoreStatusMsg = ""
 }
 
-// MoveAppstoreCategory walks the sidebar selection, skipping disabled
-// entries so the cursor never lands on a category we can't render. The
-// wrap semantics match the rest of the TUI.
-func (s *State) MoveAppstoreCategory(delta int) {
+// MoveF2Sidebar walks the F2 sidebar selection. Appstore categories
+// are at indices 0..len(cats)-1, Updates is at len(cats). Disabled
+// appstore categories are skipped.
+func (s *State) MoveF2Sidebar(delta int) {
 	cats := s.Appstore.Categories
-	if len(cats) == 0 {
+	total := len(cats) + 1 // categories + Updates
+	if total <= 1 {
 		return
 	}
-	idx := s.AppstoreCategoryIdx
-	for step := 0; step < len(cats); step++ {
-		idx = (idx + delta + len(cats)) % len(cats)
-		if cats[idx].Enabled {
+	idx := s.F2SidebarIdx
+	for step := 0; step < total; step++ {
+		idx = (idx + delta + total) % total
+		if idx == len(cats) {
+			// Updates entry is always enabled
+			s.F2SidebarIdx = idx
+			return
+		}
+		if idx < len(cats) && cats[idx].Enabled {
+			s.F2SidebarIdx = idx
 			s.AppstoreCategoryIdx = idx
 			return
 		}
 	}
+}
+
+// F2OnUpdates returns true when the Updates entry is selected.
+func (s *State) F2OnUpdates() bool {
+	return s.F2SidebarIdx == len(s.Appstore.Categories)
 }
 
 // SelectedAppstoreCategory returns the currently highlighted category.

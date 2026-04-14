@@ -20,172 +20,274 @@ func renderUsers(s *core.State, width, height int) string {
 			placeholderStyle.Render("No users found."))
 	}
 
-	// User list sidebar (left) + detail pane (right).
-	listWidth := 22
-	detailWidth := width - listWidth - 2
-	if detailWidth < 40 {
-		detailWidth = 40
+	secs := core.UsersSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
 	}
+	sidebarFocused := s.ContentFocused && !s.UsersContentFocused
+	sidebar := renderInnerSidebarFocused(s, entries, s.UsersSectionIdx, height, sidebarFocused)
+	contentWidth := width - lipgloss.Width(sidebar)
 
-	list := renderUserList(s, listWidth, height)
-	detail := renderUserDetail(s, detailWidth, height)
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, list, detail)
+	sec := s.ActiveUsersSection()
+	var content string
+	switch sec.ID {
+	case "identity":
+		content = renderUsersIdentitySection(s, contentWidth, height)
+	case "account":
+		content = renderUsersAccountSection(s, contentWidth, height)
+	case "security":
+		content = renderUsersSecuritySection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
 }
 
-func renderUserList(s *core.State, width, height int) string {
-	active := lipgloss.NewStyle().
-		Foreground(colorBg).
-		Background(colorAccent).
-		Width(width - 2).
-		Padding(0, 1)
-	normal := lipgloss.NewStyle().
-		Foreground(colorText).
-		Width(width - 2).
-		Padding(0, 1)
-	dimStyle := lipgloss.NewStyle().Foreground(colorDim)
+// ── Identity section ────────────────────────────────────────────────
 
-	var rows []string
-	for i, u := range s.Users.Users {
-		label := u.Username
-		if u.UID == 0 {
-			label += dimStyle.Render(" (root)")
-		} else if u.IsAdmin {
-			label += dimStyle.Render(" *")
-		}
-		if u.IsLocked {
-			label += dimStyle.Render(" 󰌾")
-		}
-		if i == s.UsersIdx && s.ContentFocused {
-			rows = append(rows, active.Render(label))
-		} else {
-			rows = append(rows, normal.Render(label))
-		}
-	}
-
-	title := lipgloss.NewStyle().
-		Foreground(colorAccent).
-		Bold(true).
-		Padding(0, 1).
-		Render("Users")
-
-	body := lipgloss.JoinVertical(lipgloss.Left,
-		append([]string{title, ""}, rows...)...)
-
-	container := lipgloss.NewStyle().
-		Width(width).
-		Height(height).
-		MaxHeight(height)
-	return container.Render(body)
-}
-
-func renderUserDetail(s *core.State, width, height int) string {
-	u, ok := s.SelectedUser()
-	if !ok {
-		return renderContentPane(width, height,
-			placeholderStyle.Render("Select a user."))
-	}
-
+func renderUsersIdentitySection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 40 {
 		innerWidth = 40
 	}
 
+	focused := s.UsersContentFocused
 	var blocks []string
 
-	blocks = append(blocks, renderUserIdentity(s, u, innerWidth))
-	blocks = append(blocks, renderUserAccount(s, u, innerWidth))
-	blocks = append(blocks, renderUserGroups(s, u, innerWidth))
-	blocks = append(blocks, renderUserSecurity(s, u, innerWidth))
-	if sess := renderUserSessions(u, innerWidth); sess != "" {
-		blocks = append(blocks, sess)
+	blocks = append(blocks, renderUserListBox(s, innerWidth, focused))
+
+	if u, ok := s.SelectedUser(); ok {
+		blocks = append(blocks, renderUserIdentity(u, innerWidth))
 	}
-	if logins := renderUserLogins(u, innerWidth); logins != "" {
-		blocks = append(blocks, logins)
-	}
+
+	blocks = append(blocks, renderUsersIdentityHint(focused))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderScrollableContentPane(s, width, height, body)
+	return renderContentPane(width, height, body)
 }
 
-func renderUserIdentity(s *core.State, u users.User, total int) string {
+func renderUsersIdentityHint(focused bool) string {
+	if !focused {
+		return statusBarStyle.Render("enter to select")
+	}
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("c")+" rename")
+	hints = append(hints, accent.Render("s")+" shell")
+	hints = append(hints, accent.Render("a")+" add user")
+	hints = append(hints, accent.Render("d")+" remove")
+	hints = append(hints, accent.Render("esc"))
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Account section ─────────────────────────────────────────────────
+
+func renderUsersAccountSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 40 {
+		innerWidth = 40
+	}
+
+	focused := s.UsersContentFocused
+	var blocks []string
+
+	blocks = append(blocks, renderUserListBox(s, innerWidth, focused))
+
+	if u, ok := s.SelectedUser(); ok {
+		blocks = append(blocks, renderUserAccount(u, innerWidth))
+		blocks = append(blocks, renderUserGroups(u, innerWidth))
+	}
+
+	blocks = append(blocks, renderUsersAccountHint(focused))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderUsersAccountHint(focused bool) string {
+	if !focused {
+		return statusBarStyle.Render("enter to select")
+	}
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("w")+" admin toggle")
+	hints = append(hints, accent.Render("l")+" lock toggle")
+	hints = append(hints, accent.Render("g")+" add group")
+	hints = append(hints, accent.Render("G")+" remove group")
+	hints = append(hints, accent.Render("esc"))
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Security section ────────────────────────────────────────────────
+
+func renderUsersSecuritySection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 40 {
+		innerWidth = 40
+	}
+
+	focused := s.UsersContentFocused
+	var blocks []string
+
+	blocks = append(blocks, renderUserListBox(s, innerWidth, focused))
+
+	if u, ok := s.SelectedUser(); ok {
+		blocks = append(blocks, renderUserSecurity(u, innerWidth))
+		if sess := renderUserSessions(u, innerWidth); sess != "" {
+			blocks = append(blocks, sess)
+		}
+		if logins := renderUserLogins(u, innerWidth); logins != "" {
+			blocks = append(blocks, logins)
+		}
+	}
+
+	blocks = append(blocks, renderUsersSecurityHint(focused))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderUsersSecurityHint(focused bool) string {
+	if !focused {
+		return statusBarStyle.Render("enter to select")
+	}
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("p")+" password")
+	hints = append(hints, accent.Render("esc"))
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Shared rendering helpers ────────────────────────────────────────
+
+func renderUserListBox(s *core.State, total int, focused bool) string {
+	type col struct {
+		header string
+		cell   func(users.User) string
+		accent func(users.User) bool
+	}
+	cols := []col{
+		{"Username", func(u users.User) string { return u.Username }, nil},
+		{"Name", func(u users.User) string { return orDash(u.FullName) }, nil},
+		{"UID", func(u users.User) string { return fmt.Sprintf("%d", u.UID) }, nil},
+		{"Admin", func(u users.User) string {
+			if u.IsAdmin {
+				return "yes"
+			}
+			return ""
+		}, func(u users.User) bool { return u.IsAdmin }},
+		{"Locked", func(u users.User) string {
+			if u.IsLocked {
+				return "󰌾"
+			}
+			return ""
+		}, nil},
+	}
+
+	widths := make([]int, len(cols))
+	for i, c := range cols {
+		widths[i] = lipgloss.Width(c.header)
+	}
+	for _, u := range s.Users.Users {
+		for i, c := range cols {
+			if w := lipgloss.Width(c.cell(u)); w > widths[i] {
+				widths[i] = w
+			}
+		}
+	}
+
+	const gap = "  "
+	headerCells := make([]string, 0, len(cols))
+	for i, c := range cols {
+		headerCells = append(headerCells, tableHeaderStyle.Width(widths[i]).Render(c.header))
+	}
+	lines := []string{"  " + strings.Join(headerCells, gap)}
+
+	for i, u := range s.Users.Users {
+		isSel := i == s.UsersIdx
+		var marker string
+		switch {
+		case isSel && focused:
+			marker = tableSelectionMarker.Render("▸ ")
+		case isSel:
+			marker = tableSelectionMarkerDim.Render("▸ ")
+		default:
+			marker = "  "
+		}
+		cells := make([]string, 0, len(cols))
+		for j, c := range cols {
+			text := c.cell(u)
+			var style lipgloss.Style
+			switch {
+			case isSel:
+				style = tableCellSelected
+			case c.accent != nil && c.accent(u):
+				style = tableCellAccent
+			default:
+				style = tableCellStyle
+			}
+			cells = append(cells, style.Width(widths[j]).Render(text))
+		}
+		lines = append(lines, marker+strings.Join(cells, gap))
+	}
+
+	return groupBoxSections("Users", []string{strings.Join(lines, "\n")}, total, borderForFocus(focused))
+}
+
+func renderUserIdentity(u users.User, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
 	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
-
-	nameLine := label.Render("Username") + accent.Render(u.Username)
-	lines = append(lines, nameLine)
-
-	fullLine := label.Render("Full Name") + value.Render(u.FullName)
-	if s.ContentFocused && u.UID != 0 {
-		fullLine += dim.Render("  (") + accent.Render("c") + dim.Render(" change)")
-	}
-	lines = append(lines, fullLine)
-
+	lines = append(lines, label.Render("Username")+accent.Render(u.Username))
+	lines = append(lines, label.Render("Full Name")+value.Render(u.FullName))
 	lines = append(lines, label.Render("UID")+value.Render(fmt.Sprintf("%d", u.UID)))
 	lines = append(lines, label.Render("GID")+value.Render(fmt.Sprintf("%d (%s)", u.GID, u.Primary)))
 	lines = append(lines, label.Render("Home")+value.Render(u.HomeDir))
-
-	shellLine := label.Render("Shell") + value.Render(u.Shell)
-	if s.ContentFocused && u.UID != 0 {
-		shellLine += dim.Render("  (") + accent.Render("s") + dim.Render(" change)")
-	}
-	lines = append(lines, shellLine)
+	lines = append(lines, label.Render("Shell")+value.Render(u.Shell))
 
 	return groupBoxSections("Identity", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
-func renderUserAccount(s *core.State, u users.User, total int) string {
+func renderUserAccount(u users.User, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
-	// Admin status.
 	adminStr := lipgloss.NewStyle().Foreground(colorGreen).Bold(true).Render("yes (wheel)")
 	if !u.IsAdmin {
 		adminStr = lipgloss.NewStyle().Foreground(colorDim).Render("no")
 	}
-	adminLine := label.Render("Administrator") + adminStr
-	if s.ContentFocused && u.UID != 0 {
-		adminLine += dim.Render("  (") + accent.Render("w") + dim.Render(" toggle)")
-	}
-	lines = append(lines, adminLine)
+	lines = append(lines, label.Render("Administrator")+adminStr)
 
-	// Lock status.
 	var lockStr string
 	if !u.ShadowAvail {
-		lockStr = dim.Render("requires elevation")
+		lockStr = lipgloss.NewStyle().Foreground(colorDim).Render("requires elevation")
 	} else if u.IsLocked {
 		lockStr = lipgloss.NewStyle().Foreground(colorRed).Render("locked")
 	} else {
 		lockStr = lipgloss.NewStyle().Foreground(colorGreen).Render("active")
 	}
-	lockLine := label.Render("Status") + lockStr
-	if s.ContentFocused && u.UID != 0 {
-		lockLine += dim.Render("  (") + accent.Render("l") + dim.Render(" toggle)")
-	}
-	lines = append(lines, lockLine)
-
-	// Process count.
+	lines = append(lines, label.Render("Status")+lockStr)
 	lines = append(lines, label.Render("Processes")+
 		detailValueStyle.Render(fmt.Sprintf("%d", u.ProcessCount)))
 
 	return groupBoxSections("Account", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
-func renderUserGroups(s *core.State, u users.User, total int) string {
+func renderUserGroups(u users.User, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
 	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -196,21 +298,14 @@ func renderUserGroups(s *core.State, u users.User, total int) string {
 	lines = append(lines, label.Render("Groups")+value.Render(groupList))
 	lines = append(lines, label.Render("Group Count")+value.Render(fmt.Sprintf("%d", len(u.Groups))))
 
-	if s.ContentFocused && u.UID != 0 {
-		hintLine := dim.Render("  (") + accent.Render("g") + dim.Render(" add · ") +
-			accent.Render("G") + dim.Render(" remove)")
-		lines = append(lines, hintLine)
-	}
-
 	return groupBoxSections("Groups", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
-func renderUserSecurity(s *core.State, u users.User, total int) string {
+func renderUserSecurity(u users.User, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
 	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -222,11 +317,7 @@ func renderUserSecurity(s *core.State, u users.User, total int) string {
 	} else {
 		passStr = lipgloss.NewStyle().Foreground(colorGold).Render("not set")
 	}
-	passLine := label.Render("Password") + passStr
-	if s.ContentFocused && u.UID != 0 {
-		passLine += dim.Render("  (") + accent.Render("p") + dim.Render(" change)")
-	}
-	lines = append(lines, passLine)
+	lines = append(lines, label.Render("Password")+passStr)
 
 	if u.LastChanged != "" {
 		lines = append(lines, label.Render("Last Changed")+value.Render(u.LastChanged))

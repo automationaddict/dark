@@ -5,12 +5,11 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 
 	"github.com/johnnelson/dark/internal/core"
+	"github.com/johnnelson/dark/internal/services/links"
 	"github.com/johnnelson/dark/internal/services/notify"
-	"github.com/johnnelson/dark/internal/services/tuilink"
-	"github.com/johnnelson/dark/internal/services/weblink"
 )
 
-func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions, keybindAct KeybindActions, usersAct UsersActions, privacyAct PrivacyActions, appearanceAct AppearanceActions) Model {
+func New(state *core.State, binPath string, wifi WifiActions, bluetooth BluetoothActions, audio AudioActions, network NetworkActions, displayAct DisplayActions, powerAct PowerActions, inputAct InputActions, dateTimeAct DateTimeActions, notifyCfgAct NotifyConfigActions, notifier *notify.Notifier, appstore AppstoreActions, keybindAct KeybindActions, usersAct UsersActions, privacyAct PrivacyActions, appearanceAct AppearanceActions, updateAct UpdateActions) Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	return Model{
@@ -31,6 +30,7 @@ func New(state *core.State, binPath string, wifi WifiActions, bluetooth Bluetoot
 		users:     usersAct,
 		privacy:    privacyAct,
 		appearance: appearanceAct,
+		update:     updateAct,
 		spinner:    sp,
 	}
 }
@@ -53,19 +53,12 @@ func (m *Model) notifyError(section, message string) {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, loadWebLinksCmd(), loadTUILinksCmd())
+	return tea.Batch(m.spinner.Tick, loadLinksCmd())
 }
 
-func loadWebLinksCmd() tea.Cmd {
+func loadLinksCmd() tea.Cmd {
 	return func() tea.Msg {
-		apps, _ := weblink.ListWebApps()
-		return WebLinksMsg(apps)
-	}
-}
-
-func loadTUILinksCmd() tea.Cmd {
-	return func() tea.Msg {
-		apps, _ := tuilink.ListTUIApps()
-		return TUILinksMsg(apps)
+		lf, _ := links.Load()
+		return LinksMsg(lf)
 	}
 }

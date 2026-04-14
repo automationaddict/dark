@@ -154,17 +154,3 @@ func muteGlyph(muted bool) string {
 	return "󰕾"
 }
 
-func renderAudioFocusHint(s *core.State, focused bool) string {
-	var text string
-	switch {
-	case s.AudioDeviceInfoOpen:
-		text = "esc back · +/- vol · </> bal · m mute · p profile · o port · Z suspend · D default"
-	case focused && (s.AudioFocus == core.AudioFocusPlayApps || s.AudioFocus == core.AudioFocusRecordApps):
-		text = "tab · j/k · +/- vol · m mute · M move · K kill · esc"
-	case focused:
-		text = "tab · j/k · enter info · +/- vol · </> bal · m · p · o · Z · D · esc"
-	default:
-		text = "enter · then tab/+-/m/p/o/Z/M/K/D"
-	}
-	return statusBarStyle.Render(text)
-}

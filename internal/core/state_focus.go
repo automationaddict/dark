@@ -18,16 +18,10 @@ func (s *State) FocusContent() {
 	case "display":
 		if len(s.Display.Monitors) > 0 {
 			s.ContentFocused = true
-			if s.DisplayFocus == "" {
-				s.DisplayFocus = DisplayFocusMonitors
-			}
 		}
 	case "sound":
 		if len(s.Audio.Sinks) > 0 || len(s.Audio.Sources) > 0 {
 			s.ContentFocused = true
-			if s.AudioFocus == "" {
-				s.AudioFocus = AudioFocusSinks
-			}
 		}
 	case "power":
 		if s.PowerLoaded {
@@ -61,6 +55,10 @@ func (s *State) FocusContent() {
 		if s.AppearanceLoaded {
 			s.ContentFocused = true
 		}
+	case "about":
+		if s.SysInfoLoaded {
+			s.ContentFocused = true
+		}
 	}
 }
 
@@ -77,8 +75,13 @@ func (s *State) FocusSidebar() {
 	s.AppstoreDetailOpen = false
 	s.AppstoreFocus = AppstoreFocusSidebar
 	s.KeybindTableFocused = false
+	s.OmarchyLinksFocused = false
 	s.WifiContentFocused = false
 	s.BluetoothContentFocused = false
+	s.NetworkContentFocused = false
+	s.DisplayContentFocused = false
+	s.AudioContentFocused = false
+	s.UsersContentFocused = false
 }
 
 func (s *State) MoveSettingsFocus(delta int) {

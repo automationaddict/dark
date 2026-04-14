@@ -24,30 +24,51 @@ func renderNetwork(s *core.State, width, height int) string {
 		)
 	}
 
+	secs := core.NetworkSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebarFocused := s.ContentFocused && !s.NetworkContentFocused
+	sidebar := renderInnerSidebarFocused(s, entries, s.NetworkSectionIdx, height, sidebarFocused)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActiveNetworkSection()
+	var content string
+	switch sec.ID {
+	case "interfaces":
+		content = renderNetworkInterfacesSection(s, contentWidth, height)
+	case "dns":
+		content = renderNetworkDNSSection(s, contentWidth, height)
+	case "routes":
+		content = renderNetworkRoutesSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+// ── Interfaces section ──────────────────────────────────────────────
+
+func renderNetworkInterfacesSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
 	}
 
-	if s.NetworkRoutesOpen {
-		return renderNetworkRoutesDrillIn(s, width, height, innerWidth)
-	}
-
-	focused := s.ContentFocused
+	focused := s.NetworkContentFocused
 	selected := s.NetworkSelected
 	if selected >= len(s.Network.Interfaces) {
 		selected = 0
 	}
 
-	interfacesBorder := colorBorder
-	if focused {
-		interfacesBorder = colorAccent
-	}
+	airplaneBox := renderNetworkAirplane(s, innerWidth)
+
 	interfacesBox := groupBoxSections("Interfaces",
 		[]string{renderNetworkInterfacesTable(s.Network.Interfaces, selected, focused)},
-		innerWidth, interfacesBorder)
+		innerWidth, borderForFocus(focused))
 
-	airplaneBox := renderNetworkAirplane(s, innerWidth)
 	blocks := []string{airplaneBox, interfacesBox}
 
 	if iface, ok := s.SelectedNetworkInterface(); ok {
@@ -60,30 +81,142 @@ func renderNetwork(s *core.State, width, height int) string {
 		blocks = append(blocks, "", detailsBox)
 	}
 
-	if dnsBox, ok := renderNetworkDNSBox(s.Network.DNS, innerWidth); ok {
-		blocks = append(blocks, "", dnsBox)
-	}
-
-	if routesBox, ok := renderNetworkRoutesBox(s.Network.Routes, innerWidth); ok {
-		blocks = append(blocks, "", routesBox)
-	}
-
-	// Errors fire desktop notifications instead of rendering inline.
 	if s.NetworkBusy {
 		blocks = append(blocks, "", statusBusyStyle.Render("working…"))
 	}
 
-	blocks = append(blocks, renderNetworkFocusHint(s, focused, len(s.Network.Interfaces)))
+	blocks = append(blocks, renderNetworkInterfacesFocusHint(s, focused))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderContentPane(width, height,body)
+	return renderContentPane(width, height, body)
 }
 
-// renderNetworkRoutesDrillIn replaces the regular Network view with
+// ── DNS section ─────────────────────────────────────────────────────
+
+func renderNetworkDNSSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	dns := s.Network.DNS
+	if len(dns.Servers) == 0 && len(dns.Search) == 0 {
+		body := placeholderStyle.Render("No DNS information available.")
+		return renderContentPane(width, height, body)
+	}
+
+	rows := [][2]string{}
+	if len(dns.Servers) > 0 {
+		rows = append(rows, [2]string{"Servers", strings.Join(dns.Servers, ", ")})
+	}
+	if len(dns.Search) > 0 {
+		rows = append(rows, [2]string{"Search", strings.Join(dns.Search, ", ")})
+	}
+	if dns.Source != "" {
+		rows = append(rows, [2]string{"Source", dns.Source})
+	}
+
+	labelWidth := 0
+	for _, r := range rows {
+		if w := lipgloss.Width(r[0]); w > labelWidth {
+			labelWidth = w
+		}
+	}
+	lines := make([]string, 0, len(rows))
+	for _, r := range rows {
+		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
+		value := detailValueStyle.Render(orDash(r[1]))
+		lines = append(lines, label+value)
+	}
+
+	box := groupBoxSections("DNS", []string{strings.Join(lines, "\n")}, innerWidth, colorBorder)
+
+	// Also show per-interface DNS when available.
+	var blocks []string
+	blocks = append(blocks, box)
+
+	for _, iface := range s.Network.Interfaces {
+		if iface.Management == nil {
+			continue
+		}
+		mi := iface.Management
+		if len(mi.DNS) == 0 && len(mi.Domains) == 0 {
+			continue
+		}
+		var ifRows [][2]string
+		if len(mi.DNS) > 0 {
+			ifRows = append(ifRows, [2]string{"DNS", strings.Join(mi.DNS, ", ")})
+		}
+		if len(mi.Domains) > 0 {
+			ifRows = append(ifRows, [2]string{"Domains", strings.Join(mi.Domains, ", ")})
+		}
+		lw := 0
+		for _, r := range ifRows {
+			if w := lipgloss.Width(r[0]); w > lw {
+				lw = w
+			}
+		}
+		var ifLines []string
+		for _, r := range ifRows {
+			label := detailLabelStyle.Width(lw + 2).Render(r[0])
+			value := detailValueStyle.Render(orDash(r[1]))
+			ifLines = append(ifLines, label+value)
+		}
+		ifBox := groupBoxSections("Link DNS · "+iface.Name,
+			[]string{strings.Join(ifLines, "\n")}, innerWidth, colorBorder)
+		blocks = append(blocks, "", ifBox)
+	}
+
+	hint := statusBarStyle.Render("esc back")
+	blocks = append(blocks, hint)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+// ── Routes section ──────────────────────────────────────────────────
+
+func renderNetworkRoutesSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	if s.NetworkRoutesOpen {
+		return renderNetworkRoutesDrillIn(s, width, height, innerWidth)
+	}
+
+	var blocks []string
+
+	// Kernel routing table.
+	if len(s.Network.Routes) > 0 {
+		routesBox := renderNetworkRoutesBox(s.Network.Routes, innerWidth)
+		blocks = append(blocks, routesBox)
+	} else {
+		blocks = append(blocks, placeholderStyle.Render("No routes in kernel table."))
+	}
+
+	// Show managed routes summary per interface.
+	for _, iface := range s.Network.Interfaces {
+		if iface.Managed == nil || len(iface.Managed.Routes) == 0 {
+			continue
+		}
+		table := renderNetworkManagedRoutesTable(iface.Managed.Routes, -1)
+		box := groupBoxSections("Managed Routes · "+iface.Name,
+			[]string{table}, innerWidth, colorBorder)
+		blocks = append(blocks, "", box)
+	}
+
+	focused := s.NetworkContentFocused
+	hint := renderNetworkRoutesFocusHint(s, focused)
+	blocks = append(blocks, hint)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+// renderNetworkRoutesDrillIn replaces the routes section content with
 // a focused routes-management page for the highlighted interface.
-// Shows dark's own managed route list with a selection cursor and
-// the action keys for add/delete/back. Mirrors the bluetooth device-
-// info drill-in pattern: full-screen replacement, esc to back out.
 func renderNetworkRoutesDrillIn(s *core.State, width, height, innerWidth int) string {
 	iface, ok := s.SelectedNetworkInterface()
 	if !ok {
@@ -107,75 +240,11 @@ func renderNetworkRoutesDrillIn(s *core.State, width, height, innerWidth int) st
 	hint := statusBarStyle.Render("a add · d delete · esc back")
 
 	rendered := lipgloss.JoinVertical(lipgloss.Left, box, "", hint)
-	return renderContentPane(width, height,rendered)
+	return renderContentPane(width, height, rendered)
 }
 
-// renderNetworkManagedRoutesTable builds the route table inside the
-// drill-in. Each row is one dark-managed RouteConfig — destination,
-// gateway, metric — with the cursor marker on the selected row.
-func renderNetworkManagedRoutesTable(routes []network.RouteConfig, selected int) string {
-	type col struct {
-		header string
-		cell   func(network.RouteConfig) string
-	}
-	cols := []col{
-		{"Destination", func(r network.RouteConfig) string { return orDash(r.Destination) }},
-		{"Gateway", func(r network.RouteConfig) string {
-			if r.Gateway == "" {
-				return "(on-link)"
-			}
-			return r.Gateway
-		}},
-		{"Metric", func(r network.RouteConfig) string {
-			if r.Metric == 0 {
-				return "—"
-			}
-			return fmt.Sprintf("%d", r.Metric)
-		}},
-	}
+// ── Shared rendering helpers ────────────────────────────────────────
 
-	widths := make([]int, len(cols))
-	for i, c := range cols {
-		widths[i] = lipgloss.Width(c.header)
-	}
-	for _, r := range routes {
-		for i, c := range cols {
-			if w := lipgloss.Width(c.cell(r)); w > widths[i] {
-				widths[i] = w
-			}
-		}
-	}
-
-	const gap = "  "
-	headerCells := make([]string, 0, len(cols))
-	for i, c := range cols {
-		headerCells = append(headerCells, tableHeaderStyle.Width(widths[i]).Render(c.header))
-	}
-	lines := []string{"  " + strings.Join(headerCells, gap)}
-
-	for i, r := range routes {
-		isSel := i == selected
-		var marker string
-		if isSel {
-			marker = tableSelectionMarker.Render("▸ ")
-		} else {
-			marker = "  "
-		}
-		cells := make([]string, 0, len(cols))
-		for j, c := range cols {
-			text := c.cell(r)
-			style := tableCellStyle
-			if isSel {
-				style = tableCellSelected
-			}
-			cells = append(cells, style.Width(widths[j]).Render(text))
-		}
-		lines = append(lines, marker+strings.Join(cells, gap))
-	}
-	return strings.Join(lines, "\n")
-}
-
-// renderNetworkInterfacesTable builds the main interfaces table.
 func renderNetworkAirplane(s *core.State, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
@@ -258,10 +327,6 @@ func renderNetworkInterfacesTable(ifaces []network.Interface, selected int, focu
 	return strings.Join(lines, "\n")
 }
 
-// renderNetworkInterfaceDetails is the label/value grid for the
-// currently highlighted interface. When the active backend reported
-// management info for this interface, that gets appended as a second
-// section after a blank divider line.
 func renderNetworkInterfaceDetails(iface network.Interface) string {
 	rows := [][2]string{
 		{"Name", orDash(iface.Name)},
@@ -283,7 +348,7 @@ func renderNetworkInterfaceDetails(iface network.Interface) string {
 	if iface.Management != nil {
 		mi := iface.Management
 		rows = append(rows,
-			[2]string{"", ""}, // visual divider
+			[2]string{"", ""},
 			[2]string{"Managed by", mi.BackendName},
 			[2]string{"Admin state", orDash(mi.AdminState)},
 		)
@@ -329,40 +394,69 @@ func renderNetworkInterfaceDetails(iface network.Interface) string {
 	return strings.Join(lines, "\n")
 }
 
-func renderNetworkDNSBox(dns network.DNS, total int) (string, bool) {
-	if len(dns.Servers) == 0 && len(dns.Search) == 0 {
-		return "", false
+func renderNetworkManagedRoutesTable(routes []network.RouteConfig, selected int) string {
+	type col struct {
+		header string
+		cell   func(network.RouteConfig) string
 	}
-	rows := [][2]string{}
-	if len(dns.Servers) > 0 {
-		rows = append(rows, [2]string{"Servers", strings.Join(dns.Servers, ", ")})
-	}
-	if len(dns.Search) > 0 {
-		rows = append(rows, [2]string{"Search", strings.Join(dns.Search, ", ")})
-	}
-	if dns.Source != "" {
-		rows = append(rows, [2]string{"Source", dns.Source})
+	cols := []col{
+		{"Destination", func(r network.RouteConfig) string { return orDash(r.Destination) }},
+		{"Gateway", func(r network.RouteConfig) string {
+			if r.Gateway == "" {
+				return "(on-link)"
+			}
+			return r.Gateway
+		}},
+		{"Metric", func(r network.RouteConfig) string {
+			if r.Metric == 0 {
+				return "—"
+			}
+			return fmt.Sprintf("%d", r.Metric)
+		}},
 	}
 
-	labelWidth := 0
-	for _, r := range rows {
-		if w := lipgloss.Width(r[0]); w > labelWidth {
-			labelWidth = w
+	widths := make([]int, len(cols))
+	for i, c := range cols {
+		widths[i] = lipgloss.Width(c.header)
+	}
+	for _, r := range routes {
+		for i, c := range cols {
+			if w := lipgloss.Width(c.cell(r)); w > widths[i] {
+				widths[i] = w
+			}
 		}
 	}
-	lines := make([]string, 0, len(rows))
-	for _, r := range rows {
-		label := detailLabelStyle.Width(labelWidth + 2).Render(r[0])
-		value := detailValueStyle.Render(orDash(r[1]))
-		lines = append(lines, label+value)
+
+	const gap = "  "
+	headerCells := make([]string, 0, len(cols))
+	for i, c := range cols {
+		headerCells = append(headerCells, tableHeaderStyle.Width(widths[i]).Render(c.header))
 	}
-	return groupBoxSections("DNS", []string{strings.Join(lines, "\n")}, total, colorBorder), true
+	lines := []string{"  " + strings.Join(headerCells, gap)}
+
+	for i, r := range routes {
+		isSel := i == selected
+		var marker string
+		if isSel {
+			marker = tableSelectionMarker.Render("▸ ")
+		} else {
+			marker = "  "
+		}
+		cells := make([]string, 0, len(cols))
+		for j, c := range cols {
+			text := c.cell(r)
+			style := tableCellStyle
+			if isSel {
+				style = tableCellSelected
+			}
+			cells = append(cells, style.Width(widths[j]).Render(text))
+		}
+		lines = append(lines, marker+strings.Join(cells, gap))
+	}
+	return strings.Join(lines, "\n")
 }
 
-func renderNetworkRoutesBox(routes []network.Route, total int) (string, bool) {
-	if len(routes) == 0 {
-		return "", false
-	}
+func renderNetworkRoutesBox(routes []network.Route, total int) string {
 	type col struct {
 		header string
 		cell   func(network.Route) string
@@ -409,11 +503,13 @@ func renderNetworkRoutesBox(routes []network.Route, total int) (string, bool) {
 		}
 		lines = append(lines, "  "+strings.Join(cells, gap))
 	}
-	return groupBoxSections("Routes", []string{strings.Join(lines, "\n")}, total, colorBorder), true
+	return groupBoxSections("Routes", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
-func renderNetworkFocusHint(s *core.State, focused bool, ifaceCount int) string {
-	if ifaceCount == 0 {
+// ── Focus hints ─────────────────────────────────────────────────────
+
+func renderNetworkInterfacesFocusHint(s *core.State, focused bool) string {
+	if len(s.Network.Interfaces) == 0 {
 		return ""
 	}
 	backend := s.Network.Backend
@@ -422,10 +518,16 @@ func renderNetworkFocusHint(s *core.State, focused bool, ifaceCount int) string 
 	}
 	var text string
 	if focused {
-		text = "j/k · r reconfig · h DHCP · e edit · t routes · R reset · A airplane · esc · backend: " + backend
+		text = "j/k · r reconfig · h DHCP · e edit · R reset · A airplane · esc · backend: " + backend
 	} else {
-		text = "enter to select an interface · backend: " + backend
+		text = "enter to select · A airplane · backend: " + backend
 	}
 	return statusBarStyle.Render(text)
 }
 
+func renderNetworkRoutesFocusHint(s *core.State, focused bool) string {
+	if !focused {
+		return statusBarStyle.Render("enter to select · t manage routes")
+	}
+	return statusBarStyle.Render("t manage routes · esc")
+}

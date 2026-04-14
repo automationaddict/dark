@@ -16,18 +16,112 @@ func renderNotifications(s *core.State, width, height int) string {
 			placeholderStyle.Render("loading notification settings…"))
 	}
 
+	secs := core.NotifySections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebar := renderInnerSidebar(s, entries, s.NotifySectionIdx, height)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActiveNotifySection()
+	var content string
+	switch sec.ID {
+	case "daemon":
+		content = renderNotifyDaemonSection(s, contentWidth, height)
+	case "appearance":
+		content = renderNotifyAppearanceSection(s, contentWidth, height)
+	case "behavior":
+		content = renderNotifyBehaviorSection(s, contentWidth, height)
+	case "rules":
+		content = renderNotifyRulesSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+// ── Daemon section ──────────────────────────────────────────────────
+
+func renderNotifyDaemonSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
 	}
 
 	var blocks []string
-
 	blocks = append(blocks, renderNotifyDaemon(s, innerWidth))
+	blocks = append(blocks, renderNotifyDaemonHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderNotifyDaemonHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("p")+" position")
+	hints = append(hints, accent.Render("+/-")+" timeout")
+	hints = append(hints, accent.Render("w/W")+" width")
+	hints = append(hints, accent.Render("l")+" layer")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Appearance section ──────────────────────────────────────────────
+
+func renderNotifyAppearanceSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
 	blocks = append(blocks, renderNotifyAppearance(s.Notify, innerWidth))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+// ── Behavior section ────────────────────────────────────────────────
+
+func renderNotifyBehaviorSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
 	blocks = append(blocks, renderNotifyDND(s, innerWidth))
 	blocks = append(blocks, renderNotifyUrgency(s, innerWidth))
 	blocks = append(blocks, renderNotifySound(s, innerWidth))
+	blocks = append(blocks, renderNotifyBehaviorHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderNotifyBehaviorHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("d")+" toggle DND")
+	hints = append(hints, accent.Render("D")+" dismiss all")
+	hints = append(hints, accent.Render("o")+" set sound")
+	hints = append(hints, accent.Render("O")+" disable sound")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Rules section ───────────────────────────────────────────────────
+
+func renderNotifyRulesSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
 
 	if rules := renderNotifyRules(s, innerWidth); rules != "" {
 		blocks = append(blocks, rules)
@@ -37,17 +131,32 @@ func renderNotifications(s *core.State, width, height int) string {
 		blocks = append(blocks, hist)
 	}
 
+	if len(blocks) == 0 {
+		blocks = append(blocks, placeholderStyle.Render("No rules or history."))
+	}
+
+	blocks = append(blocks, renderNotifyRulesHint())
+
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderScrollableContentPane(s, width, height, body)
+	return renderContentPane(width, height, body)
 }
+
+func renderNotifyRulesHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("a")+" add rule")
+	hints = append(hints, accent.Render("x")+" remove rule")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Shared rendering helpers ────────────────────────────────────────
 
 func renderNotifyDaemon(s *core.State, total int) string {
 	n := s.Notify
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -57,34 +166,14 @@ func renderNotifyDaemon(s *core.State, total int) string {
 	}
 	lines = append(lines, label.Render("Status")+status)
 	lines = append(lines, label.Render("Daemon")+value.Render(n.Daemon))
-
-	posLine := label.Render("Position") + value.Render(n.Anchor)
-	if s.ContentFocused {
-		posLine += dim.Render("  (") + accent.Render("p") + dim.Render(" cycle)")
-	}
-	lines = append(lines, posLine)
+	lines = append(lines, label.Render("Position")+value.Render(n.Anchor))
 
 	timeoutSec := fmt.Sprintf("%.1fs", float64(n.TimeoutMS)/1000)
-	timeoutLine := label.Render("Timeout") + value.Render(timeoutSec)
-	if s.ContentFocused {
-		timeoutLine += dim.Render("  (") + accent.Render("+/-") + dim.Render(" adjust)")
-	}
-	lines = append(lines, timeoutLine)
-
-	widthLine := label.Render("Width") + value.Render(fmt.Sprintf("%dpx", n.Width))
-	if s.ContentFocused {
-		widthLine += dim.Render("  (") + accent.Render("w/W") + dim.Render(" adjust)")
-	}
-	lines = append(lines, widthLine)
-
+	lines = append(lines, label.Render("Timeout")+value.Render(timeoutSec))
+	lines = append(lines, label.Render("Width")+value.Render(fmt.Sprintf("%dpx", n.Width)))
 	lines = append(lines, label.Render("Max Visible")+value.Render(fmt.Sprintf("%d", n.MaxVisible)))
 	lines = append(lines, label.Render("Max History")+value.Render(fmt.Sprintf("%d", n.MaxHistory)))
-
-	layerLine := label.Render("Layer") + value.Render(n.Layer)
-	if s.ContentFocused {
-		layerLine += dim.Render("  (") + accent.Render("l") + dim.Render(" toggle)")
-	}
-	lines = append(lines, layerLine)
+	lines = append(lines, label.Render("Layer")+value.Render(n.Layer))
 
 	return groupBoxSections("Notification Daemon", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
@@ -133,8 +222,6 @@ func renderNotifyDND(s *core.State, total int) string {
 	n := s.Notify
 	lw := 18
 	label := detailLabelStyle.Width(lw)
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
@@ -146,41 +233,24 @@ func renderNotifyDND(s *core.State, total int) string {
 			lipgloss.NewStyle().Foreground(colorGreen).Render("off"))
 	}
 
-	if s.ContentFocused {
-		lines = append(lines, dim.Render("  "+accent.Render("d")+" toggle DND · "+
-			accent.Render("D")+" dismiss all"))
-	}
-
 	return groupBoxSections("Do Not Disturb", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
 
 func renderNotifyRules(s *core.State, total int) string {
 	n := s.Notify
-	if len(n.Rules) == 0 && !s.ContentFocused {
-		return ""
+	if len(n.Rules) == 0 {
+		return groupBoxSections("App Rules", []string{
+			placeholderStyle.Render("No app-specific rules configured."),
+		}, total, colorBorder)
 	}
 
 	lw := 28
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 	for _, r := range n.Rules {
 		lines = append(lines, label.Render(r.Criteria)+value.Render(r.Action))
-	}
-
-	if s.ContentFocused {
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, dim.Render("  "+accent.Render("a")+" add app rule · "+
-			accent.Render("x")+" remove rule"))
-	}
-
-	if len(lines) == 0 {
-		lines = append(lines, placeholderStyle.Render("No app-specific rules configured."))
 	}
 
 	return groupBoxSections("App Rules", []string{strings.Join(lines, "\n")}, total, colorBorder)
@@ -225,14 +295,11 @@ func renderNotifySound(s *core.State, total int) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
-	dim := lipgloss.NewStyle().Foreground(colorDim)
-	accent := lipgloss.NewStyle().Foreground(colorAccent)
 
 	var lines []string
 
 	if n.NotifySound != "" {
 		sound := n.NotifySound
-		// Strip "exec mpv " prefix for display
 		sound = strings.TrimPrefix(sound, "exec mpv ")
 		lines = append(lines, label.Render("Sound")+
 			lipgloss.NewStyle().Foreground(colorGreen).Render("enabled"))
@@ -240,11 +307,6 @@ func renderNotifySound(s *core.State, total int) string {
 	} else {
 		lines = append(lines, label.Render("Sound")+
 			lipgloss.NewStyle().Foreground(colorDim).Render("disabled"))
-	}
-
-	if s.ContentFocused {
-		lines = append(lines, dim.Render("  "+accent.Render("o")+" set sound · "+
-			accent.Render("O")+" disable sound"))
 	}
 
 	return groupBoxSections("Notification Sound", []string{strings.Join(lines, "\n")}, total, colorBorder)

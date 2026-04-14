@@ -94,6 +94,7 @@ const (
 	SubjectDisplaySaveProfileCmd    = "dark.cmd.display.save_profile"
 	SubjectDisplayApplyProfileCmd   = "dark.cmd.display.apply_profile"
 	SubjectDisplayDeleteProfileCmd  = "dark.cmd.display.delete_profile"
+	SubjectDisplayGPUModeCmd        = "dark.cmd.display.gpu_mode"
 
 	SubjectDateTimeSnapshot    = "dark.datetime.snapshot"
 	SubjectDateTimeSnapshotCmd = "dark.cmd.datetime.snapshot"
@@ -186,10 +187,20 @@ const (
 	SubjectAppearanceBlurPassCmd = "dark.cmd.appearance.blur_passes"
 	SubjectAppearanceAnimCmd     = "dark.cmd.appearance.anim"
 	SubjectAppearanceThemeCmd    = "dark.cmd.appearance.theme"
+	SubjectAppearanceFontCmd     = "dark.cmd.appearance.font"
+	SubjectAppearanceFontSizeCmd = "dark.cmd.appearance.font_size"
 
 	SubjectKeybindSnapshot    = "dark.keybind.snapshot"
 	SubjectKeybindSnapshotCmd = "dark.cmd.keybind.snapshot"
 	SubjectKeybindAddCmd      = "dark.cmd.keybind.add"
 	SubjectKeybindUpdateCmd   = "dark.cmd.keybind.update"
 	SubjectKeybindRemoveCmd   = "dark.cmd.keybind.remove"
+
+	SubjectUpdateSnapshot    = "dark.update.snapshot"
+	SubjectUpdateSnapshotCmd = "dark.cmd.update.snapshot"
+	SubjectUpdateRunCmd      = "dark.cmd.update.run"
+	SubjectUpdateChannelCmd  = "dark.cmd.update.channel"
+
+	SubjectFirmwareSnapshot    = "dark.firmware.snapshot"
+	SubjectFirmwareSnapshotCmd = "dark.cmd.firmware.snapshot"
 )

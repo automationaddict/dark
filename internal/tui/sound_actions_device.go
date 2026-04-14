@@ -11,7 +11,7 @@ import (
 // the next sink in the snapshot's list; for a source output, the next
 // source. Wraps around. No-op when there's only one target available.
 func (m *Model) triggerAudioStreamMove() tea.Cmd {
-	if !m.inSoundContent() || m.state.AudioBusy {
+	if !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 	stream, isPlay, ok := m.state.SelectedAudioStream()
@@ -50,7 +50,7 @@ func (m *Model) triggerAudioStreamMove() tea.Cmd {
 // whichever device kind currently has focus. Stream sub-tables are
 // ignored — suspend is a device-level concept.
 func (m *Model) triggerAudioSuspendToggle() tea.Cmd {
-	if !m.inSoundContent() || m.state.AudioBusy {
+	if !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 	dev, isSink, ok := m.state.SelectedAudioDevice()
@@ -76,7 +76,7 @@ func (m *Model) triggerAudioSuspendToggle() tea.Cmd {
 // active when focus is on an apps sub-table. Routes to KillSinkInput
 // or KillSourceOutput based on which apps box has focus.
 func (m *Model) triggerAudioKillStream() tea.Cmd {
-	if !m.inSoundContent() || m.state.AudioBusy {
+	if !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 	stream, isPlay, ok := m.state.SelectedAudioStream()
@@ -119,7 +119,7 @@ func nextDeviceIndex(devs []audio.Device, current uint32) (uint32, bool) {
 
 // triggerAudioSetDefault marks the selected device as the default.
 func (m *Model) triggerAudioSetDefault() tea.Cmd {
-	if !m.inSoundContent() || m.state.AudioBusy {
+	if !m.inSoundDetails() || m.state.AudioBusy {
 		return nil
 	}
 	dev, isSink, ok := m.state.SelectedAudioDevice()

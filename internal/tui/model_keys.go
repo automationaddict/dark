@@ -96,12 +96,32 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.CloseAppstoreDetail()
 			return m, nil
 		}
+		if m.state.UsersContentFocused {
+			m.state.UsersContentFocused = false
+			return m, nil
+		}
+		if m.state.AudioContentFocused {
+			m.state.AudioContentFocused = false
+			return m, nil
+		}
+		if m.state.DisplayContentFocused {
+			m.state.DisplayContentFocused = false
+			return m, nil
+		}
+		if m.state.NetworkContentFocused {
+			m.state.NetworkContentFocused = false
+			return m, nil
+		}
 		if m.state.WifiContentFocused {
 			m.state.WifiContentFocused = false
 			return m, nil
 		}
 		if m.state.BluetoothContentFocused {
 			m.state.BluetoothContentFocused = false
+			return m, nil
+		}
+		if m.state.OmarchyLinksFocused {
+			m.state.OmarchyLinksFocused = false
 			return m, nil
 		}
 		if m.state.KeybindTableFocused {
@@ -117,9 +137,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !m.state.ContentFocused {
 			if m.state.ActiveTab == core.TabF3 {
 				m.state.ContentFocused = true
+				// Reset sub-focus when entering content
+				m.state.OmarchyLinksFocused = false
+				m.state.KeybindTableFocused = false
 				return m, nil
 			}
 			if m.state.ActiveTab == core.TabF2 {
+				if m.state.F2OnUpdates() {
+					// Updates section — no content focus needed, trigger update
+					return m, nil
+				}
 				m.state.ContentFocused = true
 				m.state.AppstoreFocus = core.AppstoreFocusResults
 				// Load the category if results aren't already showing it.
@@ -188,9 +215,40 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if m.state.ActiveBluetoothSection().ID == "devices" && !m.state.BluetoothDeviceInfoOpen {
 					m.state.OpenBluetoothDeviceInfo()
 				}
+			case "network":
+				if !m.state.NetworkContentFocused {
+					sec := m.state.ActiveNetworkSection()
+					// DNS is read-only — no interactive content to focus.
+					if sec.ID == "dns" {
+						return m, nil
+					}
+					m.state.NetworkContentFocused = true
+					return m, nil
+				}
+			case "display":
+				if !m.state.DisplayContentFocused {
+					sec := m.state.ActiveDisplaySection()
+					// Controls, layout, profiles have no selectable rows.
+					if sec.ID == "monitors" {
+						m.state.DisplayContentFocused = true
+					}
+					return m, nil
+				}
 			case "sound":
-				if !m.state.AudioDeviceInfoOpen {
+				if !m.state.AudioContentFocused {
+					m.state.AudioContentFocused = true
+					m.state.SyncAudioFocus()
+					return m, nil
+				}
+				// Second enter opens device info for sinks/sources.
+				sec := m.state.ActiveAudioSection()
+				if (sec.ID == "sinks" || sec.ID == "sources") && !m.state.AudioDeviceInfoOpen {
 					m.state.OpenAudioDeviceInfo()
+				}
+			case "users":
+				if !m.state.UsersContentFocused {
+					m.state.UsersContentFocused = true
+					return m, nil
 				}
 			case "power":
 				switch m.state.ActivePowerSection().ID {
@@ -246,10 +304,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.moveSelection(-1)
 	case "down", "j":
 		m.moveSelection(1)
-	case "tab":
-		if m.inSoundContent() {
-			m.state.CycleAudioFocus()
-		}
 	case "1":
 		if m.inPrivacyContent() {
 			m.triggerPrivacyScreensaverDialog()
@@ -291,6 +345,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "c":
+		if m.inF2Updates() {
+			return m, m.triggerChannelChange()
+		}
 		if m.inUsersContent() {
 			m.triggerUserRename()
 			return m, nil
@@ -334,6 +391,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "f":
+		if m.inAppearanceContent() {
+			m.triggerAppearanceFontDialog()
+			return m, nil
+		}
 		if m.inPrivacyContent() {
 			if cmd := m.triggerPrivacyFirewallToggle(); cmd != nil {
 				return m, cmd
@@ -474,6 +535,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "u":
+		if m.state.ActiveTab == core.TabF2 && m.state.F2OnUpdates() {
+			return m, m.triggerOmarchyUpdate()
+		}
 		if cmd := m.triggerBluetoothRemove(); cmd != nil {
 			return m, cmd
 		}
@@ -676,10 +740,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		if m.state.ActiveTab == core.TabF2 {
+			if m.inF2Firmware() {
+				return m, m.triggerFwupdInstall()
+			}
 			return m, m.triggerAppstoreInstall()
 		}
 	case "U":
-		if m.state.ActiveTab == core.TabF2 {
+		if m.state.ActiveTab == core.TabF2 && !m.state.F2OnUpdates() {
 			return m, m.triggerAppstoreUpgrade()
 		}
 	case "/":
@@ -715,6 +782,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case "g":
+		if m.inDisplayContent() && m.state.ActiveDisplaySection().ID == "gpu" {
+			return m, m.triggerGPUModeToggle()
+		}
 		if m.inUsersContent() {
 			m.triggerUserGroupAdd()
 			return m, nil
@@ -760,6 +830,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case "+", "=":
+		if m.inAppearanceFonts() {
+			if cmd := m.triggerAppearanceFontSize(1); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inNotifyContent() {
 			if cmd := m.triggerNotifyTimeoutDelta(1000); cmd != nil {
 				return m, cmd
@@ -780,6 +855,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state.ResizeSidebar(1)
 		}
 	case "-", "_":
+		if m.inAppearanceFonts() {
+			if cmd := m.triggerAppearanceFontSize(-1); cmd != nil {
+				return m, cmd
+			}
+		}
 		if m.inNotifyContent() {
 			if cmd := m.triggerNotifyTimeoutDelta(-1000); cmd != nil {
 				return m, cmd

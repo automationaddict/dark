@@ -24,99 +24,197 @@ func renderSound(s *core.State, width, height int) string {
 		)
 	}
 
+	secs := core.AudioSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebarFocused := s.ContentFocused && !s.AudioContentFocused
+	sidebar := renderInnerSidebarFocused(s, entries, s.AudioSectionIdx, height, sidebarFocused)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActiveAudioSection()
+	var content string
+	switch sec.ID {
+	case "sinks":
+		content = renderSoundSinksSection(s, contentWidth, height)
+	case "sources":
+		content = renderSoundSourcesSection(s, contentWidth, height)
+	case "play_apps":
+		content = renderSoundPlayAppsSection(s, contentWidth, height)
+	case "record_apps":
+		content = renderSoundRecordAppsSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+// ── Output Devices section ──────────────────────────────────────────
+
+func renderSoundSinksSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
 	}
 
-	focused := s.ContentFocused
+	focused := s.AudioContentFocused
 
-	sinksBorder := colorBorder
-	sourcesBorder := colorBorder
-	if focused {
-		switch s.AudioFocus {
-		case core.AudioFocusSources:
-			sourcesBorder = colorAccent
-		default:
-			sinksBorder = colorAccent
+	// Device info drill-in replaces the device list.
+	if s.AudioDeviceInfoOpen {
+		dev, isSink, ok := s.SelectedAudioDevice()
+		if ok && isSink {
+			return renderSoundDeviceInfoSection(s, dev, true, width, height, innerWidth)
 		}
+		s.AudioDeviceInfoOpen = false
 	}
 
 	var blocks []string
 
-	if s.AudioDeviceInfoOpen {
-		dev, isSink, ok := s.SelectedAudioDevice()
-		if ok {
-			blocks = append(blocks, renderAudioDeviceInfoBox(s, dev, isSink, innerWidth))
-		} else {
-			s.AudioDeviceInfoOpen = false
+	border := borderForFocus(focused)
+	sinksBox := renderAudioDeviceBox(s, "Output Devices", s.Audio.Sinks, s.AudioSinkIdx,
+		focused, true, innerWidth, border)
+	blocks = append(blocks, sinksBox)
+
+	if focused {
+		if cardBox, ok := renderAudioCardBox(s, innerWidth); ok {
+			blocks = append(blocks, "", cardBox)
 		}
 	}
 
-	if !s.AudioDeviceInfoOpen {
-		sinksBox := renderAudioDeviceBox(
-			s, "Output Devices", s.Audio.Sinks, s.AudioSinkIdx,
-			focused && s.AudioFocus == core.AudioFocusSinks, true,
-			innerWidth, sinksBorder,
-		)
-		sourcesBox := renderAudioDeviceBox(
-			s, "Input Devices", s.Audio.Sources, s.AudioSourceIdx,
-			focused && s.AudioFocus == core.AudioFocusSources, false,
-			innerWidth, sourcesBorder,
-		)
-
-		blocks = append(blocks, sinksBox, "", sourcesBox)
-
-		if len(s.Audio.SinkInputs) > 0 {
-			playBorder := colorBorder
-			if focused && s.AudioFocus == core.AudioFocusPlayApps {
-				playBorder = colorAccent
-			}
-			playBox := renderAudioStreamBox(
-				s, "Playing Applications", s.Audio.SinkInputs, s.AudioPlayAppIdx,
-				focused && s.AudioFocus == core.AudioFocusPlayApps, true,
-				innerWidth, playBorder,
-			)
-			blocks = append(blocks, "", playBox)
-		}
-
-		if len(s.Audio.SourceOutputs) > 0 {
-			recBorder := colorBorder
-			if focused && s.AudioFocus == core.AudioFocusRecordApps {
-				recBorder = colorAccent
-			}
-			recBox := renderAudioStreamBox(
-				s, "Recording Applications", s.Audio.SourceOutputs, s.AudioRecordAppIdx,
-				focused && s.AudioFocus == core.AudioFocusRecordApps, false,
-				innerWidth, recBorder,
-			)
-			blocks = append(blocks, "", recBox)
-		}
-
-		// Card box only renders when focus is on a device sub-table —
-		// it would be confusing or empty when an apps row is selected.
-		if s.AudioFocus == core.AudioFocusSinks || s.AudioFocus == core.AudioFocusSources {
-			if cardBox, ok := renderAudioCardBox(s, innerWidth); ok {
-				blocks = append(blocks, "", cardBox)
-			}
-		}
-	}
-
-	// Errors fire desktop notifications instead of rendering inline.
 	if s.AudioBusy {
 		blocks = append(blocks, "", statusBusyStyle.Render("working…"))
 	}
 
-	blocks = append(blocks, renderAudioFocusHint(s, focused))
+	blocks = append(blocks, renderSoundDeviceHint(focused))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderContentPane(width, height,body)
+	return renderContentPane(width, height, body)
 }
+
+// ── Input Devices section ───────────────────────────────────────────
+
+func renderSoundSourcesSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	focused := s.AudioContentFocused
+
+	// Device info drill-in replaces the device list.
+	if s.AudioDeviceInfoOpen {
+		dev, isSink, ok := s.SelectedAudioDevice()
+		if ok && !isSink {
+			return renderSoundDeviceInfoSection(s, dev, false, width, height, innerWidth)
+		}
+		s.AudioDeviceInfoOpen = false
+	}
+
+	var blocks []string
+
+	border := borderForFocus(focused)
+	sourcesBox := renderAudioDeviceBox(s, "Input Devices", s.Audio.Sources, s.AudioSourceIdx,
+		focused, false, innerWidth, border)
+	blocks = append(blocks, sourcesBox)
+
+	if focused {
+		if cardBox, ok := renderAudioCardBox(s, innerWidth); ok {
+			blocks = append(blocks, "", cardBox)
+		}
+	}
+
+	if s.AudioBusy {
+		blocks = append(blocks, "", statusBusyStyle.Render("working…"))
+	}
+
+	blocks = append(blocks, renderSoundDeviceHint(focused))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+// ── Playing Applications section ────────────────────────────────────
+
+func renderSoundPlayAppsSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	focused := s.AudioContentFocused
+
+	var blocks []string
+
+	if len(s.Audio.SinkInputs) == 0 {
+		blocks = append(blocks, placeholderStyle.Render("No playing applications."))
+	} else {
+		border := borderForFocus(focused)
+		playBox := renderAudioStreamBox(s, "Playing Applications", s.Audio.SinkInputs,
+			s.AudioPlayAppIdx, focused, true, innerWidth, border)
+		blocks = append(blocks, playBox)
+	}
+
+	if s.AudioBusy {
+		blocks = append(blocks, "", statusBusyStyle.Render("working…"))
+	}
+
+	blocks = append(blocks, renderSoundStreamHint(focused))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+// ── Recording Applications section ──────────────────────────────────
+
+func renderSoundRecordAppsSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	focused := s.AudioContentFocused
+
+	var blocks []string
+
+	if len(s.Audio.SourceOutputs) == 0 {
+		blocks = append(blocks, placeholderStyle.Render("No recording applications."))
+	} else {
+		border := borderForFocus(focused)
+		recBox := renderAudioStreamBox(s, "Recording Applications", s.Audio.SourceOutputs,
+			s.AudioRecordAppIdx, focused, false, innerWidth, border)
+		blocks = append(blocks, recBox)
+	}
+
+	if s.AudioBusy {
+		blocks = append(blocks, "", statusBusyStyle.Render("working…"))
+	}
+
+	blocks = append(blocks, renderSoundStreamHint(focused))
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+// ── Device info drill-in ────────────────────────────────────────────
+
+func renderSoundDeviceInfoSection(s *core.State, d audio.Device, isSink bool, width, height, innerWidth int) string {
+	infoBox := renderAudioDeviceInfoBox(s, d, isSink, innerWidth)
+
+	var blocks []string
+	blocks = append(blocks, infoBox)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+// ── Shared rendering helpers ────────────────────────────────────────
 
 // renderAudioDeviceInfoBox is the second-level drill: full property
 // readout for one device, plus a wide slider, the backing card's
-// profile list, and the active port list. Replaces the Output/Input
-// device boxes when open. Press esc to back out.
+// profile list, and the active port list. Replaces the device list
+// when open. Press esc to back out.
 func renderAudioDeviceInfoBox(s *core.State, d audio.Device, isSink bool, total int) string {
 	innerWidth := total - 4
 	if innerWidth < 24 {
@@ -178,8 +276,7 @@ func renderAudioDeviceInfoBox(s *core.State, d audio.Device, isSink bool, total 
 // (sinks or sources). Each device occupies two lines: a table-style
 // header row (marker, name, state, mute) the user can highlight and
 // drill into, plus a horizontal volume slider with an inline VU meter
-// indented below it. isSink controls which level map the meter reads
-// from when fetching peak values for each row.
+// indented below it.
 func renderAudioDeviceBox(state *core.State, title string, devs []audio.Device, selected int, focused, isSink bool, total int, border lipgloss.Color) string {
 	if len(devs) == 0 {
 		body := placeholderStyle.Render("no devices")
@@ -246,12 +343,7 @@ func renderAudioDeviceBox(state *core.State, title string, devs []audio.Device, 
 }
 
 // renderAudioStreamBox renders one of the per-app stream sub-tables
-// (sink inputs or source outputs). Each stream is two lines: a header
-// row with the marker, mute glyph, app/media name, and the device
-// it's currently routed to; followed by an indented volume slider.
-// The slider's inline VU meter reads from the level of the device the
-// stream is routed through, since per-app peak detection isn't part
-// of the protocol.
+// (sink inputs or source outputs).
 func renderAudioStreamBox(state *core.State, title string, streams []audio.Stream, selected int, focused, isPlay bool, total int, border lipgloss.Color) string {
 	if len(streams) == 0 {
 		body := placeholderStyle.Render("no active streams")
@@ -315,3 +407,18 @@ func renderAudioStreamBox(state *core.State, title string, streams []audio.Strea
 	return groupBoxSections(title, []string{strings.Join(lines, "\n")}, total, border)
 }
 
+// ── Focus hints ─────────────────────────────────────────────────────
+
+func renderSoundDeviceHint(focused bool) string {
+	if !focused {
+		return statusBarStyle.Render("enter to select")
+	}
+	return statusBarStyle.Render("j/k · enter info · +/- vol · </> bal · m mute · p profile · o port · Z suspend · D default · esc")
+}
+
+func renderSoundStreamHint(focused bool) string {
+	if !focused {
+		return statusBarStyle.Render("enter to select")
+	}
+	return statusBarStyle.Render("j/k · +/- vol · m mute · M move · K kill · esc")
+}

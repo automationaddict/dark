@@ -16,6 +16,35 @@ func renderInputDevices(s *core.State, width, height int) string {
 			placeholderStyle.Render("loading input devices…"))
 	}
 
+	secs := core.InputSections()
+	entries := make([]sidebarEntry, len(secs))
+	for i, sec := range secs {
+		entries[i] = sidebarEntry{Icon: sec.Icon, Label: sec.Label, Enabled: true}
+	}
+	sidebar := renderInnerSidebar(s, entries, s.InputSectionIdx, height)
+	contentWidth := width - lipgloss.Width(sidebar)
+
+	sec := s.ActiveInputSection()
+	var content string
+	switch sec.ID {
+	case "keyboard":
+		content = renderInputKeyboardSection(s, contentWidth, height)
+	case "mouse":
+		content = renderInputMouseSection(s, contentWidth, height)
+	case "touchpad":
+		content = renderInputTouchpadSection(s, contentWidth, height)
+	case "other":
+		content = renderInputOtherSection(s, contentWidth, height)
+	default:
+		content = renderContentPane(contentWidth, height,
+			placeholderStyle.Render("Not implemented."))
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
+}
+
+// ── Keyboard section ────────────────────────────────────────────────
+
+func renderInputKeyboardSection(s *core.State, width, height int) string {
 	innerWidth := width - 6
 	if innerWidth < 46 {
 		innerWidth = 46
@@ -29,19 +58,97 @@ func renderInputDevices(s *core.State, width, height int) string {
 		blocks = append(blocks, kb)
 	}
 
+	blocks = append(blocks, renderInputKeyboardHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderInputKeyboardHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("L")+" layout")
+	hints = append(hints, accent.Render("+/-")+" repeat rate")
+	hints = append(hints, accent.Render("[/]")+" repeat delay")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Mouse section ───────────────────────────────────────────────────
+
+func renderInputMouseSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
+
 	blocks = append(blocks, renderInputMouseSettings(s.InputDevices, innerWidth))
 
 	if m := renderInputMice(s.InputDevices, innerWidth); m != "" {
 		blocks = append(blocks, m)
 	}
 
+	blocks = append(blocks, renderInputMouseHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderInputMouseHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("s/S")+" sensitivity")
+	hints = append(hints, accent.Render("a")+" accel profile")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Touchpad section ────────────────────────────────────────────────
+
+func renderInputTouchpadSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
+
 	if tp := renderInputTouchpadSettings(s.InputDevices, innerWidth); tp != "" {
 		blocks = append(blocks, tp)
+	} else {
+		blocks = append(blocks, placeholderStyle.Render("No touchpad detected."))
 	}
 
 	if tp := renderInputTouchpads(s.InputDevices, innerWidth); tp != "" {
 		blocks = append(blocks, tp)
 	}
+
+	blocks = append(blocks, renderInputTouchpadHint())
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderInputTouchpadHint() string {
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	var hints []string
+	hints = append(hints, accent.Render("n")+" natural scroll")
+	hints = append(hints, accent.Render("t")+" tap to click")
+	return dim.Render("  " + strings.Join(hints, "  "))
+}
+
+// ── Other section ───────────────────────────────────────────────────
+
+func renderInputOtherSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 46 {
+		innerWidth = 46
+	}
+
+	var blocks []string
 
 	if leds := renderInputLEDs(s.InputDevices, innerWidth); leds != "" {
 		blocks = append(blocks, leds)
@@ -52,12 +159,14 @@ func renderInputDevices(s *core.State, width, height int) string {
 	}
 
 	if len(blocks) == 0 {
-		blocks = append(blocks, placeholderStyle.Render("No input devices detected."))
+		blocks = append(blocks, placeholderStyle.Render("No other input devices detected."))
 	}
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
-	return renderScrollableContentPane(s, width, height, body)
+	return renderContentPane(width, height, body)
 }
+
+// ── Shared rendering helpers ────────────────────────────────────────
 
 func renderInputKeyboardSettings(snap input.Snapshot, total int) string {
 	cfg := snap.Config
@@ -166,7 +275,6 @@ func renderInputTouchpadSettings(snap input.Snapshot, total int) string {
 
 	return groupBoxSections("Touchpad Settings", []string{strings.Join(lines, "\n")}, total, colorBorder)
 }
-
 
 func renderInputKeyboards(snap input.Snapshot, total int) string {
 	if len(snap.Keyboards) == 0 {

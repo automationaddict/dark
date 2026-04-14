@@ -16,6 +16,7 @@ type appearanceActionRequest struct {
 	Value   int    `json:"value,omitempty"`
 	Enabled bool   `json:"enabled,omitempty"`
 	Theme   string `json:"theme,omitempty"`
+	Font    string `json:"font,omitempty"`
 }
 
 type appearanceActionResponse struct {
@@ -111,6 +112,23 @@ func wireAppearance(nc *nats.Conn, dn *daemonNotifier) func() {
 			return appearanceActionResponse{Error: "missing theme name"}
 		}
 		if err := appearance.SetTheme(req.Theme); err != nil {
+			return appearanceActionResponse{Error: err.Error()}
+		}
+		return appearanceActionResponse{Snapshot: appearance.ReadSnapshot()}
+	})
+
+	register(bus.SubjectAppearanceFontCmd, func(req appearanceActionRequest) appearanceActionResponse {
+		if req.Font == "" {
+			return appearanceActionResponse{Error: "missing font name"}
+		}
+		if err := appearance.SetFont(req.Font); err != nil {
+			return appearanceActionResponse{Error: err.Error()}
+		}
+		return appearanceActionResponse{Snapshot: appearance.ReadSnapshot()}
+	})
+
+	register(bus.SubjectAppearanceFontSizeCmd, func(req appearanceActionRequest) appearanceActionResponse {
+		if err := appearance.SetFontSize(req.Value); err != nil {
 			return appearanceActionResponse{Error: err.Error()}
 		}
 		return appearanceActionResponse{Snapshot: appearance.ReadSnapshot()}

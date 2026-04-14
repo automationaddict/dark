@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -31,9 +32,20 @@ type SystemInfo struct {
 	Shell       string        `json:"shell"`
 	Terminal    string        `json:"terminal"`
 	Desktop     string        `json:"desktop"`
-	GoVersion   string        `json:"go_version"`
-	BinaryPath  string        `json:"binary_path"`
-	BinaryMTime time.Time     `json:"binary_mtime"`
+	GoVersion      string        `json:"go_version"`
+	DarkVersion    string        `json:"dark_version"`
+	BinaryPath     string        `json:"binary_path"`
+	BinaryMTime    time.Time     `json:"binary_mtime"`
+	OmarchyVersion string        `json:"omarchy_version"`
+	OmarchyBranch  string        `json:"omarchy_branch"`
+	OmarchyChannel string        `json:"omarchy_channel"`
+	OmarchyTheme   string        `json:"omarchy_theme"`
+	OmarchyAuthor  string        `json:"omarchy_author"`
+	PackageCount   int           `json:"package_count"`
+	Compositor     string        `json:"compositor"`
+	Font           string        `json:"font"`
+	InstallAge     time.Duration `json:"install_age_ns"`
+	LastUpdate     time.Time     `json:"last_update"`
 }
 
 // Gather reads the current system snapshot from the host. binPath is the
@@ -76,7 +88,41 @@ func Gather(binPath string) SystemInfo {
 		info.BinaryMTime = fi.ModTime()
 	}
 
+	info.DarkVersion = DarkVersion
+	info.OmarchyVersion, info.OmarchyTheme, info.OmarchyAuthor = readOmarchyInfo()
+	info.OmarchyBranch = readOmarchyBranch()
+	info.OmarchyChannel = readOmarchyChannel()
+	info.PackageCount = readPackageCount()
+	info.Compositor = readCompositor()
+	info.Font = readFont()
+	info.InstallAge = readInstallAge()
+	info.LastUpdate = readLastUpdate()
+
 	return info
+}
+
+// DarkVersion is the current dark release. Set at build time via
+// -ldflags or kept at the dev default.
+var DarkVersion = "0.1.0-dev"
+
+func readOmarchyInfo() (version, theme, author string) {
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		return
+	}
+	base := home + "/.local/share/omarchy"
+
+	if b, err := os.ReadFile(base + "/version"); err == nil {
+		version = strings.TrimSpace(string(b))
+	}
+
+	themePath := home + "/.config/omarchy/current/theme.name"
+	if b, err := os.ReadFile(themePath); err == nil {
+		theme = strings.TrimSpace(string(b))
+	}
+
+	author = "DHH"
+	return
 }
 
 func readOSPretty() string {
@@ -178,6 +224,132 @@ func readMemInfo() (memTotal, memUsed, swapTotal, swapUsed uint64) {
 	}
 	swapUsed = swapTotal - swapFree
 	return
+}
+
+func readOmarchyBranch() string {
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		return ""
+	}
+	b, err := os.ReadFile(home + "/.local/share/omarchy/.git/HEAD")
+	if err != nil {
+		return ""
+	}
+	ref := strings.TrimSpace(string(b))
+	if strings.HasPrefix(ref, "ref: refs/heads/") {
+		return strings.TrimPrefix(ref, "ref: refs/heads/")
+	}
+	return ref
+}
+
+func readOmarchyChannel() string {
+	data, err := os.ReadFile("/etc/pacman.d/mirrorlist")
+	if err != nil {
+		return "unknown"
+	}
+	content := string(data)
+	switch {
+	case strings.Contains(content, "stable-mirror.omarchy.org"):
+		return "stable"
+	case strings.Contains(content, "rc-mirror.omarchy.org"):
+		return "rc"
+	case strings.Contains(content, "mirror.omarchy.org"):
+		return "edge"
+	}
+	return "unknown"
+}
+
+func readPackageCount() int {
+	entries, err := os.ReadDir("/var/lib/pacman/local")
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != "." && e.Name() != "ALPM_DB_VERSION" {
+			count++
+		}
+	}
+	return count
+}
+
+func readCompositor() string {
+	sig := os.Getenv("HYPRLAND_INSTANCE_SIGNATURE")
+	if sig == "" {
+		return ""
+	}
+	// Read version from hyprctl socket
+	b, err := os.ReadFile("/tmp/hypr/" + sig + "/.version")
+	if err == nil {
+		return "Hyprland " + strings.TrimSpace(string(b))
+	}
+	// Fallback: parse from hyprctl
+	outBytes, err := exec.Command("hyprctl", "version").Output()
+	out := string(outBytes)
+	if err != nil {
+		return "Hyprland"
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "Hyprland") || strings.Contains(line, "Tag:") {
+			return strings.TrimSpace(line)
+		}
+	}
+	return "Hyprland"
+}
+
+func readFont() string {
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		return ""
+	}
+	// Try ghostty first, then alacritty, then kitty
+	for _, path := range []string{
+		home + "/.config/ghostty/config",
+		home + "/.config/alacritty/alacritty.toml",
+		home + "/.config/kitty/kitty.conf",
+	} {
+		f, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "font-family") || strings.Contains(line, "font_family") {
+				f.Close()
+				// Extract value after = or space
+				if i := strings.IndexByte(line, '='); i >= 0 {
+					return strings.Trim(strings.TrimSpace(line[i+1:]), `"'`)
+				}
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					return strings.Join(fields[1:], " ")
+				}
+			}
+		}
+		f.Close()
+	}
+	return ""
+}
+
+func readInstallAge() time.Duration {
+	var st syscall.Stat_t
+	if err := syscall.Stat("/", &st); err != nil {
+		return 0
+	}
+	birth := time.Unix(st.Ctim.Sec, st.Ctim.Nsec)
+	if birth.IsZero() || birth.Year() < 2000 {
+		return 0
+	}
+	return time.Since(birth)
+}
+
+func readLastUpdate() time.Time {
+	fi, err := os.Stat("/var/lib/pacman/sync/core.db")
+	if err != nil {
+		return time.Time{}
+	}
+	return fi.ModTime()
 }
 
 func utsString(b []int8) string {

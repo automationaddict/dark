@@ -13,15 +13,23 @@ import (
 // highlighted category. Same styles, same proportions, same
 // focus model.
 func renderAppStoreTab(s *core.State, width, height int, spinnerView string) string {
-	cats := s.Appstore.Categories
-	entries := make([]sidebarEntry, len(cats))
-	for i, cat := range cats {
-		entries[i] = sidebarEntry{Icon: cat.Icon, Label: cat.Title, Enabled: cat.Enabled}
+	// Build sidebar: appstore categories, then Updates at the bottom with separator.
+	var entries []sidebarEntry
+	for _, cat := range s.Appstore.Categories {
+		entries = append(entries, sidebarEntry{Icon: cat.Icon, Label: cat.Title, Enabled: cat.Enabled})
 	}
-	// Use the shared sidebar renderer so F1 and F2 are identical.
-	sidebar := renderSidebarGeneric(s, entries, s.AppstoreCategoryIdx, height)
+	updatesIdx := len(entries)
+	entries = append(entries, sidebarEntry{Icon: "󰚰", Label: "Updates", Enabled: true, Separator: true})
+
+	sidebar := renderSidebarGeneric(s, entries, s.F2SidebarIdx, height)
 	contentWidth := width - lipgloss.Width(sidebar)
-	content := renderAppStoreContent(s, contentWidth, height, spinnerView)
+
+	var content string
+	if s.F2SidebarIdx == updatesIdx {
+		content = renderUpdateContent(s, contentWidth, height)
+	} else {
+		content = renderAppStoreContent(s, contentWidth, height, spinnerView)
+	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
 }
 

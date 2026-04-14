@@ -29,6 +29,8 @@ import (
 	"github.com/johnnelson/dark/internal/services/notify"
 	powersvc "github.com/johnnelson/dark/internal/services/power"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
+	fwsvc "github.com/johnnelson/dark/internal/services/firmware"
+	updatesvc "github.com/johnnelson/dark/internal/services/update"
 	"github.com/johnnelson/dark/internal/services/wifi"
 	"github.com/johnnelson/dark/internal/theme"
 	"github.com/johnnelson/dark/internal/tui"
@@ -139,6 +141,7 @@ func main() {
 	usersActions := newUsersActions(nc)
 	privacyActions := newPrivacyActions(nc)
 	appearanceActions := newAppearanceActions(nc)
+	updateActions := newUpdateActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -150,7 +153,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -408,6 +411,34 @@ func main() {
 	}
 	defer appearanceSub.Unsubscribe()
 
+	updateSub, err := nc.Subscribe(bus.SubjectUpdateSnapshot, func(m *nats.Msg) {
+		var snap updatesvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Updates", err)
+			return
+		}
+		p.Send(tui.UpdateMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe update:", err)
+		os.Exit(1)
+	}
+	defer updateSub.Unsubscribe()
+
+	firmwareSub, err := nc.Subscribe(bus.SubjectFirmwareSnapshot, func(m *nats.Msg) {
+		var snap fwsvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Firmware", err)
+			return
+		}
+		p.Send(tui.FirmwareMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe firmware:", err)
+		os.Exit(1)
+	}
+	defer firmwareSub.Unsubscribe()
+
 	// Request current snapshots up front so each tab has data on the
 	// first frame instead of waiting for the next periodic publish.
 	if reply, err := nc.Request(bus.SubjectSystemInfoCmd, nil, core.TimeoutFast); err == nil {
@@ -483,6 +514,16 @@ func main() {
 		var snap appearancesvc.Snapshot
 		if err := json.Unmarshal(reply.Data, &snap); err == nil {
 			state.SetAppearance(snap)
+		}
+	}
+
+	if snap, ok := requestInitialUpdate(nc); ok {
+		state.SetUpdate(snap)
+	}
+	if reply, err := nc.Request(bus.SubjectFirmwareSnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap fwsvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetFirmware(snap)
 		}
 	}
 
