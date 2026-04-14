@@ -219,6 +219,8 @@ func main() {
 	}
 	publishLimine := wireLimine(nc, limineService, dn)
 
+	publishScreensaver := wireScreensaver(nc)
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
@@ -266,6 +268,7 @@ func main() {
 	publishUpdate()
 	publishFirmware()
 	publishLimine()
+	publishScreensaver()
 
 	var seq uint64
 	for {
@@ -291,6 +294,7 @@ func main() {
 				publishUpdate()
 				publishFirmware()
 				publishLimine()
+				publishScreensaver()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())

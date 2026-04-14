@@ -214,4 +214,10 @@ const (
 	SubjectLimineSyncConfigCmd    = "dark.cmd.limine.sync_config"
 	SubjectLimineOmarchyConfigCmd = "dark.cmd.limine.omarchy_config"
 	SubjectLimineKernelCmdlineCmd = "dark.cmd.limine.kernel_cmdline"
+
+	SubjectScreensaverSnapshot      = "dark.screensaver.snapshot"
+	SubjectScreensaverSnapshotCmd   = "dark.cmd.screensaver.snapshot"
+	SubjectScreensaverSetEnabledCmd = "dark.cmd.screensaver.set_enabled"
+	SubjectScreensaverSetContentCmd = "dark.cmd.screensaver.set_content"
+	SubjectScreensaverPreviewCmd    = "dark.cmd.screensaver.preview"
 )
