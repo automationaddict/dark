@@ -153,7 +153,11 @@ func renderPowerIdleSection(s *core.State, width, height int) string {
 	var blocks []string
 	blocks = append(blocks, renderPowerIdle(s.Power, innerWidth))
 
-	hint := lipgloss.NewStyle().Foreground(colorDim).Render("  i edit idle timers")
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent)
+	hint := dim.Render("  ") +
+		accent.Render("i") + dim.Render(" edit idle timers  ") +
+		accent.Render("l") + dim.Render(" toggle idle daemon")
 	blocks = append(blocks, hint)
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)

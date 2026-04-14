@@ -13,13 +13,14 @@ import (
 )
 
 type powerActionRequest struct {
-	Profile   string `json:"profile,omitempty"`
-	Governor  string `json:"governor,omitempty"`
-	EPP       string `json:"epp,omitempty"`
-	IdleKind  string `json:"idle_kind,omitempty"`
-	IdleSec   int    `json:"idle_sec,omitempty"`
-	ButtonKey string `json:"button_key,omitempty"`
-	ButtonVal string `json:"button_val,omitempty"`
+	Profile     string `json:"profile,omitempty"`
+	Governor    string `json:"governor,omitempty"`
+	EPP         string `json:"epp,omitempty"`
+	IdleKind    string `json:"idle_kind,omitempty"`
+	IdleSec     int    `json:"idle_sec,omitempty"`
+	IdleRunning *bool  `json:"idle_running,omitempty"`
+	ButtonKey   string `json:"button_key,omitempty"`
+	ButtonVal   string `json:"button_val,omitempty"`
 }
 
 type powerActionResponse struct {
@@ -94,6 +95,20 @@ func wirePower(nc *nats.Conn, dn *daemonNotifier) func() {
 		if err := power.SetIdleTimeout(req.IdleKind, req.IdleSec); err != nil {
 			return powerActionResponse{Error: err.Error()}
 		}
+		return powerActionResponse{Snapshot: power.ReadSnapshot()}
+	})
+
+	register(bus.SubjectPowerIdleRunningCmd, func(req powerActionRequest) powerActionResponse {
+		if req.IdleRunning == nil {
+			return powerActionResponse{Error: "missing idle_running"}
+		}
+		if err := power.SetIdleRunning(*req.IdleRunning); err != nil {
+			return powerActionResponse{Error: err.Error()}
+		}
+		// Give hypridle a moment to settle so the snapshot reflects
+		// the flipped state. Without this the read can race and
+		// report the pre-toggle value.
+		time.Sleep(150 * time.Millisecond)
 		return powerActionResponse{Snapshot: power.ReadSnapshot()}
 	})
 

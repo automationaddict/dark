@@ -12,11 +12,12 @@ import (
 )
 
 type PowerActions struct {
-	SetProfile func(profile string) tea.Cmd
-	SetGovernor func(gov string) tea.Cmd
-	SetEPP      func(epp string) tea.Cmd
-	SetIdle     func(kind string, sec int) tea.Cmd
-	SetButton   func(key, value string) tea.Cmd
+	SetProfile     func(profile string) tea.Cmd
+	SetGovernor    func(gov string) tea.Cmd
+	SetEPP         func(epp string) tea.Cmd
+	SetIdle        func(kind string, sec int) tea.Cmd
+	SetIdleRunning func(running bool) tea.Cmd
+	SetButton      func(key, value string) tea.Cmd
 }
 
 type PowerMsg power.Snapshot
@@ -123,6 +124,28 @@ func (m *Model) triggerPowerButtonsDialog() {
 		}
 		return tea.Batch(cmds...)
 	})
+}
+
+// inPowerIdleSection is the stricter gate used by per-section idle
+// actions: we only react when the user is actually inside the Screen
+// & Idle sub-section of the Power page, not just anywhere on Power.
+func (m *Model) inPowerIdleSection() bool {
+	return m.inPowerContent() && m.state.ActivePowerSection().ID == "idle"
+}
+
+// triggerPowerIdleToggle starts or stops the hypridle daemon so the
+// Omarchy "stop locking computer when idle" flow is available from
+// dark. No-op when not on the Idle sub-section or when the backend
+// function isn't wired in.
+func (m *Model) triggerPowerIdleToggle() tea.Cmd {
+	if !m.inPowerIdleSection() {
+		return nil
+	}
+	if m.power.SetIdleRunning == nil {
+		return m.notifyUnavailable("Power")
+	}
+	target := !m.state.Power.Idle.Running
+	return m.power.SetIdleRunning(target)
 }
 
 func (m *Model) triggerPowerIdleDialog() {

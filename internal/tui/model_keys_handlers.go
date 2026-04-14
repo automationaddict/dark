@@ -340,6 +340,9 @@ func (m Model) handleActionB() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionL() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerPowerIdleToggle(); cmd != nil {
+		return m, cmd
+	}
 	if m.inPrivacyContent() {
 		if cmd := m.triggerPrivacyLocationToggle(); cmd != nil {
 			return m, cmd

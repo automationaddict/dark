@@ -285,6 +285,17 @@ func patchIdleTimeout(lines []string, kind string, seconds int) []string {
 }
 
 func reloadHypridle() {
+	if pid, ok := hypridlePID(); ok {
+		if proc, err := os.FindProcess(pid); err == nil {
+			_ = proc.Signal(syscall.SIGUSR1)
+		}
+	}
+}
+
+// hypridlePID returns the PID of the running hypridle process and a
+// bool indicating whether one was found. Walks /proc/*/comm so it
+// doesn't need pgrep on the daemon's PATH.
+func hypridlePID() (int, bool) {
 	entries, _ := os.ReadDir("/proc")
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -299,14 +310,67 @@ func reloadHypridle() {
 			if err != nil {
 				continue
 			}
-			proc, err := os.FindProcess(pid)
-			if err != nil {
-				continue
-			}
-			_ = proc.Signal(syscall.SIGUSR1)
-			return
+			return pid, true
 		}
 	}
+	return 0, false
+}
+
+// SetIdleRunning toggles the hypridle daemon on or off. When running
+// is false and hypridle is running, it sends SIGTERM and lets the
+// process exit cleanly. When running is true and hypridle is not
+// running, it launches it via omarchy-toggle-idle (which handles the
+// uwsm-app environment setup the Wayland session needs). No-op when
+// the process is already in the desired state — callers get a clear
+// error only when the flip actually failed.
+func SetIdleRunning(running bool) error {
+	pid, already := hypridlePID()
+	if already == running {
+		return nil
+	}
+
+	if !running {
+		proc, err := os.FindProcess(pid)
+		if err != nil {
+			return fmt.Errorf("find hypridle pid %d: %w", pid, err)
+		}
+		if err := proc.Signal(syscall.SIGTERM); err != nil {
+			return fmt.Errorf("stop hypridle: %w", err)
+		}
+		return nil
+	}
+
+	// Starting hypridle needs the Wayland session environment
+	// (WAYLAND_DISPLAY, XDG_RUNTIME_DIR, DBUS_SESSION_BUS_ADDRESS,
+	// etc.). The omarchy-toggle-idle script uses uwsm-app for that,
+	// which is the correct path on a stock Omarchy install. Fall
+	// back to a direct hypridle launch if omarchy-toggle-idle is
+	// missing — that keeps dark working on systems that have
+	// hypridle installed without the Omarchy wrapper scripts.
+	if _, err := exec.LookPath("omarchy-toggle-idle"); err == nil {
+		// omarchy-toggle-idle flips state, so calling it when
+		// hypridle is off will turn it on. The above state check
+		// guarantees we only reach here when that's what we want.
+		cmd := exec.Command("omarchy-toggle-idle")
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("omarchy-toggle-idle: %w", err)
+		}
+		return nil
+	}
+	if _, err := exec.LookPath("hypridle"); err != nil {
+		return fmt.Errorf("hypridle not installed")
+	}
+	// Detached launch — we don't want darkd to be the parent because
+	// the hypridle process should outlive any daemon restart.
+	cmd := exec.Command("hypridle")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start hypridle: %w", err)
+	}
+	// Don't Wait — we want this child fully orphaned. Release the
+	// Go-side handle so the runtime doesn't keep a zombie waiting.
+	_ = cmd.Process.Release()
+	return nil
 }
 
 // SetSystemButton updates a logind.conf handle key via the privileged

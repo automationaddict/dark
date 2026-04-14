@@ -50,7 +50,8 @@ Writes go through `dark-helper` + pkexec because `/etc/systemd/logind.conf` is r
 
 ### Screen & Idle
 
-- `I` — open a dialog to set the idle timeout for the selected row (screensaver, lock, screen off). Enter a number in seconds. Dark edits `~/.config/hypr/hypridle.conf` directly and tells hypridle to reload.
+- `i` — open a dialog to set the idle timeout for the selected row (screensaver, lock, screen off). Enter a number in seconds. Dark edits `~/.config/hypr/hypridle.conf` directly and tells hypridle to reload.
+- `l` — toggle the `hypridle` daemon on or off. When off, **none** of the idle timers fire — no auto-lock, no screen-off, no keyboard backlight dim, no screensaver trigger. The Idle Daemon row on the Screen & Idle panel flips between `running` (green) and `stopped` (red). When turning it back on, dark invokes `omarchy-toggle-idle` so hypridle is relaunched via `uwsm-app` with the correct Wayland session environment; if `omarchy-toggle-idle` isn't available, dark falls back to a direct `hypridle` spawn detached via setsid. This is the equivalent of Omarchy's "Stop / Now locking computer when idle" toggle.
 
 ## Common tasks
 
@@ -72,8 +73,16 @@ Writes go through `dark-helper` + pkexec because `/etc/systemd/logind.conf` is r
 
 1. Navigate to Screen & Idle.
 2. `enter` to focus, arrow to `screen_off`.
-3. `I` to edit. Type `1800` (30 minutes). `enter`.
+3. `i` to edit. Type `1800` (30 minutes). `enter`.
 4. hypridle reloads and the new timeout applies to the next idle cycle.
+
+### Stop the computer from auto-locking temporarily (for a long presentation, a movie, etc.)
+
+1. Navigate to Screen & Idle, `enter` to focus.
+2. Press `l`. The Idle Daemon row flips from `running` to `stopped`.
+3. No idle timers will fire until you press `l` again. When you're done, come back and flip it on — hypridle restarts cleanly via `omarchy-toggle-idle` and your existing timeout chain resumes from the next trigger.
+
+Note: this doesn't touch the hypridle config file, so your timeouts are preserved exactly as they were. It just gates the whole daemon. If you want to make certain specific timers longer without disabling everything, use `i` instead.
 
 ### Check why the CPU feels slow
 

@@ -140,6 +140,7 @@ const (
 	SubjectPowerGovernorCmd  = "dark.cmd.power.governor"
 	SubjectPowerEPPCmd       = "dark.cmd.power.epp"
 	SubjectPowerIdleCmd      = "dark.cmd.power.idle"
+	SubjectPowerIdleRunningCmd = "dark.cmd.power.idle_running"
 	SubjectPowerButtonCmd    = "dark.cmd.power.button"
 
 	SubjectAppstoreCatalog    = "dark.appstore.catalog"

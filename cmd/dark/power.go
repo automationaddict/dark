@@ -51,6 +51,13 @@ func newPowerActions(nc *nats.Conn) tui.PowerActions {
 				})
 			}
 		},
+		SetIdleRunning: func(running bool) tea.Cmd {
+			return func() tea.Msg {
+				return powerRequest(nc, bus.SubjectPowerIdleRunningCmd, map[string]any{
+					"idle_running": running,
+				})
+			}
+		},
 	}
 }
 
