@@ -40,6 +40,10 @@ func (m Model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 	case "a":
 		return m.handleActionA()
 	case "h":
+		if m.inTopBarContent() {
+			m.triggerTopBarHeightDialog()
+			return m, nil
+		}
 		if cmd := m.triggerWifiConnectHidden(); cmd != nil {
 			return m, cmd
 		}
@@ -75,6 +79,10 @@ func (m Model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 		return m.handleActionR()
 	case "X":
 		return m.handleActionShiftX()
+	case "C":
+		if cmd := m.triggerTopBarEditStyle(); cmd != nil {
+			return m, cmd
+		}
 	case "b":
 		return m.handleActionB()
 	case "W":

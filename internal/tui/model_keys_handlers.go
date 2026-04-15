@@ -13,6 +13,10 @@ import (
 // handler here, keeping the top-level switch compact.
 
 func (m Model) handleActionS() (tea.Model, tea.Cmd) {
+	if m.inTopBarContent() {
+		m.triggerTopBarSpacingDialog()
+		return m, nil
+	}
 	if m.state.ActiveTab == core.TabF3 &&
 		m.state.ActiveOmarchySection().ID == "limine" &&
 		m.state.ActiveLimineSection().ID == "snapshots" {
@@ -46,6 +50,9 @@ func (m Model) handleActionS() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionC() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerTopBarEditConfig(); cmd != nil {
+		return m, cmd
+	}
 	if m.inScreensaverContent() {
 		return m, m.triggerScreensaverEditContent()
 	}
@@ -202,6 +209,9 @@ func (m Model) handleActionE() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionP() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerTopBarCyclePosition(); cmd != nil {
+		return m, cmd
+	}
 	if cmd := m.triggerScreensaverPreview(); cmd != nil {
 		return m, cmd
 	}
@@ -259,6 +269,9 @@ func (m Model) handleActionO() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionT() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerTopBarToggle(); cmd != nil {
+		return m, cmd
+	}
 	if m.inAppearanceContent() {
 		m.triggerAppearanceThemeDialog()
 		return m, nil
@@ -285,6 +298,9 @@ func (m Model) handleActionT() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionR() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerTopBarRestart(); cmd != nil {
+		return m, cmd
+	}
 	if m.inAppearanceContent() {
 		if cmd := m.triggerAppearanceRounding(1); cmd != nil {
 			return m, cmd
@@ -340,6 +356,9 @@ func (m Model) handleActionB() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionL() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerTopBarCycleLayer(); cmd != nil {
+		return m, cmd
+	}
 	if cmd := m.triggerPowerIdleToggle(); cmd != nil {
 		return m, cmd
 	}
@@ -382,6 +401,9 @@ func (m Model) handleActionX() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionShiftR() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerTopBarReset(); cmd != nil {
+		return m, cmd
+	}
 	if m.inAppearanceContent() {
 		if cmd := m.triggerAppearanceRounding(-1); cmd != nil {
 			return m, cmd

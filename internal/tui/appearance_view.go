@@ -38,6 +38,8 @@ func renderAppearance(s *core.State, width, height int) string {
 		content = renderAppearanceCursorSection(s, contentWidth, height)
 	case "screensaver":
 		content = renderAppearanceScreensaverSection(s, contentWidth, height)
+	case "topbar":
+		content = renderAppearanceTopBarSection(s, contentWidth, height)
 	default:
 		content = renderContentPane(contentWidth, height,
 			placeholderStyle.Render("Not implemented."))

@@ -23,6 +23,7 @@ import (
 	privacysvc "github.com/johnnelson/dark/internal/services/privacy"
 	"github.com/johnnelson/dark/internal/services/screensaver"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
+	"github.com/johnnelson/dark/internal/services/topbar"
 	"github.com/johnnelson/dark/internal/services/firmware"
 	"github.com/johnnelson/dark/internal/services/links"
 	"github.com/johnnelson/dark/internal/services/update"
@@ -80,6 +81,7 @@ type Model struct {
 	appearance AppearanceActions
 	update     UpdateActions
 	screensaver ScreensaverActions
+	topbar     TopBarActions
 	dialog     *Dialog
 	editor     *Editor
 	spinner    spinner.Model
@@ -360,6 +362,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.LimineActionError = ""
 		m.state.SetLimine(msg.Snapshot)
+		return m, nil
+
+	case TopBarMsg:
+		m.state.SetTopBar(topbar.Snapshot(msg))
+		return m, nil
+
+	case TopBarActionResultMsg:
+		m.state.TopBarBusy = false
+		if msg.Err != "" {
+			slog.Warn("topbar action failed", "error", msg.Err)
+			m.state.TopBarActionError = msg.Err
+			m.notifyError("Top Bar", msg.Err)
+			return m, nil
+		}
+		m.state.TopBarActionError = ""
+		m.state.SetTopBar(msg.Snapshot)
 		return m, nil
 
 	case ScreensaverMsg:
