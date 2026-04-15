@@ -3,10 +3,12 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"github.com/johnnelson/dark/internal/theme"
 )
 
-// escByte is the ANSI CSI introducer. A highlighted line from
-// chroma's terminal256 formatter always contains at least one.
+// escByte is the ANSI CSI introducer. A highlighted line from any
+// of chroma's terminal formatters always contains at least one.
 const escByte = "\x1b"
 
 func TestHighlightLinesJSON(t *testing.T) {
@@ -118,5 +120,51 @@ func TestLineNumberCell(t *testing.T) {
 		if got := lineNumberCell(tt.n, tt.width); got != tt.want {
 			t.Errorf("lineNumberCell(%d, %d) = %q, want %q", tt.n, tt.width, got, tt.want)
 		}
+	}
+}
+
+// TestHighlightUsesPaletteColors proves the chroma pipeline actually
+// picks up the palette-derived style rather than monokai. We build
+// a synthetic palette with a recognizable accent color, call
+// setHighlightPalette, highlight a JSON snippet, and confirm that
+// the raw #rrggbb value for our accent lands in the ANSI output.
+func TestHighlightUsesPaletteColors(t *testing.T) {
+	p := theme.Palette{
+		Background: "#101020",
+		Foreground: "#e0e0ff",
+		Accent:     "#ff00aa", // unmistakable pink so we can grep for it
+		Muted:      "#404060",
+		Dim:        "#808090",
+		Green:      "#00ff88",
+		Gold:       "#ffcc00",
+		Red:        "#ff3333",
+	}
+	setHighlightPalette(p)
+	defer setHighlightPalette(theme.Palette{}) // restore fallback
+
+	// "true" is a KeywordConstant in the json lexer, which we map
+	// to the palette accent color. The truecolor formatter emits
+	// #ff00aa as ESC[38;2;255;0;170m — check for the decimal form
+	// because that's what the terminal sees.
+	lines, ok := highlightLines(`{"on": true}`, LangJSON)
+	if !ok {
+		t.Fatal("highlightLines failed")
+	}
+	joined := strings.Join(lines, "\n")
+	if !strings.Contains(joined, "255;0;170") {
+		t.Errorf("expected accent color 255;0;170 in truecolor output, got:\n%q", joined)
+	}
+}
+
+func TestSetHighlightPaletteEmptyFallsBack(t *testing.T) {
+	// An entirely empty palette should still produce a valid style
+	// via the internal fallbacks — highlightLines must not return
+	// ok=false just because the palette wasn't fully populated.
+	setHighlightPalette(theme.Palette{})
+	defer setHighlightPalette(theme.Palette{})
+
+	_, ok := highlightLines(`{"a": 1}`, LangJSON)
+	if !ok {
+		t.Error("highlightLines failed with empty palette — expected fallback path")
 	}
 }
