@@ -221,6 +221,8 @@ func main() {
 
 	publishScreensaver := wireScreensaver(nc)
 
+	publishTopBar := wireTopBar(nc)
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
@@ -269,6 +271,7 @@ func main() {
 	publishFirmware()
 	publishLimine()
 	publishScreensaver()
+	publishTopBar()
 
 	var seq uint64
 	for {
@@ -295,6 +298,7 @@ func main() {
 				publishFirmware()
 				publishLimine()
 				publishScreensaver()
+				publishTopBar()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())

@@ -221,4 +221,16 @@ const (
 	SubjectScreensaverSetEnabledCmd = "dark.cmd.screensaver.set_enabled"
 	SubjectScreensaverSetContentCmd = "dark.cmd.screensaver.set_content"
 	SubjectScreensaverPreviewCmd    = "dark.cmd.screensaver.preview"
+
+	SubjectTopBarSnapshot       = "dark.topbar.snapshot"
+	SubjectTopBarSnapshotCmd    = "dark.cmd.topbar.snapshot"
+	SubjectTopBarSetRunningCmd  = "dark.cmd.topbar.set_running"
+	SubjectTopBarRestartCmd     = "dark.cmd.topbar.restart"
+	SubjectTopBarResetCmd       = "dark.cmd.topbar.reset"
+	SubjectTopBarSetPositionCmd = "dark.cmd.topbar.set_position"
+	SubjectTopBarSetLayerCmd    = "dark.cmd.topbar.set_layer"
+	SubjectTopBarSetHeightCmd   = "dark.cmd.topbar.set_height"
+	SubjectTopBarSetSpacingCmd  = "dark.cmd.topbar.set_spacing"
+	SubjectTopBarSetConfigCmd   = "dark.cmd.topbar.set_config"
+	SubjectTopBarSetStyleCmd    = "dark.cmd.topbar.set_style"
 )
