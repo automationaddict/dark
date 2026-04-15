@@ -55,6 +55,10 @@ func (s *State) FocusContent() {
 		if s.AppearanceLoaded {
 			s.ContentFocused = true
 		}
+	case "workspaces":
+		if s.WorkspacesLoaded {
+			s.ContentFocused = true
+		}
 	case "about":
 		if s.SysInfoLoaded {
 			s.ContentFocused = true
@@ -82,6 +86,7 @@ func (s *State) FocusSidebar() {
 	s.DisplayContentFocused = false
 	s.AudioContentFocused = false
 	s.UsersContentFocused = false
+	s.WorkspacesContentFocused = false
 }
 
 func (s *State) MoveSettingsFocus(delta int) {
