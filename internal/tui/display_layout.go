@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/display"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/display"
 )
 
 // renderDisplayLayout draws a scaled bird's-eye view of the monitor

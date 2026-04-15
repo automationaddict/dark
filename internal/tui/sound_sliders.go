@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/audio"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/audio"
 )
 
 // streamRowMarker matches audioRowMarker's two-glyph layout but

@@ -3,7 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/core"
+	"github.com/automationaddict/dark/internal/core"
 )
 
 // This file holds the per-key handleActionX helpers — each one walks

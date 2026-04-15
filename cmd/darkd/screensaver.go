@@ -7,8 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	screensaversvc "github.com/johnnelson/dark/internal/services/screensaver"
+	"github.com/automationaddict/dark/internal/bus"
+	screensaversvc "github.com/automationaddict/dark/internal/services/screensaver"
 )
 
 // wireScreensaver installs handlers for the screensaver command subjects

@@ -7,8 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	fwsvc "github.com/johnnelson/dark/internal/services/firmware"
+	"github.com/automationaddict/dark/internal/bus"
+	fwsvc "github.com/automationaddict/dark/internal/services/firmware"
 )
 
 func wireFirmware(nc *nats.Conn, svc *fwsvc.Service, dn *daemonNotifier) func() {

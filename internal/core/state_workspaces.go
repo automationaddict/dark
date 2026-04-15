@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/workspaces"
+import "github.com/automationaddict/dark/internal/services/workspaces"
 
 // WorkspacesSection describes one sub-section visible in the
 // Workspaces inner sidebar.

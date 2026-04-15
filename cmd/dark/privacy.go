@@ -6,10 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/privacy"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/privacy"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 func newPrivacyActions(nc *nats.Conn) tui.PrivacyActions {

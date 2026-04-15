@@ -7,8 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	netsvc "github.com/johnnelson/dark/internal/services/network"
+	"github.com/automationaddict/dark/internal/bus"
+	netsvc "github.com/automationaddict/dark/internal/services/network"
 )
 
 type networkActionRequest struct {

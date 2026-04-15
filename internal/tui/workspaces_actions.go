@@ -6,8 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/workspaces"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/workspaces"
 )
 
 // WorkspacesActions is the set of asynchronous commands the

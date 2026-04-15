@@ -3,8 +3,8 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/screensaver"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/screensaver"
 )
 
 // ScreensaverActions is the set of asynchronous commands the

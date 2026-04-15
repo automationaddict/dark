@@ -3,8 +3,8 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/appstore"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/appstore"
 )
 
 // handleEnterKey handles enter/return in every context: sidebar focus,

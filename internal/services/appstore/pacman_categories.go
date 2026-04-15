@@ -5,7 +5,7 @@ import (
 
 	lua "github.com/yuin/gopher-lua"
 
-	"github.com/johnnelson/dark/internal/scripting"
+	"github.com/automationaddict/dark/internal/scripting"
 )
 
 const categoriesScript = "appstore/categories.lua"

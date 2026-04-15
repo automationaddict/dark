@@ -6,12 +6,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/johnnelson/dark/internal/core"
+	"github.com/automationaddict/dark/internal/core"
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	audiosvc "github.com/johnnelson/dark/internal/services/audio"
+	"github.com/automationaddict/dark/internal/bus"
+	audiosvc "github.com/automationaddict/dark/internal/services/audio"
 )
 
 type audioActionRequest struct {

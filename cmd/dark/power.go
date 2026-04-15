@@ -6,10 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/core"
-	powersvc "github.com/johnnelson/dark/internal/services/power"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/core"
+	powersvc "github.com/automationaddict/dark/internal/services/power"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 func newPowerActions(nc *nats.Conn) tui.PowerActions {

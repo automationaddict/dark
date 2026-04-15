@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/wifi"
+import "github.com/automationaddict/dark/internal/services/wifi"
 
 // SetWifi replaces the cached wifi snapshot with one received from darkd.
 // Selection indices are clamped to the new list sizes so a Forget or a

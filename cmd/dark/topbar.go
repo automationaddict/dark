@@ -7,9 +7,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/services/topbar"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/services/topbar"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 // topBarTimeout is generous because restart actions cycle waybar

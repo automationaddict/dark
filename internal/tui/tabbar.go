@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/johnnelson/dark/internal/core"
+	"github.com/automationaddict/dark/internal/core"
 )
 
 func renderTabBar(s *core.State, width int) string {

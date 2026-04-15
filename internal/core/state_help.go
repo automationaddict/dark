@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/help"
+import "github.com/automationaddict/dark/internal/help"
 
 // HelpKey returns the context key for the currently visible view.
 // The help package looks this up in its embedded content directory.

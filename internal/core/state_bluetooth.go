@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/bluetooth"
+import "github.com/automationaddict/dark/internal/services/bluetooth"
 
 // BluetoothFocus identifies which sub-table owns j/k in the Bluetooth
 // section. Tab cycles between them.

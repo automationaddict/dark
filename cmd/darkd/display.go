@@ -10,9 +10,9 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/core"
-	displaysvc "github.com/johnnelson/dark/internal/services/display"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/core"
+	displaysvc "github.com/automationaddict/dark/internal/services/display"
 )
 
 type displayActionRequest struct {

@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/johnnelson/dark/internal/services/display"
+	"github.com/automationaddict/dark/internal/services/display"
 )
 
 func TestParseMode(t *testing.T) {

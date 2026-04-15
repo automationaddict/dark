@@ -8,8 +8,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/services/keybind"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/services/keybind"
 )
 
 type keybindRequest struct {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/theme"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/theme"
 )
 
 // Color slots are populated at startup by ApplyPalette from the loaded Omarchy

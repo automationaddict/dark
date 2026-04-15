@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/notify"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/notify"
 )
 
 // daemonNotifier wraps the notify.Notifier with debouncing so

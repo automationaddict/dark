@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/johnnelson/dark/internal/theme"
+	"github.com/automationaddict/dark/internal/theme"
 )
 
 // escByte is the ANSI CSI introducer. A highlighted line from any

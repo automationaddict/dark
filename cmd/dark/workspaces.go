@@ -7,9 +7,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	workspacessvc "github.com/johnnelson/dark/internal/services/workspaces"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	workspacessvc "github.com/automationaddict/dark/internal/services/workspaces"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 // workspacesActionTimeout is short because every mutation is a

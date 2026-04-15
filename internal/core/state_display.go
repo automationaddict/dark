@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/display"
+import "github.com/automationaddict/dark/internal/services/display"
 
 type DisplayFocus string
 

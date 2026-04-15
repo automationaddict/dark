@@ -8,8 +8,8 @@ import (
 	"github.com/mattn/go-runewidth"
 	"github.com/muesli/reflow/truncate"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/help"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/help"
 )
 
 func (m Model) View() string {

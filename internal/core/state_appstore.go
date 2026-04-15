@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/appstore"
+import "github.com/automationaddict/dark/internal/services/appstore"
 
 // AppstoreFocus identifies which region of the App Store view owns the
 // keyboard. The search bar, sidebar, results list, and detail panel each

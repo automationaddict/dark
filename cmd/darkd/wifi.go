@@ -3,8 +3,8 @@ package main
 import (
 	"time"
 
-	"github.com/johnnelson/dark/internal/core"
-	wifisvc "github.com/johnnelson/dark/internal/services/wifi"
+	"github.com/automationaddict/dark/internal/core"
+	wifisvc "github.com/automationaddict/dark/internal/services/wifi"
 )
 
 // wifi action protocol — shared by scan, connect, disconnect, forget.

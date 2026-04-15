@@ -6,10 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/core"
-	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/core"
+	appstoresvc "github.com/automationaddict/dark/internal/services/appstore"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 // newAppstoreActions builds the closures that send appstore command

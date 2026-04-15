@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os/exec"
 
-	"github.com/johnnelson/dark/internal/scripting"
+	"github.com/automationaddict/dark/internal/scripting"
 )
 
 // Detect probes the host and returns a Backend wired to whichever

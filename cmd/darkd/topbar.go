@@ -8,8 +8,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	topbarsvc "github.com/johnnelson/dark/internal/services/topbar"
+	"github.com/automationaddict/dark/internal/bus"
+	topbarsvc "github.com/automationaddict/dark/internal/services/topbar"
 )
 
 // wireTopBar installs the top bar command handlers on nc and returns

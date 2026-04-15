@@ -6,9 +6,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/keybind"
-	"github.com/johnnelson/dark/internal/services/notify"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/keybind"
+	"github.com/automationaddict/dark/internal/services/notify"
 )
 
 type KeybindActions struct {

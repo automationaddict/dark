@@ -3,7 +3,7 @@ package tui
 import (
 	"fmt"
 
-	"github.com/johnnelson/dark/internal/services/bluetooth"
+	"github.com/automationaddict/dark/internal/services/bluetooth"
 )
 
 // formatBluetoothIcon maps BlueZ's icon hint strings to a short display

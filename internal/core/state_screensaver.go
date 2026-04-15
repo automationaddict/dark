@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/screensaver"
+import "github.com/automationaddict/dark/internal/services/screensaver"
 
 // SetScreensaver replaces the cached screensaver snapshot and clears
 // the busy flag. Called from the TUI's AppstoreActionResultMsg-style

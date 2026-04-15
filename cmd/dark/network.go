@@ -6,10 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/core"
-	netsvc "github.com/johnnelson/dark/internal/services/network"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/core"
+	netsvc "github.com/automationaddict/dark/internal/services/network"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 // requestInitialNetwork fetches a network snapshot up front so the

@@ -6,12 +6,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/johnnelson/dark/internal/core"
+	"github.com/automationaddict/dark/internal/core"
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
+	"github.com/automationaddict/dark/internal/bus"
+	btsvc "github.com/automationaddict/dark/internal/services/bluetooth"
 )
 
 type bluetoothActionRequest struct {

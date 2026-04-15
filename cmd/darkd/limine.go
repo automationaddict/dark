@@ -7,8 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	liminesvc "github.com/johnnelson/dark/internal/services/limine"
+	"github.com/automationaddict/dark/internal/bus"
+	liminesvc "github.com/automationaddict/dark/internal/services/limine"
 )
 
 type limineActionRequest struct {

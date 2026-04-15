@@ -11,7 +11,7 @@ import (
 
 	"github.com/charmbracelet/glamour"
 
-	"github.com/johnnelson/dark/internal/theme"
+	"github.com/automationaddict/dark/internal/theme"
 )
 
 //go:embed content/*.md

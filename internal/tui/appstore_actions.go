@@ -3,7 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/services/appstore"
+	"github.com/automationaddict/dark/internal/services/appstore"
 )
 
 // AppstoreActions is the set of asynchronous commands the App Store

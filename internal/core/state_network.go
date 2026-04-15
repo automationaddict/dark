@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/network"
+import "github.com/automationaddict/dark/internal/services/network"
 
 // SetNetwork replaces the cached network snapshot with one received
 // from darkd. Selection index is clamped so an interface that hot-

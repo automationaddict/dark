@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/services/display"
+	"github.com/automationaddict/dark/internal/services/display"
 )
 
 var scalePresets = []string{

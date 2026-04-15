@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/core"
+	"github.com/automationaddict/dark/internal/core"
 )
 
 func (m *Model) triggerBluetoothConnect() tea.Cmd {

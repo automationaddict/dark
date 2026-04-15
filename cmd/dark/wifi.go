@@ -6,9 +6,9 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/services/wifi"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/wifi"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 // wifiConnectRequest is a wifiRequest variant that also carries a

@@ -6,10 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/core"
-	inputsvc "github.com/johnnelson/dark/internal/services/input"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/core"
+	inputsvc "github.com/automationaddict/dark/internal/services/input"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 func newInputActions(nc *nats.Conn) tui.InputActions {

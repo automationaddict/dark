@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/appearance"
+import "github.com/automationaddict/dark/internal/services/appearance"
 
 func (s *State) SetAppearance(snap appearance.Snapshot) {
 	s.Appearance = snap

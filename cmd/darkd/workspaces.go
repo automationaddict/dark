@@ -8,8 +8,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	wssvc "github.com/johnnelson/dark/internal/services/workspaces"
+	"github.com/automationaddict/dark/internal/bus"
+	wssvc "github.com/automationaddict/dark/internal/services/workspaces"
 )
 
 // wireWorkspaces installs handlers for every workspace command

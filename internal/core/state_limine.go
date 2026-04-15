@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/limine"
+import "github.com/automationaddict/dark/internal/services/limine"
 
 // LimineSection describes a sub-section inside the "Limine" omarchy
 // section. The F3 limine area has a snapshots table plus three

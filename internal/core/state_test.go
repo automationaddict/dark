@@ -3,10 +3,10 @@ package core
 import (
 	"testing"
 
-	"github.com/johnnelson/dark/internal/services/audio"
-	"github.com/johnnelson/dark/internal/services/bluetooth"
-	"github.com/johnnelson/dark/internal/services/network"
-	"github.com/johnnelson/dark/internal/services/wifi"
+	"github.com/automationaddict/dark/internal/services/audio"
+	"github.com/automationaddict/dark/internal/services/bluetooth"
+	"github.com/automationaddict/dark/internal/services/network"
+	"github.com/automationaddict/dark/internal/services/wifi"
 )
 
 // --- Wi-Fi state ---

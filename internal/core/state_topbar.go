@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/topbar"
+import "github.com/automationaddict/dark/internal/services/topbar"
 
 // SetTopBar replaces the cached top bar snapshot. Called from the
 // NATS subscriber when darkd publishes a new snapshot, and from the

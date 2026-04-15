@@ -3,7 +3,7 @@ package tui
 import (
 	"fmt"
 
-	"github.com/johnnelson/dark/internal/services/network"
+	"github.com/automationaddict/dark/internal/services/network"
 )
 
 func formatInterfaceState(iface network.Interface) string {

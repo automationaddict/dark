@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/johnnelson/dark/internal/services/firmware"
-	"github.com/johnnelson/dark/internal/services/update"
+	"github.com/automationaddict/dark/internal/services/firmware"
+	"github.com/automationaddict/dark/internal/services/update"
 )
 
 type UpdateSection struct {

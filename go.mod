@@ -1,4 +1,4 @@
-module github.com/johnnelson/dark
+module github.com/automationaddict/dark
 
 go 1.25.0
 

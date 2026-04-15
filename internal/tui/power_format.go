@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/johnnelson/dark/internal/services/power"
+	"github.com/automationaddict/dark/internal/services/power"
 )
 
 func profileIcon(name string) string {

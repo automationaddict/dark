@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/truncate"
 
-	"github.com/johnnelson/dark/internal/core"
-	"github.com/johnnelson/dark/internal/help"
+	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/help"
 )
 
 func renderHelpPanel(s *core.State, height int) string {

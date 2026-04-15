@@ -10,7 +10,7 @@ import (
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
 
-	"github.com/johnnelson/dark/internal/theme"
+	"github.com/automationaddict/dark/internal/theme"
 )
 
 // Syntax language identifiers the Editor overlay accepts. Anything

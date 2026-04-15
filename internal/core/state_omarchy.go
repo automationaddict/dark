@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/johnnelson/dark/internal/services/keybind"
-	"github.com/johnnelson/dark/internal/services/links"
+	"github.com/automationaddict/dark/internal/services/keybind"
+	"github.com/automationaddict/dark/internal/services/links"
 )
 
 type OmarchySection struct {

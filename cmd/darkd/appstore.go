@@ -7,8 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
+	"github.com/automationaddict/dark/internal/bus"
+	appstoresvc "github.com/automationaddict/dark/internal/services/appstore"
 )
 
 // appstoreLogger returns a child of the global slog default with the

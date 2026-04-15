@@ -20,7 +20,7 @@ const (
 	aurBaseURL     = "https://aur.archlinux.org/rpc/v5"
 	aurHTTPTimeout = 15 * time.Second
 	aurMaxInflight = 2
-	aurUserAgent   = "dark-appstore/0.1 (+https://github.com/johnnelson/dark)"
+	aurUserAgent   = "dark-appstore/0.1 (+https://github.com/automationaddict/dark)"
 )
 
 // aurClient is the HTTP client wrapper enforcing the ≤2 inflight-request

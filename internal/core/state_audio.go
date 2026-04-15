@@ -1,6 +1,6 @@
 package core
 
-import "github.com/johnnelson/dark/internal/services/audio"
+import "github.com/automationaddict/dark/internal/services/audio"
 
 // AudioFocus identifies which sub-table owns j/k and the action keys
 // while the Sound section has content focus. Tab cycles between them

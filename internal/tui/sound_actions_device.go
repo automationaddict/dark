@@ -3,7 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/services/audio"
+	"github.com/automationaddict/dark/internal/services/audio"
 )
 
 // triggerAudioStreamMove cycles the highlighted stream to the next

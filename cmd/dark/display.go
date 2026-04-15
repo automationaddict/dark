@@ -6,10 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/core"
-	displaysvc "github.com/johnnelson/dark/internal/services/display"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/core"
+	displaysvc "github.com/automationaddict/dark/internal/services/display"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 func newDisplayActions(nc *nats.Conn) tui.DisplayActions {

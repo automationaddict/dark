@@ -6,10 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	"github.com/johnnelson/dark/internal/core"
-	updatesvc "github.com/johnnelson/dark/internal/services/update"
-	"github.com/johnnelson/dark/internal/tui"
+	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/core"
+	updatesvc "github.com/automationaddict/dark/internal/services/update"
+	"github.com/automationaddict/dark/internal/tui"
 )
 
 func newUpdateActions(nc *nats.Conn) tui.UpdateActions {

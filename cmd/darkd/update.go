@@ -7,8 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 
-	"github.com/johnnelson/dark/internal/bus"
-	updatesvc "github.com/johnnelson/dark/internal/services/update"
+	"github.com/automationaddict/dark/internal/bus"
+	updatesvc "github.com/automationaddict/dark/internal/services/update"
 )
 
 func wireUpdate(nc *nats.Conn, dn *daemonNotifier) func() {

@@ -3,8 +3,8 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/johnnelson/dark/internal/services/firmware"
-	"github.com/johnnelson/dark/internal/services/update"
+	"github.com/automationaddict/dark/internal/services/firmware"
+	"github.com/automationaddict/dark/internal/services/update"
 )
 
 // UpdateActions holds the NATS-backed commands for system updates.
