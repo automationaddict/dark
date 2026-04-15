@@ -342,33 +342,37 @@ func SetIdleRunning(running bool) error {
 
 	// Starting hypridle needs the Wayland session environment
 	// (WAYLAND_DISPLAY, XDG_RUNTIME_DIR, DBUS_SESSION_BUS_ADDRESS,
-	// etc.). The omarchy-toggle-idle script uses uwsm-app for that,
-	// which is the correct path on a stock Omarchy install. Fall
-	// back to a direct hypridle launch if omarchy-toggle-idle is
-	// missing — that keeps dark working on systems that have
-	// hypridle installed without the Omarchy wrapper scripts.
-	if _, err := exec.LookPath("omarchy-toggle-idle"); err == nil {
-		// omarchy-toggle-idle flips state, so calling it when
-		// hypridle is off will turn it on. The above state check
-		// guarantees we only reach here when that's what we want.
-		cmd := exec.Command("omarchy-toggle-idle")
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("omarchy-toggle-idle: %w", err)
+	// etc.). On stock Omarchy, user services get wired into the
+	// session manager via uwsm-app; prefer it when it's on PATH.
+	// Fall back to a direct hypridle launch for vanilla Hyprland
+	// systems that don't ship the uwsm wrapper. Either way, we
+	// detach via setsid and Release the Go-side handle so the
+	// child fully orphans and outlives darkd.
+	return spawnSessionDaemon("hypridle")
+}
+
+// spawnSessionDaemon launches a long-running Wayland session daemon
+// (hypridle, waybar, and friends) using uwsm-app when available so it
+// inherits the right session environment, otherwise the binary
+// directly. The child runs in its own session via setsid and is
+// fully released from the Go runtime so it survives darkd restart.
+// Returns an error only if neither the wrapper nor the binary is on
+// PATH, or if Start itself fails.
+func spawnSessionDaemon(bin string) error {
+	var argv []string
+	if _, err := exec.LookPath("uwsm-app"); err == nil {
+		argv = []string{"uwsm-app", "--", bin}
+	} else {
+		if _, err := exec.LookPath(bin); err != nil {
+			return fmt.Errorf("%s not installed", bin)
 		}
-		return nil
+		argv = []string{bin}
 	}
-	if _, err := exec.LookPath("hypridle"); err != nil {
-		return fmt.Errorf("hypridle not installed")
-	}
-	// Detached launch — we don't want darkd to be the parent because
-	// the hypridle process should outlive any daemon restart.
-	cmd := exec.Command("hypridle")
+	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start hypridle: %w", err)
+		return fmt.Errorf("start %s: %w", bin, err)
 	}
-	// Don't Wait — we want this child fully orphaned. Release the
-	// Go-side handle so the runtime doesn't keep a zombie waiting.
 	_ = cmd.Process.Release()
 	return nil
 }
