@@ -6,10 +6,20 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/johnnelson/dark/internal/core"
 	"github.com/johnnelson/dark/internal/services/appearance"
 )
 
 func renderAppearanceTheme(a appearance.Snapshot, total int) string {
+	return renderAppearanceThemeBox(a, total, colorBorder)
+}
+
+// renderAppearanceThemeBox is the focus-aware variant of
+// renderAppearanceTheme — callers pass the desired border color
+// so the new two-focus Theme sub-section can accent this box
+// when the user has it focused. The plain wrapper above still
+// exists for the legacy code paths.
+func renderAppearanceThemeBox(a appearance.Snapshot, total int, border lipgloss.Color) string {
 	lw := 18
 	label := detailLabelStyle.Width(lw)
 	value := detailValueStyle
@@ -52,7 +62,7 @@ func renderAppearanceTheme(a appearance.Snapshot, total int) string {
 			value.Render(fmt.Sprintf("%d installed", len(a.Fonts))))
 	}
 
-	return groupBoxSections("Theme", []string{strings.Join(lines, "\n")}, total, colorBorder)
+	return groupBoxSections("Theme", []string{strings.Join(lines, "\n")}, total, border)
 }
 
 func renderAppearanceColors(a appearance.Snapshot, total int) string {
@@ -284,16 +294,59 @@ func renderAppearanceGroupbar(a appearance.Snapshot, total int) string {
 }
 
 func renderAppearanceBackgrounds(a appearance.Snapshot, total int) string {
+	return renderBackgroundsList(a, -1, a.CurrentBackground, total, colorBorder)
+}
+
+// renderAppearanceBackgroundsBox wraps the per-row renderer with
+// live state from the TUI: the selection cursor index when content
+// focus is on the Backgrounds box, plus a border color the caller
+// computes from the AppearanceThemeFocus ring.
+func renderAppearanceBackgroundsBox(s *core.State, total int, border lipgloss.Color) string {
+	focused := s.AppearanceContentFocused &&
+		s.AppearanceThemeFocus == core.AppearanceFocusBackgrounds
+	cursorIdx := -1
+	if focused {
+		cursorIdx = s.AppearanceBackgroundIdx
+	}
+	return renderBackgroundsList(s.Appearance, cursorIdx, s.Appearance.CurrentBackground, total, border)
+}
+
+// renderBackgroundsList draws the list with two visual markers:
+// a ▸ arrow on the cursor row (only when cursorIdx ≥ 0) and a
+// ● filled dot on whichever row matches the current active
+// background symlink. When both apply the arrow takes precedence
+// and the active-row color stays. Empty list returns "".
+func renderBackgroundsList(a appearance.Snapshot, cursorIdx int, current string, total int, border lipgloss.Color) string {
 	if len(a.Backgrounds) == 0 {
 		return ""
 	}
 
+	dim := lipgloss.NewStyle().Foreground(colorDim)
+	accent := lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	selected := lipgloss.NewStyle().Foreground(colorBg).Background(colorAccent)
+
 	var lines []string
 	for i, name := range a.Backgrounds {
-		idx := lipgloss.NewStyle().Foreground(colorDim).Render(fmt.Sprintf("%d ", i))
-		lines = append(lines, "  "+idx+detailValueStyle.Render(name))
+		idx := dim.Render(fmt.Sprintf("%d ", i))
+
+		prefix := "  "
+		if i == cursorIdx {
+			prefix = accent.Render("▸ ")
+		}
+
+		rendered := name
+		switch {
+		case i == cursorIdx:
+			rendered = selected.Render(" " + name + " ")
+		case name == current && current != "":
+			rendered = accent.Render("● " + name)
+		default:
+			rendered = "  " + detailValueStyle.Render(name)
+		}
+
+		lines = append(lines, prefix+idx+rendered)
 	}
 
-	return groupBoxSections("Backgrounds", []string{strings.Join(lines, "\n")}, total, colorBorder)
+	return groupBoxSections("Backgrounds", []string{strings.Join(lines, "\n")}, total, border)
 }
 

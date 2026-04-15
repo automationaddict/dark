@@ -55,24 +55,58 @@ func renderAppearanceThemeSection(s *core.State, width, height int) string {
 		innerWidth = 46
 	}
 
+	// Two-focus model: the Theme sub-section has a Theme box and
+	// a Backgrounds box. When AppearanceContentFocused is off
+	// (user still on the sub-section sidebar) both boxes show
+	// plain borders. Once content focus is on, the currently-
+	// focused box border accents so the user can tell which one
+	// enter would act on.
+	themeBorder := colorBorder
+	bgBorder := colorBorder
+	if s.AppearanceContentFocused {
+		switch s.AppearanceThemeFocus {
+		case core.AppearanceFocusTheme:
+			themeBorder = colorAccent
+		case core.AppearanceFocusBackgrounds:
+			bgBorder = colorAccent
+		}
+	}
+
 	var blocks []string
-	blocks = append(blocks, renderAppearanceTheme(s.Appearance, innerWidth))
+	blocks = append(blocks, renderAppearanceThemeBox(s.Appearance, innerWidth, themeBorder))
 	blocks = append(blocks, renderAppearanceColors(s.Appearance, innerWidth))
 
-	if bg := renderAppearanceBackgrounds(s.Appearance, innerWidth); bg != "" {
+	if bg := renderAppearanceBackgroundsBox(s, innerWidth, bgBorder); bg != "" {
 		blocks = append(blocks, bg)
 	}
 
-	blocks = append(blocks, renderAppearanceThemeHint())
+	blocks = append(blocks, renderAppearanceThemeHint(s))
 
 	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
 	return renderContentPane(width, height, body)
 }
 
-func renderAppearanceThemeHint() string {
+// renderAppearanceThemeHint tailors the hint line to the current
+// focus state so the user always sees the next available key.
+func renderAppearanceThemeHint(s *core.State) string {
 	dim := lipgloss.NewStyle().Foreground(colorDim)
 	accent := lipgloss.NewStyle().Foreground(colorAccent)
-	return dim.Render("  " + accent.Render("t") + " change theme")
+	if !s.AppearanceContentFocused {
+		return dim.Render("  " +
+			accent.Render("enter") + " focus  " +
+			accent.Render("t") + " change theme")
+	}
+	if s.AppearanceThemeFocus == core.AppearanceFocusBackgrounds {
+		return dim.Render("  " +
+			accent.Render("j/k") + " select  " +
+			accent.Render("enter") + " set background  " +
+			accent.Render("tab") + " theme box  " +
+			accent.Render("esc") + " back")
+	}
+	return dim.Render("  " +
+		accent.Render("enter") + " change theme  " +
+		accent.Render("tab") + " backgrounds  " +
+		accent.Render("esc") + " back")
 }
 
 // ── Fonts section ──────────────────────────────────────────────────

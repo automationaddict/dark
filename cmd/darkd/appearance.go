@@ -13,10 +13,11 @@ import (
 )
 
 type appearanceActionRequest struct {
-	Value   int    `json:"value,omitempty"`
-	Enabled bool   `json:"enabled,omitempty"`
-	Theme   string `json:"theme,omitempty"`
-	Font    string `json:"font,omitempty"`
+	Value      int    `json:"value,omitempty"`
+	Enabled    bool   `json:"enabled,omitempty"`
+	Theme      string `json:"theme,omitempty"`
+	Font       string `json:"font,omitempty"`
+	Background string `json:"background,omitempty"`
 }
 
 type appearanceActionResponse struct {
@@ -131,6 +132,20 @@ func wireAppearance(nc *nats.Conn, dn *daemonNotifier) func() {
 		if err := appearance.SetFontSize(req.Value); err != nil {
 			return appearanceActionResponse{Error: err.Error()}
 		}
+		return appearanceActionResponse{Snapshot: appearance.ReadSnapshot()}
+	})
+
+	register(bus.SubjectAppearanceBackgroundCmd, func(req appearanceActionRequest) appearanceActionResponse {
+		if req.Background == "" {
+			return appearanceActionResponse{Error: "missing background name"}
+		}
+		if err := appearance.SetBackground(req.Background); err != nil {
+			return appearanceActionResponse{Error: err.Error()}
+		}
+		// swaybg takes a moment to come back up after pkill. Wait
+		// a beat so the follow-up snapshot reflects the new
+		// symlink target without racing the restart.
+		time.Sleep(200 * time.Millisecond)
 		return appearanceActionResponse{Snapshot: appearance.ReadSnapshot()}
 	})
 

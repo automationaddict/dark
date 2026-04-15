@@ -159,6 +159,29 @@ func (m Model) handleEnterSettings() (tea.Model, tea.Cmd) {
 		if m.state.ActiveWorkspacesSection().ID == "overview" {
 			return m, m.triggerWorkspaceSwitch()
 		}
+	case "appearance":
+		// Only the Theme sub-section has the two-focus model
+		// for the Theme / Backgrounds boxes right now. Other
+		// appearance sub-sections keep the original direct-
+		// action keys (t, f, +/-, etc.) and don't need a
+		// content-focus layer.
+		if m.state.ActiveAppearanceSection().ID != "theme" {
+			return m, nil
+		}
+		if !m.state.AppearanceContentFocused {
+			m.state.AppearanceContentFocused = true
+			m.state.InitAppearanceThemeFocus()
+			return m, nil
+		}
+		// Third-and-beyond enter: commit / trigger the focused
+		// box's primary action.
+		switch m.state.AppearanceThemeFocus {
+		case core.AppearanceFocusTheme:
+			m.triggerAppearanceThemeDialog()
+			return m, nil
+		case core.AppearanceFocusBackgrounds:
+			return m, m.triggerAppearanceSetBackground()
+		}
 	}
 	return m, nil
 }

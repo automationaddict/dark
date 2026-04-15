@@ -8,17 +8,18 @@ import (
 )
 
 type AppearanceActions struct {
-	SetTheme    func(name string) tea.Cmd
-	SetGapsIn   func(val int) tea.Cmd
-	SetGapsOut  func(val int) tea.Cmd
-	SetBorder   func(val int) tea.Cmd
-	SetRounding func(val int) tea.Cmd
-	SetBlur     func(enabled bool) tea.Cmd
-	SetBlurSize func(val int) tea.Cmd
-	SetBlurPass func(val int) tea.Cmd
-	SetAnim     func(enabled bool) tea.Cmd
-	SetFont     func(name string) tea.Cmd
-	SetFontSize func(val int) tea.Cmd
+	SetTheme      func(name string) tea.Cmd
+	SetGapsIn     func(val int) tea.Cmd
+	SetGapsOut    func(val int) tea.Cmd
+	SetBorder     func(val int) tea.Cmd
+	SetRounding   func(val int) tea.Cmd
+	SetBlur       func(enabled bool) tea.Cmd
+	SetBlurSize   func(val int) tea.Cmd
+	SetBlurPass   func(val int) tea.Cmd
+	SetAnim       func(enabled bool) tea.Cmd
+	SetFont       func(name string) tea.Cmd
+	SetFontSize   func(val int) tea.Cmd
+	SetBackground func(name string) tea.Cmd
 }
 
 type AppearanceMsg appearance.Snapshot
@@ -191,4 +192,24 @@ func (m *Model) triggerAppearanceAnimToggle() tea.Cmd {
 		return nil
 	}
 	return m.appearance.SetAnim(!m.state.Appearance.Animations.Enabled)
+}
+
+// triggerAppearanceSetBackground commits the highlighted row in
+// the Appearance → Theme → Backgrounds list. Used from the enter
+// handler when the Backgrounds box has content focus; the commit
+// keeps the user on the Backgrounds box so they can keep flipping
+// through wallpapers without re-tabbing each time.
+func (m *Model) triggerAppearanceSetBackground() tea.Cmd {
+	if m.appearance.SetBackground == nil || !m.inAppearanceContent() {
+		return nil
+	}
+	name, ok := m.state.SelectedAppearanceBackground()
+	if !ok {
+		return nil
+	}
+	if name == m.state.Appearance.CurrentBackground {
+		// Already active — don't bother restarting swaybg.
+		return nil
+	}
+	return m.appearance.SetBackground(name)
 }

@@ -91,6 +91,13 @@ func newAppearanceActions(nc *nats.Conn) tui.AppearanceActions {
 				})
 			}
 		},
+		SetBackground: func(name string) tea.Cmd {
+			return func() tea.Msg {
+				return appearanceRequest(nc, bus.SubjectAppearanceBackgroundCmd, map[string]any{
+					"background": name,
+				})
+			}
+		},
 	}
 }
 

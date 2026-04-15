@@ -153,9 +153,12 @@ type State struct {
 	UsersSectionIdx    int
 	UsersContentFocused bool
 
-	Appearance          appearance.Snapshot
-	AppearanceLoaded    bool
-	AppearanceSectionIdx int
+	Appearance               appearance.Snapshot
+	AppearanceLoaded         bool
+	AppearanceSectionIdx     int
+	AppearanceContentFocused bool   // second-enter: in content region (vs sub-section sidebar)
+	AppearanceThemeFocus     string // "theme" or "backgrounds" when inside the Theme content
+	AppearanceBackgroundIdx  int    // selected row in the Backgrounds list
 
 	Screensaver         screensaver.Snapshot
 	ScreensaverLoaded   bool

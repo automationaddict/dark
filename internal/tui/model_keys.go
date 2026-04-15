@@ -119,6 +119,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.moveSelection(-1)
 	case "down", "j":
 		m.moveSelection(1)
+	case "tab":
+		return m.handleTabKey(1)
+	case "shift+tab":
+		return m.handleTabKey(-1)
 	default:
 		return m.handleActionKey(msg.String())
 	}
@@ -151,6 +155,8 @@ func (m Model) handleEscKey() (tea.Model, tea.Cmd) {
 		m.state.BluetoothContentFocused = false
 	case m.state.WorkspacesContentFocused:
 		m.state.WorkspacesContentFocused = false
+	case m.state.AppearanceContentFocused:
+		m.state.AppearanceContentFocused = false
 	case m.state.OmarchyLinksFocused:
 		m.state.OmarchyLinksFocused = false
 	case m.state.KeybindTableFocused:
@@ -159,6 +165,21 @@ func (m Model) handleEscKey() (tea.Model, tea.Cmd) {
 		m.state.FocusSidebar()
 	default:
 		return m, tea.Quit
+	}
+	return m, nil
+}
+
+// handleTabKey routes tab / shift-tab to panels that use tab for
+// content-level focus cycling. Appearance → Theme is the first
+// user of this pattern (toggling between the Theme and
+// Backgrounds boxes); additional panels can plug in here without
+// having to grow the main handleKey switch.
+func (m Model) handleTabKey(delta int) (tea.Model, tea.Cmd) {
+	if m.state.ActiveTab == core.TabSettings &&
+		m.state.ActiveSection().ID == "appearance" &&
+		m.state.AppearanceContentFocused &&
+		m.state.ActiveAppearanceSection().ID == "theme" {
+		m.state.CycleAppearanceThemeFocus(delta)
 	}
 	return m, nil
 }

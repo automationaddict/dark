@@ -187,9 +187,10 @@ const (
 	SubjectAppearanceBlurSizeCmd = "dark.cmd.appearance.blur_size"
 	SubjectAppearanceBlurPassCmd = "dark.cmd.appearance.blur_passes"
 	SubjectAppearanceAnimCmd     = "dark.cmd.appearance.anim"
-	SubjectAppearanceThemeCmd    = "dark.cmd.appearance.theme"
-	SubjectAppearanceFontCmd     = "dark.cmd.appearance.font"
-	SubjectAppearanceFontSizeCmd = "dark.cmd.appearance.font_size"
+	SubjectAppearanceThemeCmd      = "dark.cmd.appearance.theme"
+	SubjectAppearanceFontCmd       = "dark.cmd.appearance.font"
+	SubjectAppearanceFontSizeCmd   = "dark.cmd.appearance.font_size"
+	SubjectAppearanceBackgroundCmd = "dark.cmd.appearance.background"
 
 	SubjectKeybindSnapshot    = "dark.keybind.snapshot"
 	SubjectKeybindSnapshotCmd = "dark.cmd.keybind.snapshot"

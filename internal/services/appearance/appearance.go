@@ -25,8 +25,9 @@ type Snapshot struct {
 	Fonts           []string `json:"fonts"`
 	CurrentFont     string   `json:"current_font"`
 	CurrentFontSize int      `json:"current_font_size"`
-	Backgrounds     []string `json:"backgrounds"`
-	Colors          Colors   `json:"colors"`
+	Backgrounds       []string `json:"backgrounds"`
+	CurrentBackground string   `json:"current_background,omitempty"`
+	Colors            Colors   `json:"colors"`
 	General         General  `json:"general"`
 	Decoration      Deco     `json:"decoration"`
 	Blur            Blur     `json:"blur"`
@@ -155,6 +156,7 @@ func ReadSnapshot() Snapshot {
 	s.CurrentFont = readCurrentFont(home)
 	s.CurrentFontSize = readCurrentFontSize(home)
 	s.Backgrounds = readBackgrounds(home)
+	s.CurrentBackground = readCurrentBackground(home)
 
 	// Parse omarchy defaults first, then user overrides on top.
 	defaultConf := filepath.Join(home, ".local/share/omarchy/default/hypr/looknfeel.conf")
@@ -294,6 +296,20 @@ func readBackgrounds(home string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// readCurrentBackground resolves ~/.config/omarchy/current/background
+// (a symlink maintained by omarchy-theme-bg-set / -next) back to the
+// bare filename so the view can mark the active row with a cursor
+// glyph. Returns an empty string when the symlink is missing or
+// unreadable, which the UI treats as "none selected".
+func readCurrentBackground(home string) string {
+	link := filepath.Join(home, ".config/omarchy/current/background")
+	target, err := os.Readlink(link)
+	if err != nil {
+		return ""
+	}
+	return filepath.Base(target)
 }
 
 // parseHyprlandConfig reads a Hyprland config file and applies values to

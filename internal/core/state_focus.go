@@ -87,6 +87,7 @@ func (s *State) FocusSidebar() {
 	s.AudioContentFocused = false
 	s.UsersContentFocused = false
 	s.WorkspacesContentFocused = false
+	s.AppearanceContentFocused = false
 }
 
 func (s *State) MoveSettingsFocus(delta int) {

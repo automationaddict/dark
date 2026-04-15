@@ -102,7 +102,13 @@ func (m *Model) moveSelection(delta int) {
 		case "input":
 			m.state.MoveInputSection(delta)
 		case "appearance":
-			m.state.MoveAppearanceSection(delta)
+			if m.state.AppearanceContentFocused &&
+				m.state.ActiveAppearanceSection().ID == "theme" &&
+				m.state.AppearanceThemeFocus == core.AppearanceFocusBackgrounds {
+				m.state.MoveAppearanceBackground(delta)
+			} else {
+				m.state.MoveAppearanceSection(delta)
+			}
 		case "notifications":
 			m.state.MoveNotifySection(delta)
 		case "privacy":
