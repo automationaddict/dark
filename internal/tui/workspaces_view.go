@@ -53,7 +53,13 @@ func renderWorkspacesOverviewSection(s *core.State, width, height int) string {
 		innerWidth = 46
 	}
 
-	focused := s.ContentFocused
+	// Boxes only highlight once the user has stepped into the
+	// content region (second enter). While the sub-section sidebar
+	// is focused, ContentFocused is true but WorkspacesContentFocused
+	// is false — we want the plain border in that intermediate
+	// state so the user can visually tell they're still on the
+	// sidebar.
+	focused := s.WorkspacesContentFocused
 	borderColor := colorBorder
 	if focused {
 		borderColor = colorAccent
@@ -155,13 +161,21 @@ func renderWorkspacesLayoutSection(s *core.State, width, height int) string {
 		innerWidth = 46
 	}
 
+	// Every Layout box is editable via the hint-line keys, so
+	// they all accent-highlight together once the user has
+	// stepped into the content region.
+	borderColor := colorBorder
+	if s.WorkspacesContentFocused {
+		borderColor = colorAccent
+	}
+
 	label := detailLabelStyle.Width(18)
 	value := detailValueStyle
 
 	defaultLines := []string{
 		label.Render("Default layout") + value.Render(orDash(s.Workspaces.DefaultLayout)),
 	}
-	defaultBox := groupBoxSections("Default", defaultLines, innerWidth, colorBorder)
+	defaultBox := groupBoxSections("Default", defaultLines, innerWidth, borderColor)
 
 	dwindleLines := []string{
 		label.Render("Pseudotile") + value.Render(boolIndicator(s.Workspaces.Dwindle.Pseudotile)),
@@ -170,13 +184,13 @@ func renderWorkspacesLayoutSection(s *core.State, width, height int) string {
 		label.Render("Smart split") + value.Render(boolIndicator(s.Workspaces.Dwindle.SmartSplit)),
 		label.Render("Smart resizing") + value.Render(boolIndicator(s.Workspaces.Dwindle.SmartResizing)),
 	}
-	dwindleBox := groupBoxSections("Dwindle", dwindleLines, innerWidth, colorBorder)
+	dwindleBox := groupBoxSections("Dwindle", dwindleLines, innerWidth, borderColor)
 
 	masterLines := []string{
 		label.Render("New window status") + value.Render(orDash(s.Workspaces.Master.NewStatus)),
 		label.Render("Orientation") + value.Render(orDash(s.Workspaces.Master.Orientation)),
 	}
-	masterBox := groupBoxSections("Master", masterLines, innerWidth, colorBorder)
+	masterBox := groupBoxSections("Master", masterLines, innerWidth, borderColor)
 
 	hint := renderWorkspacesLayoutHint()
 
@@ -223,6 +237,11 @@ func renderWorkspacesBehaviorSection(s *core.State, width, height int) string {
 		innerWidth = 46
 	}
 
+	borderColor := colorBorder
+	if s.WorkspacesContentFocused {
+		borderColor = colorAccent
+	}
+
 	label := detailLabelStyle.Width(24)
 	value := detailValueStyle
 
@@ -231,7 +250,7 @@ func renderWorkspacesBehaviorSection(s *core.State, width, height int) string {
 		label.Render("Animations enabled") + value.Render(boolIndicator(s.Workspaces.AnimationsEnabled)),
 		label.Render("Hide special on change") + value.Render(boolIndicator(s.Workspaces.HideSpecialOnChange)),
 	}
-	box := groupBoxSections("Behavior", lines, innerWidth, colorBorder)
+	box := groupBoxSections("Behavior", lines, innerWidth, borderColor)
 
 	hint := renderWorkspacesBehaviorHint()
 
