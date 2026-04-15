@@ -23,6 +23,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/topbar"
 	"github.com/johnnelson/dark/internal/services/users"
 	"github.com/johnnelson/dark/internal/services/wifi"
+	"github.com/johnnelson/dark/internal/services/workspaces"
 )
 
 const (
@@ -166,6 +167,14 @@ type State struct {
 	TopBarLoaded      bool
 	TopBarBusy        bool
 	TopBarActionError string
+
+	Workspaces                workspaces.Snapshot
+	WorkspacesLoaded          bool
+	WorkspacesBusy            bool
+	WorkspacesActionError     string
+	WorkspacesSectionIdx      int // which sub-section is selected
+	WorkspacesContentIdx      int // selected row index within the active sub-section
+	WorkspacesContentFocused  bool
 
 	F2SidebarIdx          int
 	Appstore              appstore.Snapshot
