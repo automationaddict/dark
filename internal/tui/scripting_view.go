@@ -23,50 +23,24 @@ func renderScriptingTab(s *core.State, width, height int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, content)
 }
 
-// renderScriptingOuterSidebar renders the F5 outer sidebar: two
-// groups ("SCRIPTS" and "REFERENCE") with headers between them.
-// It is short enough to never scroll; the long command lists all
-// live in the inner sub-nav.
+// renderScriptingOuterSidebar renders the F5 outer sidebar as four
+// flat top-level items (Scripts / MCP / Lua / API). Each group's
+// contents live in the content pane's inner sub-nav.
 func renderScriptingOuterSidebar(s *core.State, height int) string {
 	itemWidth := s.SidebarItemWidth
 	item := sidebarItem.Width(itemWidth)
 	active := sidebarItemActive.Width(itemWidth)
 	dim := lipgloss.NewStyle().Foreground(colorDim)
-	headerStyle := lipgloss.NewStyle().
-		Foreground(colorAccent).
-		Bold(true).
-		Width(itemWidth).
-		PaddingLeft(1)
 
 	selected := s.ScriptingOuterIndex()
-	outerFocused := !s.ContentFocused
+	outerFocused := !s.ScriptingContentFocused
 
+	labels := []string{"Scripts", "MCP", "Lua", "API"}
 	var rows []string
-	flat := 0
-
-	rows = append(rows, headerStyle.Render("SCRIPTS"))
-
-	rows = append(rows, renderOuterRow("+ New script", flat == selected, outerFocused, true, item, active, dim))
-	flat++
-
-	if len(s.Scripts) == 0 {
-		rows = append(rows, item.Render(dim.Render("(none)")))
+	for i, label := range labels {
+		rows = append(rows, renderOuterRow(label, i == selected, outerFocused, false, item, active, dim))
 	}
-	for _, sc := range s.Scripts {
-		rows = append(rows, renderOuterRow(sc.Name, flat == selected, outerFocused, false, item, active, dim))
-		flat++
-	}
-
-	rows = append(rows, "")
-	rows = append(rows, headerStyle.Render("REFERENCE"))
-
-	for _, label := range []string{"MCP", "Lua", "API"} {
-		rows = append(rows, renderOuterRow(label, flat == selected, outerFocused, false, item, active, dim))
-		flat++
-	}
-
-	body := strings.Join(rows, "\n")
-	return renderSidebarPane(height, body, outerFocused)
+	return renderSidebarPane(height, strings.Join(rows, "\n"), outerFocused)
 }
 
 func renderOuterRow(label string, selected, outerFocused, dimmed bool, item, active lipgloss.Style, dim lipgloss.Style) string {
@@ -84,15 +58,13 @@ func renderOuterRow(label string, selected, outerFocused, dimmed bool, item, act
 	return item.Render(label)
 }
 
-// renderScriptingContent dispatches the content pane. Script rows
-// render a file detail doc; MCP / Lua / API rows render a two-column
-// layout: inner sub-nav + markdown doc for the selected row.
+// renderScriptingContent dispatches the content pane. Every group
+// renders the same two-column layout: inner sub-nav on the left
+// listing the group's entries, markdown doc area on the right.
 func renderScriptingContent(s *core.State, width, height int) string {
 	switch s.ScriptingSelection.Kind {
-	case core.SelKindNewScript:
-		return renderScriptingMarkdown(width, height, newScriptMarkdown())
-	case core.SelKindScript:
-		return renderScriptingScriptDetail(s, width, height)
+	case core.SelKindScripts:
+		return renderScriptingRefSection(s, width, height, refScripts)
 	case core.SelKindMCP:
 		return renderScriptingRefSection(s, width, height, refMCP)
 	case core.SelKindLua:
@@ -106,7 +78,8 @@ func renderScriptingContent(s *core.State, width, height int) string {
 type refKind int
 
 const (
-	refMCP refKind = iota
+	refScripts refKind = iota
+	refMCP
 	refLua
 	refAPI
 )
@@ -123,18 +96,29 @@ func renderScriptingRefSection(s *core.State, width, height int, kind refKind) s
 }
 
 // renderScriptingRefDoc renders the markdown doc for whichever
-// command is currently highlighted in the inner sub-nav.
+// entry is currently highlighted in the inner sub-nav.
 func renderScriptingRefDoc(s *core.State, width, height int, kind refKind) string {
-	var src string
 	switch kind {
+	case refScripts:
+		return renderScriptingScriptsDoc(s, width, height)
 	case refMCP:
-		src = mcpMarkdown()
+		return renderScriptingMarkdown(width, height, mcpMarkdown(s))
 	case refLua:
-		src = luaEntryMarkdown(s)
+		return renderScriptingMarkdown(width, height, luaEntryMarkdown(s))
 	case refAPI:
-		src = apiEntryMarkdown(s)
+		return renderScriptingMarkdown(width, height, apiEntryMarkdown(s))
 	}
-	return renderScriptingMarkdown(width, height, src)
+	return renderContentPane(width, height, placeholderStyle.Render("Nothing selected."))
+}
+
+// renderScriptingScriptsDoc is the Scripts group's doc area. Row 0
+// is the `+ New script` affordance; rows 1..n render the file detail
+// pane for the corresponding script.
+func renderScriptingScriptsDoc(s *core.State, width, height int) string {
+	if s.ScriptsInnerIdx == 0 {
+		return renderScriptingMarkdown(width, height, newScriptMarkdown())
+	}
+	return renderScriptingScriptDetail(s, width, height)
 }
 
 // renderScriptingMarkdown glamour-renders the given markdown source
@@ -157,8 +141,8 @@ func renderScriptingScriptDetail(s *core.State, width, height int) string {
 		return renderContentPane(width, height,
 			placeholderStyle.Render("Loading scripts…"))
 	}
-	idx := s.ScriptingSelection.Index
-	if idx < 0 || idx >= len(s.Scripts) {
+	idx, ok := s.SelectedScriptIdx()
+	if !ok {
 		return renderContentPane(width, height,
 			placeholderStyle.Render("Script not found."))
 	}
@@ -173,17 +157,75 @@ func renderScriptingScriptDetail(s *core.State, width, height int) string {
 	preview := sc.Preview
 	if preview == "" {
 		preview = "(empty)"
-	} else {
-		lines := strings.Split(preview, "\n")
-		if len(lines) > 40 {
-			lines = append(lines[:40], "-- … (truncated)")
-		}
-		preview = strings.Join(lines, "\n")
 	}
-	fmt.Fprintf(&b, "```lua\n%s\n```\n\n", preview)
-	fmt.Fprintf(&b, "Press **Enter** to open the editor. Press **d** to delete.\n")
+	fmt.Fprintf(&b, "```lua\n%s\n```\n", preview)
 
-	return renderScriptingMarkdown(width, height, b.String())
+	inner := width - 6
+	if inner < 20 {
+		inner = 20
+	}
+	rendered, err := help.RenderMarkdown(b.String(), inner)
+	if err != nil {
+		return renderContentPane(width, height,
+			placeholderStyle.Render("markdown render failed: "+err.Error()))
+	}
+	rendered = strings.TrimRight(rendered, "\n")
+
+	// The script detail pane uses a dedicated style with zero bottom
+	// padding so the footer "menu bar" sits flush with the bottom
+	// edge of the content area. contentStyle's default Padding(1, 3)
+	// would leave an unused row below the footer, so we swap in
+	// Padding(1, 3, 0, 3) just for this render.
+	paneStyle := lipgloss.NewStyle().
+		Padding(1, 3, 0, 3).
+		Foreground(colorText)
+
+	footerStyle := lipgloss.NewStyle().Foreground(colorDim)
+	footerText := "↑↓ select  ·  pgup/pgdn scroll  ·  enter edit  ·  d delete"
+
+	// Inner body height = total - top pad (1) - divider (1) - footer (1).
+	bodyH := height - 3
+	if bodyH < 1 {
+		bodyH = 1
+	}
+
+	lines := strings.Split(rendered, "\n")
+	maxScroll := len(lines) - bodyH
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	s.ScriptPreviewScrollMax = maxScroll
+	if s.ScriptPreviewScroll > maxScroll {
+		s.ScriptPreviewScroll = maxScroll
+	}
+	start := s.ScriptPreviewScroll
+	end := start + bodyH
+	if end > len(lines) {
+		end = len(lines)
+	}
+	window := make([]string, 0, bodyH)
+	window = append(window, lines[start:end]...)
+	for len(window) < bodyH {
+		window = append(window, "")
+	}
+	visible := strings.Join(window, "\n")
+
+	divider := lipgloss.NewStyle().
+		Foreground(colorBorder).
+		Render(strings.Repeat("─", inner))
+
+	footer := footerStyle.Render(footerText)
+	if maxScroll > 0 {
+		indicator := footerStyle.Render(
+			fmt.Sprintf("  (%d/%d)", s.ScriptPreviewScroll+1, maxScroll+1))
+		footer += indicator
+	}
+
+	body := visible + "\n" + divider + "\n" + footer
+	return paneStyle.
+		Width(width).MaxWidth(width).
+		Height(height).MaxHeight(height).
+		Render(body)
 }
 
 func clamp(v, lo, hi int) int {

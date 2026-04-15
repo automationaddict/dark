@@ -25,21 +25,26 @@ func (e *Engine) registerDarkModule() {
 
 	darkTbl := L.NewTable()
 	L.SetFuncs(darkTbl, map[string]lua.LGFunction{
-		"on":  e.luaOn,
-		"log": e.luaLog,
-		"cmd": e.luaCmd,
+		"on":          e.luaOn,
+		"log":         e.luaLog,
+		"cmd":         e.luaCmd,
+		"notify":      e.luaNotify,
+		"env":         e.luaEnv,
+		"now":         e.luaNow,
+		"hostname":    e.luaHostname,
+		"read_file":   e.luaReadFile,
+		"write_file":  e.luaWriteFile,
+		"run":         e.luaRun,
+		"spawn":       e.luaSpawn,
+		"home":        e.luaHome,
+		"scripts_dir": e.luaScriptsDir,
+		"config_dir":  e.luaConfigDir,
+		"cache_dir":   e.luaCacheDir,
+		"json_encode": e.luaJSONEncode,
+		"json_decode": e.luaJSONDecode,
 	})
 	L.SetGlobal("dark", darkTbl)
-
-	e.registry.RegisterFunction("dark.on",
-		"(event, fn)",
-		"Register a Lua function to run when the named event fires.")
-	e.registry.RegisterFunction("dark.log",
-		"(message)",
-		"Write a line to the dark daemon log at info level.")
-	e.registry.RegisterFunction("dark.cmd",
-		"(subject, payload)",
-		"Issue a NATS request against a dark.cmd.* subject. Returns (reply_table, nil) on success or (nil, error_string) on failure.")
+	e.seedHostFunctions()
 }
 
 // luaOn implements dark.on(event, fn). Appends fn to the event's
@@ -70,6 +75,7 @@ func (e *Engine) luaLog(L *lua.LState) int {
 	e.logger.Info("script: "+msg, "source", "lua")
 	return 0
 }
+
 
 // luaCmd implements dark.cmd(subject, payload). Payload is optional;
 // when present it must be a table that JSON-marshals cleanly. The

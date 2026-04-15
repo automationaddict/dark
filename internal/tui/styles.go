@@ -109,11 +109,6 @@ func ApplyPalette(p theme.Palette) {
 	colorGold = lipgloss.Color(p.Gold)
 	colorRed = lipgloss.Color(p.Red)
 
-	// Rebuild the chroma syntax-highlighting style so the config
-	// editors (Top Bar config.jsonc / style.css) pick up the same
-	// Omarchy palette the rest of the TUI uses.
-	setHighlightPalette(p)
-
 	appStyle = lipgloss.NewStyle().
 		Background(colorBg).
 		Foreground(colorText)

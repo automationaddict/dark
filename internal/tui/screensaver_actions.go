@@ -87,9 +87,9 @@ func (m *Model) triggerScreensaverPreview() tea.Cmd {
 	return m.screensaver.Preview()
 }
 
-// triggerScreensaverEditContent opens the full-screen textarea editor
-// pre-filled with the current branding file contents. On Ctrl+S, the
-// callback fires the set_content bus request.
+// triggerScreensaverEditContent writes the current branding content
+// to a scratch file and hands off to $EDITOR. On exit Model.Update
+// reads the file and dispatches set_content.
 func (m *Model) triggerScreensaverEditContent() tea.Cmd {
 	if !m.inScreensaverContent() {
 		return nil
@@ -97,16 +97,5 @@ func (m *Model) triggerScreensaverEditContent() tea.Cmd {
 	if m.screensaver.SetContent == nil {
 		return m.notifyUnavailable("Screensaver")
 	}
-	actionsRef := m.screensaver
-	m.editor = NewEditor(
-		"Screensaver content",
-		m.state.Screensaver.Content,
-		m.width, m.height,
-		func(content string) tea.Cmd {
-			m.state.ScreensaverBusy = true
-			m.state.ScreensaverActionError = ""
-			return actionsRef.SetContent(content)
-		},
-	)
-	return nil
+	return editEphemeralContent(editKindScreensaverContent, "screensaver", ".txt", m.state.Screensaver.Content)
 }

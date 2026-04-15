@@ -696,6 +696,7 @@ var commandSchemas = map[string][]CommandField{
 	SubjectScriptingListCmd:       {},
 	SubjectScriptingRegistryCmd:   {},
 	SubjectScriptingAPICatalogCmd: {},
+	SubjectScriptingMCPCatalogCmd: {},
 	SubjectScriptingReadCmd: {
 		{Name: "name", Type: "string", Required: true, Desc: "Script file name (basename with .lua)."},
 	},
@@ -710,4 +711,5 @@ var commandSchemas = map[string][]CommandField{
 		{Name: "fn", Type: "string", Required: true, Desc: "Global Lua function name to invoke (e.g. volume_up)."},
 		{Name: "args", Type: "[]string", Required: false, Desc: "Optional positional arguments; parsed as JSON literals when possible."},
 	},
+	SubjectScriptingReloadCmd: {},
 }

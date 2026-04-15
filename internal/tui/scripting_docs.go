@@ -27,21 +27,74 @@ func newScriptMarkdown() string {
 	}, "\n")
 }
 
-func mcpMarkdown() string {
-	return strings.Join([]string{
-		"# MCP commands",
-		"",
-		"MCP support is not yet implemented. When it lands, this " +
-			"group will enumerate tools exposed by every configured MCP " +
-			"server so Lua scripts can call them alongside the native " +
-			"dark API.",
-		"",
-		"Planned shape:",
-		"",
-		"```lua",
-		"dark.mcp.call(\"server_name\", \"tool_name\", { arg = \"value\" })",
-		"```",
-	}, "\n")
+// mcpMarkdown renders the doc pane for the currently-selected entry
+// in the F5 MCP sub-nav. Tools get the same parameter table / call
+// example treatment the API tab uses; resources get a read-only view
+// showing the URI and the snapshot subject they proxy.
+func mcpMarkdown(s *core.State) string {
+	if !s.MCPCatalogLoaded {
+		return "# MCP\n\nLoading catalog…"
+	}
+	if s.MCPEntryCount() == 0 {
+		return strings.Join([]string{
+			"# MCP",
+			"",
+			"No tools or resources are registered. This usually means " +
+				"the daemon didn't ship with any `dark.cmd.*` subjects — " +
+				"check the logs for startup errors.",
+		}, "\n")
+	}
+	if tool, ok := s.SelectedMCPTool(); ok {
+		return mcpToolMarkdown(tool)
+	}
+	if res, ok := s.SelectedMCPResource(); ok {
+		return mcpResourceMarkdown(res)
+	}
+	return "# MCP\n\nSelect an entry from the sidebar."
+}
+
+func mcpToolMarkdown(t core.MCPToolEntry) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n", t.Name)
+	b.WriteString("**Kind:** Tool  \n")
+	fmt.Fprintf(&b, "**Subject:** `%s`  \n", t.Subject)
+	fmt.Fprintf(&b, "**Domain:** `%s`\n\n", t.Domain)
+	if t.Summary != "" {
+		fmt.Fprintf(&b, "%s\n\n", t.Summary)
+	}
+	writeFieldsTable(&b, t.Fields)
+	b.WriteString("## MCP call\n\n")
+	fmt.Fprintf(&b, "```json\n%s\n```\n\n", mcpCallExample(t.Name, t.Fields))
+	b.WriteString("## Lua equivalent\n\n")
+	luaName := "dark.actions." + t.Domain + "." + t.Verb
+	fmt.Fprintf(&b, "```lua\n%s\n```\n", luaCallExample(luaName, t.Fields))
+	return b.String()
+}
+
+func mcpResourceMarkdown(r core.MCPResourceEntry) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n", r.Name)
+	b.WriteString("**Kind:** Resource  \n")
+	fmt.Fprintf(&b, "**URI:** `%s`  \n", r.URI)
+	fmt.Fprintf(&b, "**Subject:** `%s`\n\n", r.Subject)
+	if r.Summary != "" {
+		fmt.Fprintf(&b, "%s\n\n", r.Summary)
+	}
+	b.WriteString("Resources are read-only snapshots. An MCP host can " +
+		"call `resources/read` with this URI to fetch the current " +
+		"JSON payload.\n\n")
+	b.WriteString("## Raw NATS\n\n")
+	fmt.Fprintf(&b, "```\nnats req %s ''\n```\n", r.Subject)
+	return b.String()
+}
+
+// mcpCallExample emits a minimal MCP tools/call JSON body with just
+// the required fields populated. The LLM host will normally build
+// this for the user, but showing it here helps scripts and operators
+// debug with `jq` / stdio directly.
+func mcpCallExample(name string, fields []core.CommandField) string {
+	args := jsonPayloadExample(fields)
+	return "{\n  \"name\": \"" + name + "\",\n  \"arguments\": " + args + "\n}"
 }
 
 func luaEntryMarkdown(s *core.State) string {

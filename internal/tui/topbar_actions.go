@@ -179,49 +179,25 @@ func (m *Model) triggerTopBarSpacingDialog() {
 	})
 }
 
-// triggerTopBarEditConfig opens the full-screen editor pre-filled
-// with the current config.jsonc content. Ctrl+S dispatches
-// SetConfig which writes and restarts waybar.
+// triggerTopBarEditConfig writes the current config.jsonc content to
+// a scratch file, suspends the TUI, and hands off to $EDITOR. On
+// exit Model.Update reads the file and dispatches SetConfig to
+// persist it through the bus (which writes and restarts waybar).
 func (m *Model) triggerTopBarEditConfig() tea.Cmd {
 	if !m.inTopBarContent() || m.topbar.SetConfig == nil {
 		return nil
 	}
-	actionsRef := m.topbar
-	m.editor = NewEditorWithLanguage(
-		"Top bar config (config.jsonc)",
-		LangJSONC,
-		m.state.TopBar.Config,
-		m.width, m.height,
-		func(content string) tea.Cmd {
-			m.state.TopBarBusy = true
-			m.state.TopBarActionError = ""
-			return actionsRef.SetConfig(content)
-		},
-	)
-	return nil
+	return editEphemeralContent(editKindTopbarConfig, "topbar-config", ".jsonc", m.state.TopBar.Config)
 }
 
-// triggerTopBarEditStyle opens the full-screen editor pre-filled
-// with the current style.css content. Ctrl+S dispatches SetStyle
-// which writes but does NOT restart waybar (reload_style_on_change
-// handles it live).
+// triggerTopBarEditStyle writes style.css to a scratch file, hands
+// off to $EDITOR, and dispatches SetStyle on exit (reload_style_on_change
+// handles the live reload waybar-side).
 func (m *Model) triggerTopBarEditStyle() tea.Cmd {
 	if !m.inTopBarContent() || m.topbar.SetStyle == nil {
 		return nil
 	}
-	actionsRef := m.topbar
-	m.editor = NewEditorWithLanguage(
-		"Top bar style (style.css)",
-		LangCSS,
-		m.state.TopBar.Style,
-		m.width, m.height,
-		func(content string) tea.Cmd {
-			m.state.TopBarBusy = true
-			m.state.TopBarActionError = ""
-			return actionsRef.SetStyle(content)
-		},
-	)
-	return nil
+	return editEphemeralContent(editKindTopbarStyle, "topbar-style", ".css", m.state.TopBar.Style)
 }
 
 // nextInCycle returns the element after current in order, wrapping

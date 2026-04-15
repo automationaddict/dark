@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +24,9 @@ func (m *Model) loadScriptingIfNeeded() tea.Cmd {
 	if !m.state.APICommandsLoaded && m.scripting.LoadAPICatalog != nil {
 		cmds = append(cmds, m.scripting.LoadAPICatalog())
 	}
+	if !m.state.MCPCatalogLoaded && m.scripting.LoadMCPCatalog != nil {
+		cmds = append(cmds, m.scripting.LoadMCPCatalog())
+	}
 	if len(cmds) == 0 {
 		return nil
 	}
@@ -29,17 +34,21 @@ func (m *Model) loadScriptingIfNeeded() tea.Cmd {
 }
 
 // triggerScriptingEnter handles Enter inside the F5 Scripting tab.
-// The first Enter on a reference row (MCP / Lua / API) moves focus
-// into the inner sub-nav so arrow keys drive the command list. On a
-// script row it fetches the file contents so the reply can open the
-// editor. On the "+ New script" row it opens a name-entry dialog.
+// First Enter moves focus into the currently-selected group's inner
+// sub-nav. A second Enter inside the Scripts group suspends the TUI
+// and hands off to $EDITOR — either on a freshly-created empty file
+// (new script) or on the highlighted script's path directly. On
+// editor exit darkd reloads every user script so hooks re-register
+// without a daemon restart.
 func (m *Model) triggerScriptingEnter() tea.Cmd {
-	if m.state.ContentFocused {
-		// Second Enter inside the content pane is unused for now.
+	if !m.state.ScriptingContentFocused {
+		m.state.ScriptingContentFocused = true
 		return nil
 	}
-	switch m.state.ScriptingSelection.Kind {
-	case core.SelKindNewScript:
+	if m.state.ScriptingSelection.Kind != core.SelKindScripts {
+		return nil
+	}
+	if m.state.ScriptsInnerIdx == 0 {
 		m.dialog = NewDialog("New Lua script", []DialogFieldSpec{
 			{Key: "name", Label: "Filename", Kind: DialogFieldText, Value: ".lua"},
 		}, func(result DialogResult) tea.Cmd {
@@ -47,21 +56,35 @@ func (m *Model) triggerScriptingEnter() tea.Cmd {
 			if name == "" {
 				return nil
 			}
-			m.openScriptEditor(name, "")
-			return nil
+			path, err := createEmptyScriptFile(name)
+			if err != nil {
+				m.notifyError("Scripting", err.Error())
+				return nil
+			}
+			return editExistingFile(editKindScript, name, path)
 		})
 		return nil
-	case core.SelKindScript:
-		sc, ok := m.selectedScript()
-		if !ok || m.scripting.ReadScript == nil {
-			return nil
-		}
-		return m.scripting.ReadScript(sc.Name)
-	case core.SelKindMCP, core.SelKindLua, core.SelKindAPI:
-		m.state.ContentFocused = true
+	}
+	sc, ok := m.selectedScript()
+	if !ok {
 		return nil
 	}
-	return nil
+	return editExistingFile(editKindScript, sc.Name, sc.Path)
+}
+
+// handlePageKey routes PgUp/PgDn. On F5 with a script selected it
+// scrolls the preview window; elsewhere it's a no-op (for now).
+func (m *Model) handlePageKey(direction int) {
+	if m.state.ActiveTab != core.TabF5 {
+		return
+	}
+	if m.state.ScriptingSelection.Kind != core.SelKindScripts {
+		return
+	}
+	if _, ok := m.state.SelectedScriptIdx(); !ok {
+		return
+	}
+	m.state.ScrollScriptPreview(direction * 10)
 }
 
 // triggerScriptingDelete fires on `d` while a user script row is
@@ -79,37 +102,15 @@ func (m *Model) triggerScriptingDelete() tea.Cmd {
 	return nil
 }
 
-// openScriptEditor installs a Lua-syntax editor overlay with the
-// given initial content. Ctrl+S dispatches a SaveScript action; Esc
-// discards without saving.
-func (m *Model) openScriptEditor(name, content string) {
-	width := m.width
-	height := m.height
-	if width <= 0 {
-		width = 120
-	}
-	if height <= 0 {
-		height = 40
-	}
-	saveFn := m.scripting.SaveScript
-	m.editor = NewEditorWithLanguage(name, LangLua, content, width, height,
-		func(final string) tea.Cmd {
-			if saveFn == nil {
-				return nil
-			}
-			return saveFn(name, final)
-		})
-}
-
 // selectedScript returns the script currently pointed at by the
-// sidebar. Returns false when the selection isn't a script row or
-// the index has drifted out of range.
+// Scripts inner sub-nav. Returns false when the pointer is on the
+// `+ New script` row, on another group entirely, or out of range.
 func (m *Model) selectedScript() (core.ScriptEntry, bool) {
-	if m.state.ScriptingSelection.Kind != core.SelKindScript {
+	if m.state.ScriptingSelection.Kind != core.SelKindScripts {
 		return core.ScriptEntry{}, false
 	}
-	idx := m.state.ScriptingSelection.Index
-	if idx < 0 || idx >= len(m.state.Scripts) {
+	idx, ok := m.state.SelectedScriptIdx()
+	if !ok {
 		return core.ScriptEntry{}, false
 	}
 	return m.state.Scripts[idx], true
@@ -126,4 +127,45 @@ func normalizeScriptName(raw string) string {
 		name += ".lua"
 	}
 	return name
+}
+
+// createEmptyScriptFile writes a zero-byte file at the given script
+// name inside the user scripts directory so $EDITOR can open the
+// real path directly (no temp-file dance). Returns the absolute
+// path. Refuses to overwrite if something already exists — the name
+// dialog should have caught the conflict, but it's defensive.
+func createEmptyScriptFile(name string) (string, error) {
+	dir := clientUserScriptsDir()
+	if dir == "" {
+		return "", os.ErrNotExist
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, name)
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o644)
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+	return path, nil
+}
+
+// clientUserScriptsDir mirrors scripting.UserScriptsDir on the
+// client side — both dark and darkd run as the same user and share
+// XDG resolution, so duplicating this short helper is cheaper than
+// introducing a client/daemon import edge.
+func clientUserScriptsDir() string {
+	base := os.Getenv("XDG_CONFIG_HOME")
+	if base == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		base = filepath.Join(home, ".config")
+	}
+	return filepath.Join(base, "dark", "scripts")
 }

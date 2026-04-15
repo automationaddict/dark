@@ -87,8 +87,8 @@ type Model struct {
 	workspaces  WorkspacesActions
 	darkupdate  DarkUpdateActions
 	scripting   ScriptingActions
+	events      EventsActions
 	dialog      *Dialog
-	editor      *Editor
 	spinner    spinner.Model
 	width     int
 	height    int
@@ -539,14 +539,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.SetAPICommands(msg.Commands)
 		return m, nil
 
-	case ScriptingReadMsg:
+	case ScriptingMCPCatalogMsg:
 		if msg.Err != "" {
-			slog.Warn("scripting read failed", "name", msg.Name, "error", msg.Err)
-			m.notifyError("Scripting", msg.Err)
+			slog.Warn("scripting mcp catalog failed", "error", msg.Err)
 			return m, nil
 		}
-		m.openScriptEditor(msg.Name, msg.Content)
+		m.state.SetMCPCatalog(msg.Tools, msg.Resources)
 		return m, nil
+
+	case externalEditDoneMsg:
+		return m, m.handleExternalEditDone(msg)
 
 	case ScriptingWriteMsg:
 		if msg.Err != "" {
@@ -557,7 +559,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.SetScripts(msg.Scripts)
 		for i, sc := range msg.Scripts {
 			if sc.Name == msg.Name {
-				m.state.ScriptingSelection = core.ScriptingSelection{Kind: core.SelKindScript, Index: i}
+				m.state.ScriptingSelection = core.ScriptingSelection{Kind: core.SelKindScripts}
+				m.state.ScriptsInnerIdx = i + 1
+				m.state.ScriptingContentFocused = true
 				break
 			}
 		}
@@ -580,17 +584,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// An open editor takes precedence over everything else. Its
-		// Update handles Ctrl+S (submit), Esc (cancel), and forwards
-		// everything else to the underlying textarea so typing,
-		// arrows, and word-jump all work.
-		if m.editor != nil {
-			cmd := m.editor.Update(msg)
-			if m.editor.Closed() {
-				m.editor = nil
-			}
-			return m, cmd
-		}
 		// An open dialog captures every key. The dialog's own Update
 		// handles esc/enter and decides when to close itself; any
 		// tea.Cmd returned here (typically a bus request spawned by

@@ -43,6 +43,12 @@ var defaultScripts embed.FS
 // silently succeeding.
 type RequesterFunc func(subject string, data []byte) ([]byte, error)
 
+// NotifyFunc sends a desktop notification. Installed via
+// Engine.SetNotifier so the scripting package doesn't have to
+// import the notify service — the daemon wires a real
+// implementation, a nil hook makes dark.notify a no-op.
+type NotifyFunc func(summary, body, urgency string)
+
 type Engine struct {
 	logger    *slog.Logger
 	vm        *lua.LState
@@ -51,6 +57,7 @@ type Engine struct {
 	loaded    map[string]bool
 	registry  Registry
 	requester RequesterFunc
+	notifier  NotifyFunc
 }
 
 // SetRequester installs the NATS request/reply bridge used by the
@@ -60,6 +67,15 @@ func (e *Engine) SetRequester(fn RequesterFunc) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.requester = fn
+}
+
+// SetNotifier installs the desktop-notification bridge used by
+// dark.notify. Nil hook makes dark.notify a silent no-op so scripts
+// fail open when the daemon is built without a notifier.
+func (e *Engine) SetNotifier(fn NotifyFunc) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.notifier = fn
 }
 
 // Registry exposes the Lua symbol catalog so callers (notably the F5

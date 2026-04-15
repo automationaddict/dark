@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/sysinfo"
 )
 
 func renderStatusBar(s *core.State, width int) string {
@@ -15,7 +16,10 @@ func renderStatusBar(s *core.State, width int) string {
 	if s.Rebuilding {
 		content = statusBusyStyle.Width(width).Render("rebuilding…")
 	} else {
-		left := "? help · ctrl+r rebuild · +/- resize sidebar · F1–F12 tabs · q quit"
+		left := "? help · +/- resize sidebar · F1–F12 tabs · q quit"
+		if sysinfo.IsDevBuild() {
+			left = "? help · ctrl+r rebuild · +/- resize sidebar · F1–F12 tabs · q quit"
+		}
 		right := connectionIndicator(s.BusConnected)
 		content = statusBarStyle.Width(width).Render(layoutStatusRow(left, right, width))
 	}

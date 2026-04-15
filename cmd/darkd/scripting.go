@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/mcp"
 	"github.com/automationaddict/dark/internal/scripting"
 )
 
@@ -61,6 +62,17 @@ func wireScripting(nc *nats.Conn, engine *scripting.Engine) {
 		os.Exit(1)
 	}
 
+	if _, err := nc.Subscribe(bus.SubjectScriptingMCPCatalogCmd, func(m *nats.Msg) {
+		data, _ := json.Marshal(scriptingMCPCatalogResponse{
+			Tools:     mcp.Tools(),
+			Resources: mcp.Resources(),
+		})
+		respond(m, data)
+	}); err != nil {
+		slog.Error("subscribe failed", "subject", bus.SubjectScriptingMCPCatalogCmd, "error", err)
+		os.Exit(1)
+	}
+
 	if _, err := nc.Subscribe(bus.SubjectScriptingReadCmd, func(m *nats.Msg) {
 		var req scriptingNameRequest
 		if err := json.Unmarshal(m.Data, &req); err != nil {
@@ -103,6 +115,20 @@ func wireScripting(nc *nats.Conn, engine *scripting.Engine) {
 		respond(m, data)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectScriptingSaveCmd, "error", err)
+		os.Exit(1)
+	}
+
+	if _, err := nc.Subscribe(bus.SubjectScriptingReloadCmd, func(m *nats.Msg) {
+		reloadUserScripts(engine)
+		scripts, err := scripting.ListUserScripts()
+		resp := scriptingWriteResponse{Scripts: scripts}
+		if err != nil {
+			resp.Error = err.Error()
+		}
+		data, _ := json.Marshal(resp)
+		respond(m, data)
+	}); err != nil {
+		slog.Error("subscribe failed", "subject", bus.SubjectScriptingReloadCmd, "error", err)
 		os.Exit(1)
 	}
 
@@ -202,4 +228,10 @@ type scriptingRegistryResponse struct {
 type scriptingAPICatalogResponse struct {
 	Commands []bus.APICommandEntry `json:"commands"`
 	Error    string                `json:"error,omitempty"`
+}
+
+type scriptingMCPCatalogResponse struct {
+	Tools     []mcp.ToolEntry     `json:"tools"`
+	Resources []mcp.ResourceEntry `json:"resources"`
+	Error     string              `json:"error,omitempty"`
 }

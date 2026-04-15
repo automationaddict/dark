@@ -33,9 +33,9 @@ func newScriptingActions(nc *nats.Conn) tui.ScriptingActions {
 				return scriptingAPICatalogRequest(nc)
 			}
 		},
-		ReadScript: func(name string) tea.Cmd {
+		LoadMCPCatalog: func() tea.Cmd {
 			return func() tea.Msg {
-				return scriptingReadRequest(nc, name)
+				return scriptingMCPCatalogRequest(nc)
 			}
 		},
 		SaveScript: func(name, content string) tea.Cmd {
@@ -48,38 +48,33 @@ func newScriptingActions(nc *nats.Conn) tui.ScriptingActions {
 				return scriptingWriteRequest(nc, "delete", name, "")
 			}
 		},
+		ReloadScripts: func() tea.Cmd {
+			return func() tea.Msg {
+				return scriptingWriteRequest(nc, "reload", "", "")
+			}
+		},
 	}
-}
-
-func scriptingReadRequest(nc *nats.Conn, name string) tui.ScriptingReadMsg {
-	payload, _ := json.Marshal(map[string]string{"name": name})
-	reply, err := nc.Request(bus.SubjectScriptingReadCmd, payload, core.TimeoutNormal)
-	if err != nil {
-		return tui.ScriptingReadMsg{Name: name, Err: err.Error()}
-	}
-	var resp struct {
-		Name    string `json:"name"`
-		Content string `json:"content"`
-		Error   string `json:"error,omitempty"`
-	}
-	if err := json.Unmarshal(reply.Data, &resp); err != nil {
-		return tui.ScriptingReadMsg{Name: name, Err: err.Error()}
-	}
-	if resp.Error != "" {
-		return tui.ScriptingReadMsg{Name: name, Err: resp.Error}
-	}
-	return tui.ScriptingReadMsg{Name: resp.Name, Content: resp.Content}
 }
 
 func scriptingWriteRequest(nc *nats.Conn, action, name, content string) tui.ScriptingWriteMsg {
-	subject := bus.SubjectScriptingSaveCmd
+	var subject string
 	payloadMap := map[string]string{"name": name}
-	if action == "save" {
+	switch action {
+	case "save":
+		subject = bus.SubjectScriptingSaveCmd
 		payloadMap["content"] = content
-	} else {
+	case "delete":
 		subject = bus.SubjectScriptingDeleteCmd
+	case "reload":
+		subject = bus.SubjectScriptingReloadCmd
+		payloadMap = nil
+	default:
+		return tui.ScriptingWriteMsg{Action: action, Name: name, Err: "unknown action: " + action}
 	}
-	payload, _ := json.Marshal(payloadMap)
+	var payload []byte
+	if payloadMap != nil {
+		payload, _ = json.Marshal(payloadMap)
+	}
 	reply, err := nc.Request(subject, payload, core.TimeoutNormal)
 	if err != nil {
 		return tui.ScriptingWriteMsg{Action: action, Name: name, Err: err.Error()}
@@ -174,6 +169,69 @@ func scriptingRegistryRequest(nc *nats.Conn) tui.ScriptingRegistryMsg {
 		})
 	}
 	return tui.ScriptingRegistryMsg{Entries: out}
+}
+
+func scriptingMCPCatalogRequest(nc *nats.Conn) tui.ScriptingMCPCatalogMsg {
+	reply, err := nc.Request(bus.SubjectScriptingMCPCatalogCmd, nil, core.TimeoutNormal)
+	if err != nil {
+		return tui.ScriptingMCPCatalogMsg{Err: err.Error()}
+	}
+	// Decode into a shape that mirrors internal/mcp's JSON tags
+	// without importing that package here — same pattern the other
+	// scripting requests use to stay decoupled from daemon types.
+	var resp struct {
+		Tools []struct {
+			Name    string            `json:"name"`
+			Subject string            `json:"subject"`
+			Domain  string            `json:"domain"`
+			Verb    string            `json:"verb"`
+			Summary string            `json:"summary,omitempty"`
+			Fields  []bus.CommandField `json:"fields,omitempty"`
+		} `json:"tools"`
+		Resources []struct {
+			URI     string `json:"uri"`
+			Name    string `json:"name"`
+			Subject string `json:"subject"`
+			Summary string `json:"summary,omitempty"`
+		} `json:"resources"`
+		Error string `json:"error,omitempty"`
+	}
+	if err := json.Unmarshal(reply.Data, &resp); err != nil {
+		return tui.ScriptingMCPCatalogMsg{Err: err.Error()}
+	}
+	if resp.Error != "" {
+		return tui.ScriptingMCPCatalogMsg{Err: resp.Error}
+	}
+	tools := make([]core.MCPToolEntry, 0, len(resp.Tools))
+	for _, t := range resp.Tools {
+		fields := make([]core.CommandField, 0, len(t.Fields))
+		for _, f := range t.Fields {
+			fields = append(fields, core.CommandField{
+				Name:     f.Name,
+				Type:     f.Type,
+				Required: f.Required,
+				Desc:     f.Desc,
+			})
+		}
+		tools = append(tools, core.MCPToolEntry{
+			Name:    t.Name,
+			Subject: t.Subject,
+			Domain:  t.Domain,
+			Verb:    t.Verb,
+			Summary: t.Summary,
+			Fields:  fields,
+		})
+	}
+	resources := make([]core.MCPResourceEntry, 0, len(resp.Resources))
+	for _, r := range resp.Resources {
+		resources = append(resources, core.MCPResourceEntry{
+			URI:     r.URI,
+			Name:    r.Name,
+			Subject: r.Subject,
+			Summary: r.Summary,
+		})
+	}
+	return tui.ScriptingMCPCatalogMsg{Tools: tools, Resources: resources}
 }
 
 func scriptingAPICatalogRequest(nc *nats.Conn) tui.ScriptingAPICatalogMsg {

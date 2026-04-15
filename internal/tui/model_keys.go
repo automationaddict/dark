@@ -4,6 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/automationaddict/dark/internal/core"
+	"github.com/automationaddict/dark/internal/services/sysinfo"
 )
 
 func (m Model) handleHelpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -85,6 +86,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state.OpenHelp()
 		return m, nil
 	case "ctrl+r":
+		if !sysinfo.IsDevBuild() {
+			return m, nil
+		}
 		if m.state.Rebuilding {
 			return m, nil
 		}
@@ -92,34 +96,38 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state.BuildError = ""
 		return m, m.rebuildCmd()
 	case "f1":
-		m.state.SelectTab(core.TabSettings)
+		m.switchTab(core.TabSettings, "on_f1")
 	case "f2":
-		m.state.SelectTab(core.TabF2)
+		m.switchTab(core.TabF2, "on_f2")
 	case "f3":
-		m.state.SelectTab(core.TabF3)
+		m.switchTab(core.TabF3, "on_f3")
 	case "f4":
-		m.state.SelectTab(core.TabF4)
+		m.switchTab(core.TabF4, "on_f4")
 	case "f5":
-		m.state.SelectTab(core.TabF5)
+		m.switchTab(core.TabF5, "on_f5")
 		return m, m.loadScriptingIfNeeded()
 	case "f6":
-		m.state.SelectTab(core.TabF6)
+		m.switchTab(core.TabF6, "on_f6")
 	case "f7":
-		m.state.SelectTab(core.TabF7)
+		m.switchTab(core.TabF7, "on_f7")
 	case "f8":
-		m.state.SelectTab(core.TabF8)
+		m.switchTab(core.TabF8, "on_f8")
 	case "f9":
-		m.state.SelectTab(core.TabF9)
+		m.switchTab(core.TabF9, "on_f9")
 	case "f10":
-		m.state.SelectTab(core.TabF10)
+		m.switchTab(core.TabF10, "on_f10")
 	case "f11":
-		m.state.SelectTab(core.TabF11)
+		m.switchTab(core.TabF11, "on_f11")
 	case "f12":
-		m.state.SelectTab(core.TabF12)
+		m.switchTab(core.TabF12, "on_f12")
 	case "up", "k":
 		m.moveSelection(-1)
 	case "down", "j":
 		m.moveSelection(1)
+	case "pgup":
+		m.handlePageKey(-1)
+	case "pgdown":
+		m.handlePageKey(1)
 	case "tab":
 		return m.handleTabKey(1)
 	case "shift+tab":
@@ -162,6 +170,8 @@ func (m Model) handleEscKey() (tea.Model, tea.Cmd) {
 		m.state.OmarchyLinksFocused = false
 	case m.state.KeybindTableFocused:
 		m.state.KeybindTableFocused = false
+	case m.state.ScriptingContentFocused:
+		m.state.ScriptingContentFocused = false
 	case m.state.ContentFocused:
 		m.state.FocusSidebar()
 	default:

@@ -13,9 +13,10 @@ type ScriptingActions struct {
 	LoadScripts    func() tea.Cmd
 	LoadRegistry   func() tea.Cmd
 	LoadAPICatalog func() tea.Cmd
-	ReadScript     func(name string) tea.Cmd
+	LoadMCPCatalog func() tea.Cmd
 	SaveScript     func(name, content string) tea.Cmd
 	DeleteScript   func(name string) tea.Cmd
+	ReloadScripts  func() tea.Cmd
 }
 
 // ScriptingScriptsMsg carries the response to LoadScripts.
@@ -36,15 +37,16 @@ type ScriptingAPICatalogMsg struct {
 	Err      string
 }
 
-// ScriptingReadMsg carries the full text of a script ready to open
-// in the editor overlay.
-type ScriptingReadMsg struct {
-	Name    string
-	Content string
-	Err     string
+// ScriptingMCPCatalogMsg carries the response to LoadMCPCatalog. Two
+// slices because the F5 MCP tab renders tools and resources as two
+// grouped sections with their own headers.
+type ScriptingMCPCatalogMsg struct {
+	Tools     []core.MCPToolEntry
+	Resources []core.MCPResourceEntry
+	Err       string
 }
 
-// ScriptingWriteMsg is the shared reply for save and delete. On
+// ScriptingWriteMsg is the shared reply for save, delete, and reload. On
 // success Scripts carries the refreshed script list so the UI can
 // replace its cached snapshot without a second round-trip.
 type ScriptingWriteMsg struct {

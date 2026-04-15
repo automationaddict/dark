@@ -56,6 +56,7 @@ func main() {
 			fmt.Println("Usage: dark [--tab=<id>]")
 			fmt.Println("       dark --version")
 			fmt.Println("       dark script call <fn> [args...]")
+			fmt.Println("       dark mcp")
 			fmt.Println()
 			fmt.Println("Press ? inside dark for full in-app help.")
 			return
@@ -67,6 +68,14 @@ func main() {
 	// TUI. Used for keybindings that call Lua helpers.
 	if len(os.Args) > 1 && os.Args[1] == "script" {
 		os.Exit(runScriptSubcommand(os.Args[2:]))
+	}
+
+	// `dark mcp` turns this process into an MCP stdio server that
+	// proxies bus commands as tools. Same "skip TUI + lock" shape as
+	// the script subcommand so MCP hosts can launch it while the
+	// main TUI is still running.
+	if len(os.Args) > 1 && os.Args[1] == "mcp" {
+		os.Exit(runMcpSubcommand(os.Args[2:]))
 	}
 
 	lk, err := lock.Acquire("dark")
@@ -180,6 +189,15 @@ func main() {
 	workspacesActions := newWorkspacesActions(nc)
 	darkUpdateActions := newDarkUpdateActions(nc)
 	scriptingActions := newScriptingActions(nc)
+	eventsActions := tui.EventsActions{
+		Publish: func(event string, payload map[string]interface{}) {
+			var data []byte
+			if payload != nil {
+				data, _ = json.Marshal(payload)
+			}
+			_ = nc.Publish("dark.client."+event, data)
+		},
+	}
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -191,7 +209,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions, topbarActions, workspacesActions, darkUpdateActions, scriptingActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions, topbarActions, workspacesActions, darkUpdateActions, scriptingActions, eventsActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -199,9 +217,14 @@ func main() {
 	// they can use p.Send to push status changes into the bubble tea loop.
 	nc.SetDisconnectErrHandler(func(_ *nats.Conn, _ error) {
 		p.Send(tui.BusStatusMsg(false))
+		// Best-effort publish: if the bus is truly dead the publish
+		// silently drops, which is fine — scripts will see the
+		// reconnect event when it comes back.
+		_ = nc.Publish("dark.client.on_bus_disconnected", nil)
 	})
 	nc.SetReconnectHandler(func(_ *nats.Conn) {
 		p.Send(tui.BusStatusMsg(true))
+		_ = nc.Publish("dark.client.on_bus_connected", nil)
 	})
 	nc.SetClosedHandler(func(_ *nats.Conn) {
 		p.Send(tui.BusStatusMsg(false))
@@ -665,10 +688,20 @@ func main() {
 		}
 	}
 
+	// Publish the lifecycle start event now that every snapshot has
+	// been fetched and the TUI is about to render. Scripts that want
+	// to react to "dark launched" (cache state, arm timers, log a
+	// heartbeat) register via dark.on("on_app_start", ...).
+	_ = nc.Publish("dark.client.on_app_start", nil)
+
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "dark:", err)
 		os.Exit(1)
 	}
+
+	// Best-effort exit notice. Fire before nc.Drain runs so the
+	// publish actually lands before the connection closes.
+	_ = nc.Publish("dark.client.on_app_exit", nil)
 
 	// Shutdown timeout: if the deferred cleanup (nc.Drain, service
 	// Close, notifier Close, etc.) hangs on a stuck connection, force

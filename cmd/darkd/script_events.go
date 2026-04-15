@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/nats-io/nats.go"
 
@@ -30,6 +31,34 @@ func registerScriptActions(engine *scripting.Engine) {
 			})
 		}
 		engine.RegisterAction(c.Subject, c.Summary, fields)
+	}
+}
+
+// wireScriptClientEvents bridges client-side UI/lifecycle publishes
+// into the Lua engine's event dispatcher. The dark TUI publishes on
+// `dark.client.<event>` whenever something user-visible happens
+// (startup, tab switch, section change); this subscription forwards
+// each publish to Engine.DispatchEvent so scripts can
+// `dark.on("on_f1", ...)` and react without needing to reach into
+// the client process.
+func wireScriptClientEvents(nc *nats.Conn, engine *scripting.Engine) {
+	if engine == nil || nc == nil {
+		return
+	}
+	_, err := nc.Subscribe("dark.client.>", func(m *nats.Msg) {
+		event := strings.TrimPrefix(m.Subject, "dark.client.")
+		if event == "" {
+			return
+		}
+		var payload map[string]interface{}
+		if len(m.Data) > 0 {
+			_ = json.Unmarshal(m.Data, &payload)
+		}
+		engine.DispatchEvent(event, payload)
+	})
+	if err != nil {
+		slog.Error("subscribe failed", "subject", "dark.client.>", "error", err)
+		os.Exit(1)
 	}
 }
 

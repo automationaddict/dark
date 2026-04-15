@@ -56,6 +56,31 @@ func (d *daemonNotifier) Warn(section, message string) {
 	})
 }
 
+// Script fires a user-triggered notification with an explicit
+// urgency string. Used by the scripting.NotifyFunc bridge so Lua
+// scripts can pop up desktop notifications without needing to
+// construct a notify.Message themselves. Urgency names mirror the
+// freedesktop spec ("low", "normal", "critical"); anything else
+// falls back to normal.
+func (d *daemonNotifier) Script(summary, body, urgency string) {
+	if d == nil || d.n == nil {
+		return
+	}
+	u := notify.UrgencyNormal
+	switch urgency {
+	case "low":
+		u = notify.UrgencyLow
+	case "critical":
+		u = notify.UrgencyCritical
+	}
+	d.n.Send(notify.Message{
+		Summary: summary,
+		Body:    body,
+		Urgency: u,
+		Icon:    "dialog-information",
+	})
+}
+
 // Error fires a critical-urgency notification for a runtime failure.
 // Debounced: the same message within 30 seconds is suppressed so a
 // repeated publish failure doesn't flood the notification daemon.

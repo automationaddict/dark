@@ -102,8 +102,18 @@ func Gather(binPath string) SystemInfo {
 }
 
 // DarkVersion is the current dark release. Set at build time via
-// -ldflags or kept at the dev default.
+// -ldflags or kept at the dev default. The release workflow injects
+// a clean semver like "0.0.1"; local go build/install keeps the
+// "-dev" suffix so IsDevBuild can tell them apart.
 var DarkVersion = "0.1.0-dev"
+
+// IsDevBuild reports whether the binary was built from a working
+// tree rather than a tagged release. True when DarkVersion carries
+// a "-dev" suffix — the release workflow strips that when it
+// injects the tag value via ldflags.
+func IsDevBuild() bool {
+	return strings.Contains(DarkVersion, "-dev")
+}
 
 func readOmarchyInfo() (version, theme, author string) {
 	home, _ := os.UserHomeDir()

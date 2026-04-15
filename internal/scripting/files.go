@@ -232,16 +232,15 @@ func resolveScriptPath(name string) (string, error) {
 	return filepath.Join(dir, name), nil
 }
 
-// readPreview returns the first ~2KB of a script file so the detail
-// pane has something to show without the full editor. Errors become
-// an empty string — the list view still renders path + stats.
+// readPreview returns the full contents of a script file so the F5
+// detail pane can show the real file without rounding. User scripts
+// are typically small (a handful of kilobytes), so reading them
+// whole is cheaper than maintaining a pagination protocol. Errors
+// become an empty string — the list view still renders path + stats.
 func readPreview(path string) string {
-	f, err := os.Open(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return ""
 	}
-	defer f.Close()
-	buf := make([]byte, 2048)
-	n, _ := f.Read(buf)
-	return string(buf[:n])
+	return string(b)
 }

@@ -129,6 +129,9 @@ func main() {
 		}
 		return reply.Data, nil
 	})
+	scriptEngine.SetNotifier(func(summary, body, urgency string) {
+		dn.Script(summary, body, urgency)
+	})
 	registerScriptActions(scriptEngine)
 	scripting.SeedExampleScripts(scriptEngine)
 	scripting.LoadAllUserScripts(scriptEngine)
@@ -239,6 +242,7 @@ func main() {
 
 	wireScripting(nc, scriptEngine)
 	wireScriptEvents(nc, scriptEngine)
+	wireScriptClientEvents(nc, scriptEngine)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)

@@ -163,7 +163,7 @@ func renderThemeBytes(p theme.Palette) []byte {
 		return nil
 	}
 	data := struct {
-		Fg, Accent, Dim, Muted, Border, Gold string
+		Fg, Accent, Dim, Muted, Border, Gold, Green, Red string
 	}{
 		Fg:     p.Foreground,
 		Accent: p.Accent,
@@ -171,6 +171,8 @@ func renderThemeBytes(p theme.Palette) []byte {
 		Muted:  p.Muted,
 		Border: p.Muted,
 		Gold:   p.Gold,
+		Green:  p.Green,
+		Red:    p.Red,
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {

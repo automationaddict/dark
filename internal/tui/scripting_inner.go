@@ -44,10 +44,18 @@ func renderScriptingInnerSidebar(s *core.State, height int, kind refKind) string
 		end = len(rows)
 	}
 
-	innerFocused := s.ContentFocused
+	dividerStyle := lipgloss.NewStyle().
+		Foreground(colorBorder).
+		Width(itemWidth)
+
+	innerFocused := s.ScriptingContentFocused
 	var out []string
 	for i := start; i < end; i++ {
 		r := rows[i]
+		if r.divider {
+			out = append(out, dividerStyle.Render(strings.Repeat("─", itemWidth)))
+			continue
+		}
 		if r.header {
 			if r.label == "" {
 				out = append(out, item.Render(""))
@@ -57,13 +65,19 @@ func renderScriptingInnerSidebar(s *core.State, height int, kind refKind) string
 			continue
 		}
 		label := r.label
+		rowItem := item
+		rowActive := active
+		if r.compact {
+			rowItem = rowItem.UnsetMarginBottom()
+			rowActive = rowActive.UnsetMarginBottom()
+		}
 		switch {
 		case i == selectedRow && innerFocused:
-			out = append(out, active.Render(label))
+			out = append(out, rowActive.Render(label))
 		case i == selectedRow:
-			out = append(out, item.Render(dim.Render(label)))
+			out = append(out, rowItem.Render(dim.Render(label)))
 		default:
-			out = append(out, item.Render(label))
+			out = append(out, rowItem.Render(label))
 		}
 	}
 	if len(out) > 0 && start > 0 {
@@ -76,8 +90,10 @@ func renderScriptingInnerSidebar(s *core.State, height int, kind refKind) string
 }
 
 type innerRow struct {
-	label  string
-	header bool
+	label   string
+	header  bool
+	divider bool
+	compact bool // suppress the bottom margin sidebarItem normally adds
 }
 
 // splitActionName parses a Lua action name like
@@ -97,9 +113,60 @@ func buildInnerRows(s *core.State, kind refKind) ([]innerRow, int) {
 	var rows []innerRow
 	selectedRow := 0
 	switch kind {
+	case refScripts:
+		target := clamp(s.ScriptsInnerIdx, 0, s.ScriptsInnerLen()-1)
+		if target < 0 {
+			target = 0
+		}
+		if target == 0 {
+			selectedRow = len(rows)
+		}
+		rows = append(rows, innerRow{label: "+ New script", compact: true})
+		if len(s.Scripts) > 0 {
+			rows = append(rows, innerRow{divider: true})
+		}
+		for i, sc := range s.Scripts {
+			if i+1 == target {
+				selectedRow = len(rows)
+			}
+			rows = append(rows, innerRow{label: "󰢱  " + sc.Name})
+		}
 	case refMCP:
-		rows = append(rows, innerRow{label: "(coming soon)"})
-		selectedRow = 0
+		if !s.MCPCatalogLoaded {
+			rows = append(rows, innerRow{label: "loading…", header: true})
+			return rows, 0
+		}
+		if len(s.MCPTools) == 0 && len(s.MCPResources) == 0 {
+			rows = append(rows, innerRow{label: "(no MCP entries)", header: true})
+			return rows, 0
+		}
+		target := clamp(s.MCPInnerIdx, 0, s.MCPEntryCount()-1)
+		emit := func(i int, label string) {
+			if i == target {
+				selectedRow = len(rows)
+			}
+			rows = append(rows, innerRow{label: label})
+		}
+		if len(s.MCPTools) > 0 {
+			rows = append(rows, innerRow{label: "TOOLS", header: true})
+			var lastDomain string
+			for i, t := range s.MCPTools {
+				if t.Domain != lastDomain {
+					rows = append(rows, innerRow{label: strings.ToUpper(t.Domain), header: true})
+					lastDomain = t.Domain
+				}
+				emit(i, t.Verb)
+			}
+		}
+		if len(s.MCPResources) > 0 {
+			if len(rows) > 0 {
+				rows = append(rows, innerRow{header: true})
+			}
+			rows = append(rows, innerRow{label: "RESOURCES", header: true})
+			for i, r := range s.MCPResources {
+				emit(len(s.MCPTools)+i, r.Name)
+			}
+		}
 	case refLua:
 		if len(s.LuaRegistry) == 0 {
 			rows = append(rows, innerRow{label: "loading…", header: true})

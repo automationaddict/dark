@@ -22,18 +22,29 @@ func (m *Model) moveSelection(delta int) {
 		} else if m.state.ContentFocused {
 			m.state.MoveAppstoreResult(delta)
 		} else {
+			prev := m.state.F2SidebarIdx
 			m.state.MoveF2Sidebar(delta)
+			if prev != m.state.F2SidebarIdx {
+				m.publishEvent("on_f2_category", map[string]interface{}{
+					"id": m.currentF2CategoryID(),
+				})
+			}
 		}
 		return
 	case core.TabF3:
 		if m.state.ContentFocused {
 			m.state.MoveOmarchyFocus(delta)
 		} else {
+			prev := m.state.ActiveOmarchySection().ID
 			m.state.MoveOmarchySidebar(delta)
+			curr := m.state.ActiveOmarchySection().ID
+			if prev != curr {
+				m.publishEvent("on_f3_section", map[string]interface{}{"name": curr})
+			}
 		}
 		return
 	case core.TabF5:
-		if m.state.ContentFocused {
+		if m.state.ScriptingContentFocused {
 			m.state.MoveScriptingInner(delta)
 		} else {
 			m.state.MoveScriptingOuter(delta)
@@ -133,7 +144,24 @@ func (m *Model) moveSelection(delta int) {
 		}
 		return
 	}
+	prev := m.state.ActiveSection().ID
 	m.state.MoveSettingsFocus(delta)
+	curr := m.state.ActiveSection().ID
+	if prev != curr {
+		m.publishEvent("on_f1_section", map[string]interface{}{"name": curr})
+	}
+}
+
+// currentF2CategoryID returns the ID of the category currently
+// highlighted in the F2 sidebar, or an empty string when the index
+// is past the end (e.g. the Updates row).
+func (m *Model) currentF2CategoryID() string {
+	idx := m.state.F2SidebarIdx
+	cats := m.state.Appstore.Categories
+	if idx < 0 || idx >= len(cats) {
+		return ""
+	}
+	return cats[idx].ID
 }
 
 func (m Model) rebuildCmd() tea.Cmd {

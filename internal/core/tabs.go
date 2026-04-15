@@ -34,7 +34,7 @@ func AllTabs() []Tab {
 	return []Tab{
 		{TabSettings, "F1", "Settings", false},
 		{TabF2, "F2", "App Store", false},
-		{TabF3, "F3", "Omarchy", false},
+		{TabF3, "F3", "System", false},
 		{TabF4, "F4", "Dark", false},
 		{TabF5, "F5", "Scripting", false},
 		{TabF6, "F6", "—", true},

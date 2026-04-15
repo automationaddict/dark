@@ -2,28 +2,24 @@ package core
 
 import "time"
 
-// ScriptingSelectionKind names an entry in the outer F5 sidebar. The
-// outer sidebar is deliberately short (one row per script plus three
-// reference groups and a "new" affordance) so it fits without
-// scrolling. Every individual MCP / Lua / API command lives in the
-// content pane's inner sub-nav, not out here — matching how F1 wifi
-// stacks adapters / networks / known under a section-level outer
-// sidebar.
+// ScriptingSelectionKind names a top-level row in the outer F5
+// sidebar. The sidebar is deliberately short — one row per group —
+// and each group's contents (script files, MCP tools, Lua symbols,
+// API commands) live in the content pane's inner sub-nav. This
+// mirrors how F1 wifi keeps its section selector in the outer
+// sidebar and stacks the sub-tables under it.
 type ScriptingSelectionKind int
 
 const (
-	SelKindNewScript ScriptingSelectionKind = iota
-	SelKindScript
+	SelKindScripts ScriptingSelectionKind = iota
 	SelKindMCP
 	SelKindLua
 	SelKindAPI
 )
 
 // ScriptingSelection points at the currently highlighted outer row.
-// Index is only meaningful for SelKindScript (index into s.Scripts).
 type ScriptingSelection struct {
-	Kind  ScriptingSelectionKind
-	Index int
+	Kind ScriptingSelectionKind
 }
 
 // ScriptEntry is a single user-editable Lua script discovered under
@@ -66,33 +62,94 @@ type APICommandEntry struct {
 	Fields  []CommandField `json:"fields,omitempty"`
 }
 
-// MCPEntryCount is the number of rows shown in the MCP inner sub-nav.
-// Phase 1 ships a single "coming soon" row.
-func (s *State) MCPEntryCount() int { return 1 }
-
-// ScriptingOuterLen is the number of selectable rows in the outer F5
-// sidebar: + New script, one per user script, and the three reference
-// groups (MCP / Lua / API).
-func (s *State) ScriptingOuterLen() int {
-	return 1 + len(s.Scripts) + 3
+// MCPToolEntry mirrors mcp.ToolEntry for the TUI so this package has
+// no dependency on internal/mcp (which pulls in mcp-go). One entry
+// per MCP tool exposed by `dark mcp`. Fields carries the payload
+// schema so the F5 MCP detail pane can render a real parameter
+// table the same way the Lua and API tabs do.
+type MCPToolEntry struct {
+	Name    string         `json:"name"`
+	Subject string         `json:"subject"`
+	Domain  string         `json:"domain"`
+	Verb    string         `json:"verb"`
+	Summary string         `json:"summary,omitempty"`
+	Fields  []CommandField `json:"fields,omitempty"`
 }
 
+// MCPResourceEntry mirrors mcp.ResourceEntry for the TUI. One entry
+// per read-only snapshot resource exposed by `dark mcp`.
+type MCPResourceEntry struct {
+	URI     string `json:"uri"`
+	Name    string `json:"name"`
+	Subject string `json:"subject"`
+	Summary string `json:"summary,omitempty"`
+}
+
+// MCPEntryCount is the number of navigable rows in the MCP inner
+// sub-nav. Equals total tools + total resources; section headers in
+// the sidebar render but don't count toward navigation.
+func (s *State) MCPEntryCount() int {
+	return len(s.MCPTools) + len(s.MCPResources)
+}
+
+// SetMCPCatalog replaces the cached MCP tool and resource lists and
+// keeps the inner pointer valid if either shrank.
+func (s *State) SetMCPCatalog(tools []MCPToolEntry, resources []MCPResourceEntry) {
+	s.MCPTools = tools
+	s.MCPResources = resources
+	s.MCPCatalogLoaded = true
+	if s.MCPInnerIdx >= s.MCPEntryCount() {
+		s.MCPInnerIdx = 0
+	}
+}
+
+// SelectedMCPTool returns the tool the inner sub-nav is currently
+// pointing at. The boolean is false when the selection falls in the
+// resources range or is out of bounds.
+func (s *State) SelectedMCPTool() (MCPToolEntry, bool) {
+	if s.MCPInnerIdx < 0 || s.MCPInnerIdx >= len(s.MCPTools) {
+		return MCPToolEntry{}, false
+	}
+	return s.MCPTools[s.MCPInnerIdx], true
+}
+
+// SelectedMCPResource returns the resource the inner sub-nav is
+// currently pointing at. The boolean is false when the selection
+// falls in the tools range or is out of bounds.
+func (s *State) SelectedMCPResource() (MCPResourceEntry, bool) {
+	idx := s.MCPInnerIdx - len(s.MCPTools)
+	if idx < 0 || idx >= len(s.MCPResources) {
+		return MCPResourceEntry{}, false
+	}
+	return s.MCPResources[idx], true
+}
+
+// ScriptsInnerLen is the number of selectable rows in the Scripts
+// group's inner sub-nav: one `+ New script` affordance followed by
+// one row per discovered user script.
+func (s *State) ScriptsInnerLen() int {
+	return 1 + len(s.Scripts)
+}
+
+// ScriptingOuterLen is the number of selectable rows in the outer F5
+// sidebar (Scripts / MCP / Lua / API).
+func (s *State) ScriptingOuterLen() int { return 4 }
+
 // ScriptingOuterAt resolves a flat outer-sidebar index into a
-// selection. Out-of-range values fall back to the "+ New script" row.
+// selection. Out-of-range values clamp to the ends of the list.
 func (s *State) ScriptingOuterAt(idx int) ScriptingSelection {
-	if idx <= 0 {
-		return ScriptingSelection{Kind: SelKindNewScript}
-	}
-	if idx < 1+len(s.Scripts) {
-		return ScriptingSelection{Kind: SelKindScript, Index: idx - 1}
-	}
-	switch idx - (1 + len(s.Scripts)) {
+	switch idx {
 	case 0:
-		return ScriptingSelection{Kind: SelKindMCP}
+		return ScriptingSelection{Kind: SelKindScripts}
 	case 1:
-		return ScriptingSelection{Kind: SelKindLua}
+		return ScriptingSelection{Kind: SelKindMCP}
 	case 2:
+		return ScriptingSelection{Kind: SelKindLua}
+	case 3:
 		return ScriptingSelection{Kind: SelKindAPI}
+	}
+	if idx < 0 {
+		return ScriptingSelection{Kind: SelKindScripts}
 	}
 	return ScriptingSelection{Kind: SelKindAPI}
 }
@@ -100,43 +157,42 @@ func (s *State) ScriptingOuterAt(idx int) ScriptingSelection {
 // ScriptingOuterIndex maps the current selection back to its outer
 // sidebar row number.
 func (s *State) ScriptingOuterIndex() int {
-	sel := s.ScriptingSelection
-	switch sel.Kind {
-	case SelKindNewScript:
+	switch s.ScriptingSelection.Kind {
+	case SelKindScripts:
 		return 0
-	case SelKindScript:
-		return 1 + clamp(sel.Index, 0, maxInt(len(s.Scripts)-1, 0))
 	case SelKindMCP:
-		return 1 + len(s.Scripts)
+		return 1
 	case SelKindLua:
-		return 2 + len(s.Scripts)
+		return 2
 	case SelKindAPI:
-		return 3 + len(s.Scripts)
+		return 3
 	}
 	return 0
 }
 
 // MoveScriptingOuter walks the outer sidebar, clamping to its bounds.
 func (s *State) MoveScriptingOuter(delta int) {
-	n := s.ScriptingOuterLen()
-	if n == 0 {
-		return
-	}
 	idx := s.ScriptingOuterIndex() + delta
 	if idx < 0 {
 		idx = 0
 	}
-	if idx >= n {
-		idx = n - 1
+	if idx >= s.ScriptingOuterLen() {
+		idx = s.ScriptingOuterLen() - 1
 	}
 	s.ScriptingSelection = s.ScriptingOuterAt(idx)
 }
 
 // MoveScriptingInner walks the inner sub-nav inside the content pane
-// for the currently-selected reference group. Script / NewScript
-// selections have no inner list and the call is a no-op.
+// for the currently-selected group.
 func (s *State) MoveScriptingInner(delta int) {
 	switch s.ScriptingSelection.Kind {
+	case SelKindScripts:
+		n := s.ScriptsInnerLen()
+		prev := s.ScriptsInnerIdx
+		s.ScriptsInnerIdx = clamp(s.ScriptsInnerIdx+delta, 0, maxInt(n-1, 0))
+		if prev != s.ScriptsInnerIdx {
+			s.ScriptPreviewScroll = 0
+		}
 	case SelKindMCP:
 		n := s.MCPEntryCount()
 		s.MCPInnerIdx = clamp(s.MCPInnerIdx+delta, 0, maxInt(n-1, 0))
@@ -149,20 +205,44 @@ func (s *State) MoveScriptingInner(delta int) {
 	}
 }
 
-// SetScripts replaces the cached script list and keeps the outer
-// selection valid if the list shrank.
+// SelectedScriptIdx returns the index into s.Scripts the inner
+// sub-nav is currently pointing at. The second return is false when
+// the pointer is on the `+ New script` row or out of range.
+func (s *State) SelectedScriptIdx() (int, bool) {
+	if s.ScriptsInnerIdx <= 0 {
+		return 0, false
+	}
+	idx := s.ScriptsInnerIdx - 1
+	if idx >= len(s.Scripts) {
+		return 0, false
+	}
+	return idx, true
+}
+
+// SetScripts replaces the cached script list and keeps the inner
+// pointer valid if the list shrank. Preview scroll resets whenever
+// the list changes so a freshly-written file starts at the top.
 func (s *State) SetScripts(list []ScriptEntry) {
 	s.Scripts = list
 	s.ScriptsLoaded = true
-	if s.ScriptingSelection.Kind == SelKindScript {
-		if s.ScriptingSelection.Index >= len(list) {
-			if len(list) == 0 {
-				s.ScriptingSelection = ScriptingSelection{Kind: SelKindNewScript}
-			} else {
-				s.ScriptingSelection.Index = len(list) - 1
-			}
-		}
+	max := s.ScriptsInnerLen() - 1
+	if max < 0 {
+		max = 0
 	}
+	if s.ScriptsInnerIdx > max {
+		s.ScriptsInnerIdx = max
+	}
+	s.ScriptPreviewScroll = 0
+}
+
+// ScrollScriptPreview moves the script preview window by delta
+// lines, clamped to [0, ScriptPreviewScrollMax].
+func (s *State) ScrollScriptPreview(delta int) {
+	s.ScriptPreviewScroll = clamp(
+		s.ScriptPreviewScroll+delta,
+		0,
+		s.ScriptPreviewScrollMax,
+	)
 }
 
 // SetLuaRegistry replaces the cached Lua registry list.
