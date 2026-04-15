@@ -223,6 +223,8 @@ func main() {
 
 	publishTopBar := wireTopBar(nc)
 
+	publishWorkspaces := wireWorkspaces(nc)
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
@@ -250,6 +252,9 @@ func main() {
 	appstoreTick := time.NewTicker(core.TickAppstore)
 	defer appstoreTick.Stop()
 
+	workspacesTick := time.NewTicker(core.TickWorkspaces)
+	defer workspacesTick.Stop()
+
 	// Publish initial snapshots immediately so any subscriber that
 	// connects in the gap before the first tick still gets pushed data.
 	publishSysInfo(nc, binPath, dn)
@@ -272,6 +277,7 @@ func main() {
 	publishLimine()
 	publishScreensaver()
 	publishTopBar()
+	publishWorkspaces()
 
 	var seq uint64
 	for {
@@ -299,6 +305,7 @@ func main() {
 				publishLimine()
 				publishScreensaver()
 				publishTopBar()
+				publishWorkspaces()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())
@@ -330,6 +337,8 @@ func main() {
 			publishNetwork()
 		case <-appstoreTick.C:
 			publishAppstore()
+		case <-workspacesTick.C:
+			publishWorkspaces()
 		}
 	}
 }

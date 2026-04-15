@@ -25,6 +25,7 @@ const (
 	TickNetwork   = 10 * time.Second
 	TickDisplay   = 10 * time.Second
 	TickAppstore  = 60 * time.Second
+	TickWorkspaces = 3 * time.Second // workspaces change often; fast poll keeps the live list fresh
 )
 
 // --- Client NATS request timeouts ---

@@ -233,4 +233,17 @@ const (
 	SubjectTopBarSetSpacingCmd  = "dark.cmd.topbar.set_spacing"
 	SubjectTopBarSetConfigCmd   = "dark.cmd.topbar.set_config"
 	SubjectTopBarSetStyleCmd    = "dark.cmd.topbar.set_style"
+
+	SubjectWorkspacesSnapshot            = "dark.workspaces.snapshot"
+	SubjectWorkspacesSnapshotCmd         = "dark.cmd.workspaces.snapshot"
+	SubjectWorkspacesSwitchCmd           = "dark.cmd.workspaces.switch"
+	SubjectWorkspacesRenameCmd           = "dark.cmd.workspaces.rename"
+	SubjectWorkspacesMoveToMonitorCmd    = "dark.cmd.workspaces.move_to_monitor"
+	SubjectWorkspacesSetLayoutCmd        = "dark.cmd.workspaces.set_layout"
+	SubjectWorkspacesSetDefaultLayoutCmd = "dark.cmd.workspaces.set_default_layout"
+	SubjectWorkspacesSetDwindleOptionCmd = "dark.cmd.workspaces.set_dwindle_option"
+	SubjectWorkspacesSetMasterOptionCmd  = "dark.cmd.workspaces.set_master_option"
+	SubjectWorkspacesSetCursorWarpCmd    = "dark.cmd.workspaces.set_cursor_warp"
+	SubjectWorkspacesSetAnimationsCmd    = "dark.cmd.workspaces.set_animations"
+	SubjectWorkspacesSetHideSpecialCmd   = "dark.cmd.workspaces.set_hide_special"
 )
