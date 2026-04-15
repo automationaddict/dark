@@ -9,7 +9,7 @@ import (
 )
 
 func renderTabBar(s *core.State, width int) string {
-	tabs := core.AllTabs()
+	tabs := core.VisibleTabs()
 
 	activeStyle := lipgloss.NewStyle().
 		Foreground(colorAccent).
