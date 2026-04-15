@@ -53,6 +53,9 @@ func (m Model) handleActionC() (tea.Model, tea.Cmd) {
 	if cmd := m.triggerTopBarEditConfig(); cmd != nil {
 		return m, cmd
 	}
+	if cmd := m.triggerWorkspaceCursorWarpToggle(); cmd != nil {
+		return m, cmd
+	}
 	if m.inScreensaverContent() {
 		return m, m.triggerScreensaverEditContent()
 	}
@@ -111,6 +114,9 @@ func (m Model) handleActionZ() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionF() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerWorkspaceDwindleForceSplitCycle(); cmd != nil {
+		return m, cmd
+	}
 	if m.inAppearanceContent() {
 		m.triggerAppearanceFontDialog()
 		return m, nil
@@ -155,6 +161,9 @@ func (m Model) handleActionW() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionA() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerWorkspaceAnimationsToggle(); cmd != nil {
+		return m, cmd
+	}
 	if m.inDisplayContent() && len(m.state.Display.Monitors) > 1 {
 		m.state.OpenDisplayLayout()
 		return m, nil
@@ -210,6 +219,9 @@ func (m Model) handleActionE() (tea.Model, tea.Cmd) {
 
 func (m Model) handleActionP() (tea.Model, tea.Cmd) {
 	if cmd := m.triggerTopBarCyclePosition(); cmd != nil {
+		return m, cmd
+	}
+	if cmd := m.triggerWorkspaceDwindleToggle("preserve_split", m.state.Workspaces.Dwindle.PreserveSplit); cmd != nil {
 		return m, cmd
 	}
 	if cmd := m.triggerScreensaverPreview(); cmd != nil {
@@ -272,6 +284,9 @@ func (m Model) handleActionT() (tea.Model, tea.Cmd) {
 	if cmd := m.triggerTopBarToggle(); cmd != nil {
 		return m, cmd
 	}
+	if cmd := m.triggerWorkspaceDwindleToggle("pseudotile", m.state.Workspaces.Dwindle.Pseudotile); cmd != nil {
+		return m, cmd
+	}
 	if m.inAppearanceContent() {
 		m.triggerAppearanceThemeDialog()
 		return m, nil
@@ -299,6 +314,9 @@ func (m Model) handleActionT() (tea.Model, tea.Cmd) {
 
 func (m Model) handleActionR() (tea.Model, tea.Cmd) {
 	if cmd := m.triggerTopBarRestart(); cmd != nil {
+		return m, cmd
+	}
+	if cmd := m.triggerWorkspaceRename(); cmd != nil {
 		return m, cmd
 	}
 	if m.inAppearanceContent() {
@@ -547,6 +565,9 @@ func (m Model) handleActionMinus() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionM() (tea.Model, tea.Cmd) {
+	if cmd := m.triggerWorkspaceMoveToMonitor(); cmd != nil {
+		return m, cmd
+	}
 	if m.inPrivacyContent() {
 		if cmd := m.triggerPrivacyMACCycle(); cmd != nil {
 			return m, cmd

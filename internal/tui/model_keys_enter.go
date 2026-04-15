@@ -149,6 +149,16 @@ func (m Model) handleEnterSettings() (tea.Model, tea.Cmd) {
 			m.triggerPowerIdleDialog()
 			return m, nil
 		}
+	case "workspaces":
+		if !m.state.WorkspacesContentFocused {
+			m.state.WorkspacesContentFocused = true
+			return m, nil
+		}
+		// Content already focused — enter switches to the
+		// selected workspace on Overview, no-op elsewhere.
+		if m.state.ActiveWorkspacesSection().ID == "overview" {
+			return m, m.triggerWorkspaceSwitch()
+		}
 	}
 	return m, nil
 }

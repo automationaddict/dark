@@ -111,6 +111,12 @@ func (m *Model) moveSelection(delta int) {
 			m.state.MoveDateTimeSection(delta)
 		case "about":
 			m.state.MoveAboutSection(delta)
+		case "workspaces":
+			if m.state.WorkspacesContentFocused {
+				m.state.MoveWorkspaceSelection(delta)
+			} else {
+				m.state.MoveWorkspacesSection(delta)
+			}
 		}
 		return
 	}

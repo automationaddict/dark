@@ -24,6 +24,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/screensaver"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
 	"github.com/johnnelson/dark/internal/services/topbar"
+	workspacessvc "github.com/johnnelson/dark/internal/services/workspaces"
 	"github.com/johnnelson/dark/internal/services/firmware"
 	"github.com/johnnelson/dark/internal/services/links"
 	"github.com/johnnelson/dark/internal/services/update"
@@ -79,11 +80,12 @@ type Model struct {
 	users     UsersActions
 	privacy    PrivacyActions
 	appearance AppearanceActions
-	update     UpdateActions
+	update      UpdateActions
 	screensaver ScreensaverActions
-	topbar     TopBarActions
-	dialog     *Dialog
-	editor     *Editor
+	topbar      TopBarActions
+	workspaces  WorkspacesActions
+	dialog      *Dialog
+	editor      *Editor
 	spinner    spinner.Model
 	width     int
 	height    int
@@ -378,6 +380,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.TopBarActionError = ""
 		m.state.SetTopBar(msg.Snapshot)
+		return m, nil
+
+	case WorkspacesMsg:
+		m.state.SetWorkspaces(workspacessvc.Snapshot(msg))
+		return m, nil
+
+	case WorkspacesActionResultMsg:
+		m.state.WorkspacesBusy = false
+		if msg.Err != "" {
+			slog.Warn("workspaces action failed", "error", msg.Err)
+			m.state.WorkspacesActionError = msg.Err
+			m.notifyError("Workspaces", msg.Err)
+			return m, nil
+		}
+		m.state.WorkspacesActionError = ""
+		m.state.SetWorkspaces(msg.Snapshot)
 		return m, nil
 
 	case ScreensaverMsg:

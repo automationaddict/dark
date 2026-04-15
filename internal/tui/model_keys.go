@@ -149,6 +149,8 @@ func (m Model) handleEscKey() (tea.Model, tea.Cmd) {
 		m.state.WifiContentFocused = false
 	case m.state.BluetoothContentFocused:
 		m.state.BluetoothContentFocused = false
+	case m.state.WorkspacesContentFocused:
+		m.state.WorkspacesContentFocused = false
 	case m.state.OmarchyLinksFocused:
 		m.state.OmarchyLinksFocused = false
 	case m.state.KeybindTableFocused:

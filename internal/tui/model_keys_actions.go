@@ -44,6 +44,9 @@ func (m Model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 			m.triggerTopBarHeightDialog()
 			return m, nil
 		}
+		if cmd := m.triggerWorkspaceHideSpecialToggle(); cmd != nil {
+			return m, cmd
+		}
 		if cmd := m.triggerWifiConnectHidden(); cmd != nil {
 			return m, cmd
 		}
@@ -126,6 +129,9 @@ func (m Model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "M":
+		if cmd := m.triggerWorkspaceMasterStatusCycle(); cmd != nil {
+			return m, cmd
+		}
 		if cmd := m.triggerAudioStreamMove(); cmd != nil {
 			return m, cmd
 		}
@@ -197,6 +203,12 @@ func (m Model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "L":
+		if cmd := m.triggerWorkspaceLayoutCycle(); cmd != nil {
+			return m, cmd
+		}
+		if cmd := m.triggerWorkspaceDefaultLayoutCycle(); cmd != nil {
+			return m, cmd
+		}
 		if m.inInputContent() {
 			m.triggerInputKBLayoutDialog()
 			return m, nil

@@ -17,6 +17,7 @@ import (
 	appstoresvc "github.com/johnnelson/dark/internal/services/appstore"
 	screensaversvc "github.com/johnnelson/dark/internal/services/screensaver"
 	topbarsvc "github.com/johnnelson/dark/internal/services/topbar"
+	workspacessvc "github.com/johnnelson/dark/internal/services/workspaces"
 	audiosvc "github.com/johnnelson/dark/internal/services/audio"
 	btsvc "github.com/johnnelson/dark/internal/services/bluetooth"
 	displaysvc "github.com/johnnelson/dark/internal/services/display"
@@ -148,6 +149,7 @@ func main() {
 	limineActions := newLimineActions(nc)
 	screensaverActions := newScreensaverActions(nc)
 	topbarActions := newTopBarActions(nc)
+	workspacesActions := newWorkspacesActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -159,7 +161,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions, topbarActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions, topbarActions, workspacesActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -487,6 +489,20 @@ func main() {
 	}
 	defer topbarSub.Unsubscribe()
 
+	workspacesSub, err := nc.Subscribe(bus.SubjectWorkspacesSnapshot, func(m *nats.Msg) {
+		var snap workspacessvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("Workspaces", err)
+			return
+		}
+		p.Send(tui.WorkspacesMsg(snap))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe workspaces:", err)
+		os.Exit(1)
+	}
+	defer workspacesSub.Unsubscribe()
+
 	// Request current snapshots up front so each tab has data on the
 	// first frame instead of waiting for the next periodic publish.
 	if reply, err := nc.Request(bus.SubjectSystemInfoCmd, nil, core.TimeoutFast); err == nil {
@@ -590,6 +606,12 @@ func main() {
 		var snap topbarsvc.Snapshot
 		if err := json.Unmarshal(reply.Data, &snap); err == nil {
 			state.SetTopBar(snap)
+		}
+	}
+	if reply, err := nc.Request(bus.SubjectWorkspacesSnapshotCmd, nil, core.TimeoutFast); err == nil {
+		var snap workspacessvc.Snapshot
+		if err := json.Unmarshal(reply.Data, &snap); err == nil {
+			state.SetWorkspaces(snap)
 		}
 	}
 

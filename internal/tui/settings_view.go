@@ -95,6 +95,8 @@ func renderSettingsContent(s *core.State, width, height int) string {
 		return renderUsers(s, width, height)
 	case "appearance":
 		return renderAppearance(s, width, height)
+	case "workspaces":
+		return renderWorkspaces(s, width, height)
 	}
 	title := contentTitle.Render(sec.Label)
 	body := placeholderStyle.Render("Nothing wired up yet for " + sec.Label + ".")
