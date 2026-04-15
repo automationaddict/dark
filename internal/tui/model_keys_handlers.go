@@ -60,7 +60,12 @@ func (m Model) handleActionC() (tea.Model, tea.Cmd) {
 		return m, m.triggerScreensaverEditContent()
 	}
 	if m.inF2Updates() {
-		return m, m.triggerChannelChange()
+		switch m.state.ActiveUpdateSection().ID {
+		case "dark":
+			return m, m.triggerDarkUpdateCheck()
+		default:
+			return m, m.triggerChannelChange()
+		}
 	}
 	if m.inUsersContent() {
 		m.triggerUserRename()

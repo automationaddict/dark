@@ -9,6 +9,7 @@ import (
 	"github.com/automationaddict/dark/internal/core"
 	"github.com/automationaddict/dark/internal/services/appearance"
 	"github.com/automationaddict/dark/internal/services/appstore"
+	"github.com/automationaddict/dark/internal/services/darkupdate"
 	"github.com/automationaddict/dark/internal/services/audio"
 	"github.com/automationaddict/dark/internal/services/bluetooth"
 	"github.com/automationaddict/dark/internal/services/display"
@@ -84,6 +85,7 @@ type Model struct {
 	screensaver ScreensaverActions
 	topbar      TopBarActions
 	workspaces  WorkspacesActions
+	darkupdate  DarkUpdateActions
 	dialog      *Dialog
 	editor      *Editor
 	spinner    spinner.Model
@@ -380,6 +382,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.TopBarActionError = ""
 		m.state.SetTopBar(msg.Snapshot)
+		return m, nil
+
+	case DarkUpdateMsg:
+		m.state.SetDarkUpdate(darkupdate.Snapshot(msg))
+		return m, nil
+
+	case DarkUpdateActionResultMsg:
+		m.state.DarkUpdateChecking = false
+		m.state.DarkUpdateApplying = false
+		if msg.Err != "" {
+			slog.Warn("darkupdate action failed", "action", msg.Action, "error", msg.Err)
+			m.state.DarkUpdateActionError = msg.Err
+			m.notifyError("Dark update", msg.Err)
+			return m, nil
+		}
+		m.state.DarkUpdateActionError = ""
+		m.state.SetDarkUpdate(msg.Snapshot)
+		if msg.Action == "apply" {
+			m.notifyInfo("Dark update", "Installed — restart dark to run the new version")
+		}
 		return m, nil
 
 	case WorkspacesMsg:

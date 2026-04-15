@@ -4,6 +4,7 @@ import (
 	"github.com/automationaddict/dark/internal/help"
 	"github.com/automationaddict/dark/internal/services/appearance"
 	"github.com/automationaddict/dark/internal/services/appstore"
+	"github.com/automationaddict/dark/internal/services/darkupdate"
 	"github.com/automationaddict/dark/internal/services/firmware"
 	"github.com/automationaddict/dark/internal/services/keybind"
 	"github.com/automationaddict/dark/internal/services/limine"
@@ -209,6 +210,12 @@ type State struct {
 	Firmware            firmware.Snapshot
 	FirmwareLoaded      bool
 	FirmwareDeviceIdx   int
+
+	DarkUpdate            darkupdate.Snapshot
+	DarkUpdateLoaded      bool
+	DarkUpdateChecking    bool
+	DarkUpdateApplying    bool
+	DarkUpdateActionError string
 
 	WebLinks          []links.WebLink
 	TUILinks          []links.TUILink

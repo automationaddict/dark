@@ -26,6 +26,8 @@ func renderUpdateContent(s *core.State, width, height int) string {
 		content = renderOmarchyUpdateSection(s, contentWidth, height)
 	case "firmware":
 		content = renderFirmwareUpdateSection(s, contentWidth, height)
+	case "dark":
+		content = renderDarkUpdateSection(s, contentWidth, height)
 	default:
 		content = renderContentPane(contentWidth, height,
 			placeholderStyle.Render("Not implemented."))
@@ -113,6 +115,99 @@ func renderOmarchyUpdateSection(s *core.State, width, height int) string {
 	}
 	if statusMsg != "" {
 		blocks = append(blocks, "", statusMsg)
+	}
+	if hint != "" {
+		blocks = append(blocks, "", hint)
+	}
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
+	return renderContentPane(width, height, body)
+}
+
+func renderDarkUpdateSection(s *core.State, width, height int) string {
+	innerWidth := width - 6
+	if innerWidth < 40 {
+		innerWidth = 40
+	}
+
+	title := contentTitle.Render("Dark Self-Update")
+
+	current := s.DarkUpdate.Current
+	if current == "" {
+		current = "(unknown)"
+	}
+	latest := s.DarkUpdate.Latest
+	if latest == "" {
+		latest = placeholderStyle.Render("not checked")
+	} else if s.DarkUpdate.UpdateAvailable {
+		latest = statusOnlineStyle.Render(s.DarkUpdate.Latest)
+	}
+
+	versionLines := []string{
+		detailRow("Current", current, innerWidth),
+		detailRow("Latest", latest, innerWidth),
+	}
+	if !s.DarkUpdate.LastCheckedAt.IsZero() {
+		versionLines = append(versionLines,
+			detailRow("Last Checked", s.DarkUpdate.LastCheckedAt.Format("2006-01-02 15:04"), innerWidth))
+	}
+	if !s.DarkUpdate.LatestPublished.IsZero() {
+		versionLines = append(versionLines,
+			detailRow("Published", s.DarkUpdate.LatestPublished.Format("2006-01-02"), innerWidth))
+	}
+	if s.DarkUpdate.InstalledAt != "" {
+		versionLines = append(versionLines,
+			detailRow("Installed At", s.DarkUpdate.InstalledAt, innerWidth))
+	}
+	versionBox := groupBoxSections("Version", versionLines, innerWidth, colorBorder)
+
+	var statusText string
+	switch {
+	case s.DarkUpdateApplying:
+		statusText = statusBusyStyle.Render("Applying update…")
+	case s.DarkUpdateChecking:
+		statusText = statusBusyStyle.Render("Checking GitHub…")
+	case s.DarkUpdate.UpdateAvailable:
+		statusText = statusOnlineStyle.Render("Update available")
+	case s.DarkUpdate.Latest != "":
+		statusText = placeholderStyle.Render("dark is up to date")
+	default:
+		statusText = placeholderStyle.Render("Press c to check for updates")
+	}
+	statusLine := detailRow("Status", statusText, innerWidth)
+
+	blocks := []string{title, "", statusLine, "", versionBox}
+
+	if notes := strings.TrimSpace(s.DarkUpdate.LatestNotes); notes != "" {
+		if len(notes) > 600 {
+			notes = notes[:600] + "…"
+		}
+		notesBox := groupBoxSections("Release Notes", []string{notes}, innerWidth, colorBorder)
+		blocks = append(blocks, "", notesBox)
+	}
+
+	if s.DarkUpdate.LastCheckError != "" {
+		blocks = append(blocks, "",
+			statusOfflineStyle.Render("Check error: "+s.DarkUpdate.LastCheckError))
+	}
+	if s.DarkUpdate.ApplyError != "" {
+		blocks = append(blocks, "",
+			statusOfflineStyle.Render("Apply error: "+s.DarkUpdate.ApplyError))
+	}
+	if s.DarkUpdateActionError != "" {
+		blocks = append(blocks, "",
+			statusOfflineStyle.Render(s.DarkUpdateActionError))
+	}
+
+	var hint string
+	if s.DarkUpdateApplying || s.DarkUpdateChecking {
+		hint = ""
+	} else if s.DarkUpdate.UpdateAvailable {
+		hint = lipgloss.NewStyle().Foreground(colorDim).Render(
+			"u install update · c re-check")
+	} else {
+		hint = lipgloss.NewStyle().Foreground(colorDim).Render(
+			"c check for updates")
 	}
 	if hint != "" {
 		blocks = append(blocks, "", hint)

@@ -247,4 +247,9 @@ const (
 	SubjectWorkspacesSetCursorWarpCmd    = "dark.cmd.workspaces.set_cursor_warp"
 	SubjectWorkspacesSetAnimationsCmd    = "dark.cmd.workspaces.set_animations"
 	SubjectWorkspacesSetHideSpecialCmd   = "dark.cmd.workspaces.set_hide_special"
+
+	SubjectDarkUpdateSnapshot    = "dark.updateself.snapshot"
+	SubjectDarkUpdateSnapshotCmd = "dark.cmd.updateself.snapshot"
+	SubjectDarkUpdateCheckCmd    = "dark.cmd.updateself.check"
+	SubjectDarkUpdateApplyCmd    = "dark.cmd.updateself.apply"
 )

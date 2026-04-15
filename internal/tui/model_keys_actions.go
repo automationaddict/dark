@@ -67,7 +67,12 @@ func (m Model) handleActionKey(key string) (tea.Model, tea.Cmd) {
 		return m.handleActionO()
 	case "u":
 		if m.state.ActiveTab == core.TabF2 && m.state.F2OnUpdates() {
-			return m, m.triggerOmarchyUpdate()
+			switch m.state.ActiveUpdateSection().ID {
+			case "dark":
+				return m, m.triggerDarkUpdateApply()
+			default:
+				return m, m.triggerOmarchyUpdate()
+			}
 		}
 		if cmd := m.triggerBluetoothRemove(); cmd != nil {
 			return m, cmd

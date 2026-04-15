@@ -225,6 +225,8 @@ func main() {
 
 	publishWorkspaces := wireWorkspaces(nc)
 
+	publishDarkUpdate := wireDarkUpdate(nc)
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
@@ -278,6 +280,7 @@ func main() {
 	publishScreensaver()
 	publishTopBar()
 	publishWorkspaces()
+	publishDarkUpdate()
 
 	var seq uint64
 	for {
@@ -306,6 +309,7 @@ func main() {
 				publishScreensaver()
 				publishTopBar()
 				publishWorkspaces()
+				publishDarkUpdate()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())

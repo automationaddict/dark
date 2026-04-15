@@ -1,9 +1,20 @@
 package core
 
 import (
+	"github.com/automationaddict/dark/internal/services/darkupdate"
 	"github.com/automationaddict/dark/internal/services/firmware"
 	"github.com/automationaddict/dark/internal/services/update"
 )
+
+// SetDarkUpdate replaces the cached dark self-update snapshot
+// and clears the busy flags. Called from the TUI message
+// handlers on reply receipt and from the periodic publish path.
+func (s *State) SetDarkUpdate(snap darkupdate.Snapshot) {
+	s.DarkUpdate = snap
+	s.DarkUpdateLoaded = true
+	s.DarkUpdateChecking = false
+	s.DarkUpdateApplying = false
+}
 
 type UpdateSection struct {
 	ID    string
@@ -15,6 +26,7 @@ func UpdateSections() []UpdateSection {
 	return []UpdateSection{
 		{"omarchy", "󰣇", "Omarchy"},
 		{"firmware", "󰍛", "Firmware"},
+		{"dark", "󰓎", "Dark"},
 	}
 }
 
