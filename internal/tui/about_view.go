@@ -165,14 +165,64 @@ func renderAboutDarkSection(s *core.State, width, height int) string {
 		innerWidth = 46
 	}
 	info := s.SysInfo
-	fields := [][2]string{
+
+	softwareFields := [][2]string{
 		{"Version", info.DarkVersion},
+		{"Channel", darkChannel(info.DarkVersion)},
 		{"Go", info.GoVersion},
 		{"Binary", info.BinaryPath},
 		{"Built", info.BinaryMTime.Format("2006-01-02 15:04:05")},
 	}
-	body := renderAboutBox("dark", fields, innerWidth)
+	softwareBox := renderAboutBox("Software", softwareFields, innerWidth)
+
+	var updateLine string
+	if s.DarkUpdateLoaded {
+		switch {
+		case s.DarkUpdate.UpdateAvailable:
+			updateLine = statusOnlineStyle.Render("Update available: " + s.DarkUpdate.Latest)
+		case s.DarkUpdate.Latest != "":
+			updateLine = placeholderStyle.Render("dark is up to date")
+		case s.DarkUpdate.LastCheckError != "":
+			updateLine = statusOfflineStyle.Render("Check failed: " + s.DarkUpdate.LastCheckError)
+		default:
+			updateLine = placeholderStyle.Render("Not checked yet")
+		}
+	}
+
+	aboutFields := [][2]string{
+		{"Author", "automationaddict"},
+		{"Repository", "github.com/automationaddict/dark"},
+		{"Website", "github.com/automationaddict/dark"},
+		{"License", "MIT"},
+	}
+	aboutBox := renderAboutBox("dark", aboutFields, innerWidth)
+
+	blocks := []string{softwareBox}
+	if updateLine != "" {
+		blocks = append(blocks, "", updateLine)
+	}
+	blocks = append(blocks, "", aboutBox)
+
+	body := lipgloss.JoinVertical(lipgloss.Left, blocks...)
 	return renderContentPane(width, height, body)
+}
+
+// darkChannel derives a release channel label from the semver-ish
+// DarkVersion string. Prerelease suffixes map to their label; plain
+// releases are "stable".
+func darkChannel(version string) string {
+	switch {
+	case strings.Contains(version, "-dev"):
+		return "dev"
+	case strings.Contains(version, "-rc"):
+		return "rc"
+	case strings.Contains(version, "-edge"):
+		return "edge"
+	case strings.TrimSpace(version) == "":
+		return ""
+	default:
+		return "stable"
+	}
 }
 
 // ── Shared helpers ──────────────────────────────────────────────────
