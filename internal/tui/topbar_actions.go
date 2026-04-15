@@ -187,8 +187,9 @@ func (m *Model) triggerTopBarEditConfig() tea.Cmd {
 		return nil
 	}
 	actionsRef := m.topbar
-	m.editor = NewEditor(
+	m.editor = NewEditorWithLanguage(
 		"Top bar config (config.jsonc)",
+		LangJSONC,
 		m.state.TopBar.Config,
 		m.width, m.height,
 		func(content string) tea.Cmd {
@@ -209,8 +210,9 @@ func (m *Model) triggerTopBarEditStyle() tea.Cmd {
 		return nil
 	}
 	actionsRef := m.topbar
-	m.editor = NewEditor(
+	m.editor = NewEditorWithLanguage(
 		"Top bar style (style.css)",
+		LangCSS,
 		m.state.TopBar.Style,
 		m.width, m.height,
 		func(content string) tea.Cmd {
