@@ -33,7 +33,15 @@ Most settings route through `hyprctl keyword` so they apply to the running sessi
 
 ### Theme
 
-- `t` — open the theme picker dialog. Shows every theme under `~/.local/share/omarchy/themes/`. Select and commit to apply the full theme (background, foreground, accent, border, status colors).
+The Theme sub-section has a two-focus interaction model — unique among the Appearance sub-sections — because it hosts two independently-editable boxes (Theme and Backgrounds) and needs a way to pick between them. On every other Appearance sub-section, action keys fire directly from the inner sidebar. Theme is the exception.
+
+- `t` — open the theme picker dialog. Shows every theme under `~/.local/share/omarchy/themes/`. Select and commit to apply the full theme (background, foreground, accent, border, status colors). Works from anywhere on the Appearance panel; the two-focus flow below is the alternative path.
+- `enter` — step into the Theme content region. First press moves focus from the sub-section sidebar into the Theme box (its border accents to show which box is active). Subsequent `enter` presses commit the focused box's primary action.
+- `tab` / `shift+tab` — cycle the focus ring between the **Theme box** and the **Backgrounds box** once content focus is on. The accent border moves with you so you always know which box `enter` will act on.
+- `j` / `k` — moves the row cursor inside the Backgrounds box when it has focus. No-op on the Theme box (it's a read-only info display — commit via `enter` opens the theme picker).
+- `enter` on the **Backgrounds box** commits the highlighted row. Dark updates `~/.config/omarchy/current/background` (symlink) and relaunches `swaybg` via `uwsm-app` (or directly on vanilla Hyprland) so the wallpaper changes immediately. The currently-active background is marked with a `●` dot in the accent color so you can always tell which file is live — useful when an outside tool has swapped the wallpaper since dark's last tick.
+- `enter` on the **Theme box** opens the theme picker dialog (same as pressing `t` from anywhere).
+- `esc` — pop content focus back to the sub-section sidebar so `j/k` moves between Theme / Fonts / Windows / … again. Another `esc` returns to the main Settings sidebar.
 
 ### Fonts
 
@@ -123,6 +131,16 @@ The write is atomic (write-to-tmp then rename) so a crash or kill mid-write can'
 1. Theme sub-section, press `t`.
 2. Select from the list. `enter`.
 3. Wait a second for the theme-switcher to apply. The desktop, bar, and terminal should all recolor in place.
+
+### Pick a new desktop wallpaper
+
+1. Navigate to Appearance → Theme → `enter` to move focus into the Theme content region. The Theme box border accents.
+2. Press `tab`. Focus jumps to the Backgrounds box.
+3. Use `j` / `k` to move the row cursor. The row you're on shows a `▸` arrow; the wallpaper that's currently live has a `●` dot in the accent color.
+4. Press `enter` on the row you want. Dark rewrites the `~/.config/omarchy/current/background` symlink and relaunches `swaybg` so the new wallpaper appears within about 200 ms. The `●` dot moves to your new choice on the next tick.
+5. You can keep hitting `j` / `k` / `enter` to flip through different options without tab-ing out — the Backgrounds box stays focused after each commit. When you're done, `esc` returns focus to the sub-section sidebar.
+
+Wallpapers are read from two directories in priority order: user-supplied backgrounds at `~/.config/omarchy/backgrounds/<theme>/` first, then the theme-shipped ones at `~/.config/omarchy/current/theme/backgrounds/`. If a file exists in both, the user version wins — matching what `omarchy-theme-bg-next` does.
 
 ### Make the font a little bigger
 
@@ -266,6 +284,13 @@ The theme and font dialogs DO write to config files (because the theme-switcher 
 - **`~/.config/hypr/hyprland.conf`** (and sourced includes) — parsed to populate the font family row and cursor theme row
 - **The omarchy theme-switcher binary** — called to apply a theme selection across every relevant config file
 
+Background picker data sources:
+
+- **`~/.config/omarchy/current/theme/backgrounds/`** — files shipped by the active theme. The Backgrounds box lists every non-directory entry here, sorted alphabetically.
+- **`~/.config/omarchy/backgrounds/<theme>/`** — per-theme user overrides. When SetBackground resolves a filename it checks the user dir first and falls back to the theme-shipped dir, matching what `omarchy-theme-bg-next` does.
+- **`~/.config/omarchy/current/background`** — the active symlink pointing at whichever file is currently displayed. Dark reads this via `os.Readlink` and extracts the base filename to paint the `●` dot on the matching row.
+- **`swaybg`** — the wallpaper daemon. Dark pkills any running instance and spawns a new one pointed at the symlink via `uwsm-app -- swaybg -i <link> -m fill` (or a plain `swaybg` invocation on vanilla Hyprland). The child runs in a setsid session with its Go handle Released so it survives a darkd restart. The `omarchy-theme-bg-set` shell wrapper is deliberately NOT invoked — dark reimplements the same logic in Go per the project's no-shell-wrappers rule.
+
 Screensaver-specific data sources:
 
 - **`~/.local/state/omarchy/toggles/screensaver-off`** — kill-switch flag file. Presence means disabled.
@@ -294,6 +319,14 @@ Dark publishes a fresh appearance snapshot on `dark.appearance.snapshot` after e
 - Border gradient colors are read but can't be edited from dark — you need to hand-edit the `col.active_border = ...` line.
 - Shadow settings (`drop_shadow`, `shadow_range`, `shadow_render_power`, `col.shadow`) are displayed but not individually toggleable from dark yet.
 - Custom animation curves aren't editable — dark has an on/off toggle and reads the active curve name, but you can't pick between `default`, `windows`, `linear`, etc. from the UI.
+
+Background picker limitations:
+
+- Only the Theme sub-section uses the two-focus enter/tab flow. Fonts / Windows / Effects / Cursor / Screensaver / Top Bar still fire their action keys directly from the inner sidebar without a content-focus step, because they don't have two independent editable regions.
+- The Backgrounds box lists files from the theme-shipped directory plus the per-theme user directory. It does NOT surface wallpapers from arbitrary paths — drop any file you want listed into `~/.config/omarchy/backgrounds/<theme>/` first.
+- Dark doesn't resize, crop, or scale backgrounds. `swaybg` handles that with `-m fill`, which fits the image to each monitor and crops the overflow. If your image is a weird aspect ratio, it'll look weird; that's a swaybg behavior, not a dark limitation.
+- Multi-monitor per-output backgrounds aren't supported — `swaybg -i <link> -m fill` applies the same image to every output. Omarchy itself works the same way, so dark matches the baseline.
+- The active-background `●` dot resolves via `os.Readlink` on `~/.config/omarchy/current/background`. If something has pointed that symlink at a file outside the Backgrounds list, no row gets the dot (but the snapshot still has the current filename available to the UI in general).
 
 Screensaver-specific limitations:
 
