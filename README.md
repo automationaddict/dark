@@ -2,6 +2,8 @@
 
 A keyboard-driven settings panel for [Omarchy](https://omarchy.org) (Arch Linux + Hyprland), written in Go.
 
+![dark screenshot](docs/screenshot.png)
+
 `dark` is a Bubble Tea TUI split across three binaries:
 
 - **`dark`** — the interactive terminal UI.
