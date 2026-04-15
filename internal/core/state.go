@@ -20,6 +20,7 @@ import (
 	"github.com/johnnelson/dark/internal/services/privacy"
 	"github.com/johnnelson/dark/internal/services/screensaver"
 	"github.com/johnnelson/dark/internal/services/sysinfo"
+	"github.com/johnnelson/dark/internal/services/topbar"
 	"github.com/johnnelson/dark/internal/services/users"
 	"github.com/johnnelson/dark/internal/services/wifi"
 )
@@ -160,6 +161,11 @@ type State struct {
 	ScreensaverBusy     bool
 	ScreensaverPreviewing bool
 	ScreensaverActionError string
+
+	TopBar            topbar.Snapshot
+	TopBarLoaded      bool
+	TopBarBusy        bool
+	TopBarActionError string
 
 	F2SidebarIdx          int
 	Appstore              appstore.Snapshot

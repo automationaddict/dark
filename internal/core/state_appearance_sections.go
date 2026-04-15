@@ -16,6 +16,7 @@ func AppearanceSections() []AppearanceSection {
 		{"effects", "󰓆", "Effects"},
 		{"cursor", "󰳽", "Cursor"},
 		{"screensaver", "󰹑", "Screensaver"},
+		{"topbar", "󰓩", "Top Bar"},
 	}
 }
 
