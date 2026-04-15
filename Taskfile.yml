@@ -6,6 +6,14 @@ vars:
   HELPER_BIN: ./tmp/dark-helper
   DAEMON_LOG: ./tmp/darkd.log
 
+  # Release install paths — install.sh writes the three binaries
+  # into ~/.local/bin. The prod:* tasks run from those paths so
+  # they exercise the exact same artifacts a real user would get.
+  PROD_TUI_BIN: $HOME/.local/bin/dark
+  PROD_DAEMON_BIN: $HOME/.local/bin/darkd
+  PROD_DAEMON_LOG: ./tmp/darkd-prod.log
+  INSTALL_URL: https://raw.githubusercontent.com/automationaddict/dark/main/install.sh
+
 tasks:
   default:
     desc: List available tasks
@@ -121,3 +129,87 @@ tasks:
     desc: Remove build artifacts and the daemon log
     cmds:
       - rm -rf tmp
+
+  prod:install:
+    desc: Install the latest release via install.sh (--skip-enable keeps the systemd unit dormant)
+    cmds:
+      - curl -fsSL {{.INSTALL_URL}} | bash -s -- --skip-enable {{.CLI_ARGS}}
+
+  prod:up:
+    desc: Stop any running darkd, start the release daemon in the background, then run the release TUI in the foreground
+    cmds:
+      - mkdir -p tmp
+      - |
+        if [ ! -x "{{.PROD_DAEMON_BIN}}" ]; then
+          echo "error: {{.PROD_DAEMON_BIN}} not found — run 'task prod:install' first"
+          exit 1
+        fi
+      - |
+        # Only one darkd can hold the bus lock — kill whatever's
+        # running (dev or a previous prod) before starting the
+        # release binary so the switch is clean.
+        if pgrep -x darkd > /dev/null; then
+          echo "stopping darkd (pid $(pgrep -x darkd))"
+          pkill -x darkd
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            pgrep -x darkd > /dev/null || break
+            sleep 0.05
+          done
+        fi
+      - |
+        nohup {{.PROD_DAEMON_BIN}} > {{.PROD_DAEMON_LOG}} 2>&1 &
+        disown 2>/dev/null || true
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if pgrep -x darkd > /dev/null; then break; fi
+          sleep 0.05
+        done
+        echo "darkd (release) started (pid $(pgrep -x darkd)), log: {{.PROD_DAEMON_LOG}}"
+      - "{{.PROD_TUI_BIN}}"
+
+  prod:down:
+    desc: Stop the release TUI and daemon (covers dev processes too — darkd is a single process name)
+    cmds:
+      - |
+        stopped=0
+        for name in dark darkd; do
+          if pgrep -x "$name" > /dev/null; then
+            pkill -x "$name"
+            stopped=1
+            echo "$name stopped"
+          fi
+        done
+        if [ "$stopped" = "0" ]; then
+          echo "nothing running"
+        fi
+
+  prod:restart:
+    desc: Stop everything, start the release
+    cmds:
+      - task: prod:down
+      - task: prod:up
+
+  prod:status:
+    desc: Show which dark binaries are installed and whether anything is running
+    cmds:
+      - |
+        if [ -x "{{.PROD_DAEMON_BIN}}" ]; then
+          version=$("{{.PROD_TUI_BIN}}" --version 2>/dev/null || echo "?")
+          echo "release:  installed at {{.PROD_DAEMON_BIN}} (version $version)"
+        else
+          echo "release:  not installed (run 'task prod:install')"
+        fi
+        for name in darkd dark; do
+          pid=$(pgrep -x "$name" || true)
+          if [ -n "$pid" ]; then
+            exe=$(readlink -f /proc/"$pid"/exe 2>/dev/null || echo "?")
+            echo "$name: running (pid $pid, $exe)"
+          else
+            echo "$name: not running"
+          fi
+        done
+
+  prod:logs:
+    desc: Tail the release daemon log
+    cmds:
+      - touch {{.PROD_DAEMON_LOG}}
+      - tail -f {{.PROD_DAEMON_LOG}}
