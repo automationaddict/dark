@@ -8,6 +8,8 @@ import (
 
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+
+	"github.com/automationaddict/dark/internal/services/sysinfo"
 )
 
 // DiscoveryPath returns the filesystem location where darkd writes its NATS
@@ -79,7 +81,14 @@ func ConnectClient(name string, cb *ClientCallbacks) (*nats.Conn, error) {
 	url, err := os.ReadFile(DiscoveryPath())
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("darkd is not running — start it with `task dev:up`")
+			// Dev builds tell the developer how to bring the
+			// daemon up via Taskfile; prod builds point at the
+			// systemd user unit install.sh installs. Anything
+			// else would mislead one of the two audiences.
+			if sysinfo.IsDevBuild() {
+				return nil, fmt.Errorf("darkd is not running — start it with `task dev:up`")
+			}
+			return nil, fmt.Errorf("darkd is not running — start it with `systemctl --user start darkd`")
 		}
 		return nil, fmt.Errorf("read discovery file: %w", err)
 	}
