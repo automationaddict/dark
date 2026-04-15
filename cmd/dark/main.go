@@ -55,10 +55,18 @@ func main() {
 			fmt.Println()
 			fmt.Println("Usage: dark [--tab=<id>]")
 			fmt.Println("       dark --version")
+			fmt.Println("       dark script call <fn> [args...]")
 			fmt.Println()
 			fmt.Println("Press ? inside dark for full in-app help.")
 			return
 		}
+	}
+
+	// Subcommand short-circuit: `dark script ...` is a one-shot
+	// client that talks to darkd over NATS without launching the
+	// TUI. Used for keybindings that call Lua helpers.
+	if len(os.Args) > 1 && os.Args[1] == "script" {
+		os.Exit(runScriptSubcommand(os.Args[2:]))
 	}
 
 	lk, err := lock.Acquire("dark")
@@ -171,6 +179,7 @@ func main() {
 	topbarActions := newTopBarActions(nc)
 	workspacesActions := newWorkspacesActions(nc)
 	darkUpdateActions := newDarkUpdateActions(nc)
+	scriptingActions := newScriptingActions(nc)
 
 	// Best-effort: if we can't reach the session bus, the notifier
 	// stays nil and the model's notifyError helper becomes a no-op.
@@ -182,7 +191,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions, topbarActions, workspacesActions, darkUpdateActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions, topbarActions, workspacesActions, darkUpdateActions, scriptingActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 

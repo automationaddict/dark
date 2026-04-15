@@ -129,6 +129,34 @@ func Load(key string, width int) (*Document, error) {
 	}, nil
 }
 
+// RenderMarkdown renders a markdown string through the same glamour
+// pipeline the help panel uses, so arbitrary in-app content (like
+// the F5 Scripting reference tabs) picks up the Omarchy palette and
+// reads as a natural extension of the help system. Width is the
+// target column count for word-wrap; the returned string has the
+// body background already reapplied.
+func RenderMarkdown(raw string, width int) (string, error) {
+	ensurePalette()
+	if width <= 0 {
+		width = 60
+	}
+	renderer, err := glamour.NewTermRenderer(
+		glamour.WithStylesFromJSONBytes(themeBytes),
+		glamour.WithWordWrap(width-4),
+	)
+	if err != nil {
+		return "", err
+	}
+	rendered, err := renderer.Render(raw)
+	if err != nil {
+		return "", err
+	}
+	// In-content callers sit on the main app background, not the
+	// dimmer help-panel body background — reapply panelBg so the
+	// rendered block matches whatever pane it lands in.
+	return reapplyBackground(rendered, panelBg), nil
+}
+
 func renderThemeBytes(p theme.Palette) []byte {
 	tmpl, err := template.New("theme").Parse(themeTemplateSrc)
 	if err != nil {

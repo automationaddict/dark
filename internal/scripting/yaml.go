@@ -30,6 +30,9 @@ func (e *Engine) registerYAML() {
 		L.Push(goToLua(L, raw))
 		return 1
 	}))
+	e.registry.RegisterFunction("load_yaml",
+		"(path)",
+		"Load a YAML file from the user scripts directory (with embedded fallback) and return it as a Lua table.")
 }
 
 // readDataFile reads a data file (YAML, JSON, etc.) from the user

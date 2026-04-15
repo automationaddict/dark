@@ -122,6 +122,16 @@ func main() {
 	appstoreLog := appstoreLogger()
 	scriptEngine := scripting.New(appstoreLog)
 	defer scriptEngine.Close()
+	scriptEngine.SetRequester(func(subject string, data []byte) ([]byte, error) {
+		reply, err := nc.Request(subject, data, core.TimeoutPkexec)
+		if err != nil {
+			return nil, err
+		}
+		return reply.Data, nil
+	})
+	registerScriptActions(scriptEngine)
+	scripting.SeedExampleScripts(scriptEngine)
+	scripting.LoadAllUserScripts(scriptEngine)
 	appstoreService := appstoresvc.NewService(appstoreLog, scriptEngine)
 	defer appstoreService.Close()
 	appstoreLog.Info("appstore: service ready")
@@ -194,7 +204,7 @@ func main() {
 	publishNotifyCfg := wireNotifyCfg(nc, dn)
 	publishInput := wireInput(nc, dn)
 	publishPower := wirePower(nc, dn)
-	publishAppstore := wireAppstore(nc, appstoreService, appstoreLog, dn)
+	publishAppstore := wireAppstore(nc, appstoreService, scriptEngine, appstoreLog, dn)
 	publishKeybind := wireKeybind(nc, dn)
 	publishUsers := wireUsers(nc, dn)
 	publishPrivacy := wirePrivacy(nc, dn)
@@ -226,6 +236,9 @@ func main() {
 	publishWorkspaces := wireWorkspaces(nc)
 
 	publishDarkUpdate := wireDarkUpdate(nc)
+
+	wireScripting(nc, scriptEngine)
+	wireScriptEvents(nc, scriptEngine)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)

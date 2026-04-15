@@ -34,6 +34,8 @@ func (m Model) View() string {
 		body = renderAppStoreTab(m.state, width, bodyHeight, m.spinner.View())
 	case core.TabF3:
 		body = renderOmarchyTab(m.state, width, bodyHeight)
+	case core.TabF5:
+		body = renderScriptingTab(m.state, width, bodyHeight)
 	default:
 		body = renderEmpty(m.state, width, bodyHeight)
 	}

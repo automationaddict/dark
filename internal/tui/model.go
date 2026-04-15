@@ -86,6 +86,7 @@ type Model struct {
 	topbar      TopBarActions
 	workspaces  WorkspacesActions
 	darkupdate  DarkUpdateActions
+	scripting   ScriptingActions
 	dialog      *Dialog
 	editor      *Editor
 	spinner    spinner.Model
@@ -512,6 +513,54 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state.SetUpdateResult(msg.Result)
 		m.state.SetUpdate(msg.Snapshot)
+		return m, nil
+
+	case ScriptingScriptsMsg:
+		if msg.Err != "" {
+			slog.Warn("scripting list failed", "error", msg.Err)
+			return m, nil
+		}
+		m.state.SetScripts(msg.Scripts)
+		return m, nil
+
+	case ScriptingRegistryMsg:
+		if msg.Err != "" {
+			slog.Warn("scripting registry failed", "error", msg.Err)
+			return m, nil
+		}
+		m.state.SetLuaRegistry(msg.Entries)
+		return m, nil
+
+	case ScriptingAPICatalogMsg:
+		if msg.Err != "" {
+			slog.Warn("scripting api catalog failed", "error", msg.Err)
+			return m, nil
+		}
+		m.state.SetAPICommands(msg.Commands)
+		return m, nil
+
+	case ScriptingReadMsg:
+		if msg.Err != "" {
+			slog.Warn("scripting read failed", "name", msg.Name, "error", msg.Err)
+			m.notifyError("Scripting", msg.Err)
+			return m, nil
+		}
+		m.openScriptEditor(msg.Name, msg.Content)
+		return m, nil
+
+	case ScriptingWriteMsg:
+		if msg.Err != "" {
+			slog.Warn("scripting write failed", "action", msg.Action, "name", msg.Name, "error", msg.Err)
+			m.notifyError("Scripting", msg.Err)
+			return m, nil
+		}
+		m.state.SetScripts(msg.Scripts)
+		for i, sc := range msg.Scripts {
+			if sc.Name == msg.Name {
+				m.state.ScriptingSelection = core.ScriptingSelection{Kind: core.SelKindScript, Index: i}
+				break
+			}
+		}
 		return m, nil
 
 	case BusStatusMsg:

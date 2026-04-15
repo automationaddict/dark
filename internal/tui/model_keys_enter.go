@@ -10,6 +10,9 @@ import (
 // handleEnterKey handles enter/return in every context: sidebar focus,
 // content drill-in, and section-specific actions.
 func (m Model) handleEnterKey() (tea.Model, tea.Cmd) {
+	if m.state.ActiveTab == core.TabF5 {
+		return m, m.triggerScriptingEnter()
+	}
 	if !m.state.ContentFocused {
 		return m.handleEnterSidebar()
 	}

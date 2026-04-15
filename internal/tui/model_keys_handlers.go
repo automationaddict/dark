@@ -81,6 +81,9 @@ func (m Model) handleActionC() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleActionD() (tea.Model, tea.Cmd) {
+	if m.state.ActiveTab == core.TabF5 {
+		return m, m.triggerScriptingDelete()
+	}
 	if m.inUsersContent() {
 		m.triggerUserRemove()
 		return m, nil

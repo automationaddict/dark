@@ -244,6 +244,17 @@ type State struct {
 	LimineBusy           bool
 	LimineActionError    string
 
+	ScriptingSelection ScriptingSelection
+	Scripts            []ScriptEntry
+	ScriptsLoaded      bool
+	LuaRegistry        []LuaRegistryEntry
+	LuaRegistryLoaded  bool
+	LuaInnerIdx        int
+	APICommands        []APICommandEntry
+	APICommandsLoaded  bool
+	APIInnerIdx        int
+	MCPInnerIdx        int
+
 	ContentFocused bool
 
 	HelpOpen        bool

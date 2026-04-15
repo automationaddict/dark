@@ -36,12 +36,36 @@ var defaultScripts embed.FS
 // call from multiple goroutines — all VM access is serialized through a
 // mutex. This is the right tradeoff for a config/extension layer where
 // calls are infrequent and short; a pool of VMs would be premature.
+// RequesterFunc issues a NATS request/reply round-trip on behalf of
+// user scripts that call dark.cmd(...). The daemon injects a real
+// implementation via Engine.SetRequester at startup; a nil requester
+// makes dark.cmd return an error so scripts fail fast instead of
+// silently succeeding.
+type RequesterFunc func(subject string, data []byte) ([]byte, error)
+
 type Engine struct {
-	logger   *slog.Logger
-	vm       *lua.LState
-	mu       sync.Mutex
-	userDir  string
-	loaded   map[string]bool
+	logger    *slog.Logger
+	vm        *lua.LState
+	mu        sync.Mutex
+	userDir   string
+	loaded    map[string]bool
+	registry  Registry
+	requester RequesterFunc
+}
+
+// SetRequester installs the NATS request/reply bridge used by the
+// dark.cmd Lua function. Safe to call after New; takes the engine
+// mutex so it doesn't race with a running hook.
+func (e *Engine) SetRequester(fn RequesterFunc) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.requester = fn
+}
+
+// Registry exposes the Lua symbol catalog so callers (notably the F5
+// Scripting UI) can enumerate host functions and event hook points.
+func (e *Engine) Registry() *Registry {
+	return &e.registry
 }
 
 // New creates a scripting engine. The logger should be the daemon's
@@ -61,9 +85,12 @@ func New(logger *slog.Logger) *Engine {
 		userDir: userDir,
 		loaded:  make(map[string]bool),
 	}
+	e.registerDarkModule()
 	e.registerYAML()
+	e.seedEventHooks()
 	return e
 }
+
 
 // Close shuts down the Lua VM. Safe to call multiple times.
 func (e *Engine) Close() {

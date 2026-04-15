@@ -20,6 +20,7 @@ const (
 	LangJSON  = "json"
 	LangJSONC = "jsonc"
 	LangCSS   = "css"
+	LangLua   = "lua"
 )
 
 // syntaxStyle is the chroma.Style derived from the active Omarchy
@@ -223,6 +224,8 @@ func lexerFor(lang string) chroma.Lexer {
 		return lexers.Get("json")
 	case LangCSS:
 		return lexers.Get("css")
+	case LangLua:
+		return lexers.Get("lua")
 	}
 	return nil
 }

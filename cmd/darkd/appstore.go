@@ -8,6 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/automationaddict/dark/internal/bus"
+	"github.com/automationaddict/dark/internal/scripting"
 	appstoresvc "github.com/automationaddict/dark/internal/services/appstore"
 )
 
@@ -27,7 +28,7 @@ func appstoreLogger() *slog.Logger {
 // service, encodes a response, and (for mutating calls, which in
 // phase 1 means Refresh only) republishes the refreshed snapshot on
 // the catalog event subject.
-func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, dn *daemonNotifier) func() {
+func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, engine *scripting.Engine, logger *slog.Logger, dn *daemonNotifier) func() {
 	if _, err := nc.Subscribe(bus.SubjectAppstoreCatalogCmd, func(m *nats.Msg) {
 		data, _ := json.Marshal(svc.Snapshot())
 		respond(m, data)
@@ -109,6 +110,9 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 			resp.Snapshot = svc.Snapshot()
 			snapData, _ := json.Marshal(resp.Snapshot)
 			publish(nc, bus.SubjectAppstoreCatalog, snapData)
+			for _, name := range req.Names {
+				engine.DispatchEvent("on_package_installed", name)
+			}
 		}
 		data, _ := json.Marshal(resp)
 		respond(m, data)
@@ -134,6 +138,9 @@ func wireAppstore(nc *nats.Conn, svc *appstoresvc.Service, logger *slog.Logger, 
 			resp.Snapshot = svc.Snapshot()
 			snapData, _ := json.Marshal(resp.Snapshot)
 			publish(nc, bus.SubjectAppstoreCatalog, snapData)
+			for _, name := range req.Names {
+				engine.DispatchEvent("on_package_removed", name)
+			}
 		}
 		data, _ := json.Marshal(resp)
 		respond(m, data)

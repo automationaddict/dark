@@ -101,6 +101,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state.SelectTab(core.TabF4)
 	case "f5":
 		m.state.SelectTab(core.TabF5)
+		return m, m.loadScriptingIfNeeded()
 	case "f6":
 		m.state.SelectTab(core.TabF6)
 	case "f7":

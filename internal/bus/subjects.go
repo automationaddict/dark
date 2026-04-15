@@ -252,4 +252,12 @@ const (
 	SubjectDarkUpdateSnapshotCmd = "dark.cmd.updateself.snapshot"
 	SubjectDarkUpdateCheckCmd    = "dark.cmd.updateself.check"
 	SubjectDarkUpdateApplyCmd    = "dark.cmd.updateself.apply"
+
+	SubjectScriptingListCmd       = "dark.cmd.scripting.list"
+	SubjectScriptingRegistryCmd   = "dark.cmd.scripting.registry"
+	SubjectScriptingAPICatalogCmd = "dark.cmd.scripting.api_catalog"
+	SubjectScriptingReadCmd       = "dark.cmd.scripting.read"
+	SubjectScriptingSaveCmd       = "dark.cmd.scripting.save"
+	SubjectScriptingDeleteCmd     = "dark.cmd.scripting.delete"
+	SubjectScriptingCallCmd       = "dark.cmd.scripting.call"
 )

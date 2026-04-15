@@ -32,6 +32,13 @@ func (m *Model) moveSelection(delta int) {
 			m.state.MoveOmarchySidebar(delta)
 		}
 		return
+	case core.TabF5:
+		if m.state.ContentFocused {
+			m.state.MoveScriptingInner(delta)
+		} else {
+			m.state.MoveScriptingOuter(delta)
+		}
+		return
 	case core.TabSettings:
 	default:
 		return
