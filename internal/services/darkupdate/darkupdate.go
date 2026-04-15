@@ -104,7 +104,16 @@ func (c *Client) CheckLatest() Snapshot {
 	c.cache.Latest = latestTag
 	c.cache.LatestPublished = rel.PublishedAt
 	c.cache.LatestNotes = rel.Body
-	c.cache.UpdateAvailable = compareVersions(latestTag, sysinfo.DarkVersion) > 0
+	// Dev builds always offer the latest release. Their version
+	// string (e.g. 0.1.0-dev) is unpinned — base-semver comparison
+	// would otherwise claim the dev build is newer than any real
+	// release with a lower base, leaving developers unable to
+	// pin back to a tagged build through the self-update surface.
+	if sysinfo.IsDevBuild() {
+		c.cache.UpdateAvailable = latestTag != ""
+	} else {
+		c.cache.UpdateAvailable = compareVersions(latestTag, sysinfo.DarkVersion) > 0
+	}
 	return c.Snapshot()
 }
 
