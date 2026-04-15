@@ -1,0 +1,76 @@
+name: release
+
+# Fires on every annotated tag that starts with `v`. Push a tag
+# like `git tag v0.1.0 && git push origin v0.1.0` to cut a release.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build release tarball
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # Pin to the same Go version go.mod targets so reproducible
+          # builds don't silently drift as new releases ship.
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF##*/}"
+          # Strip the leading v so the embedded version is semver-
+          # clean (0.1.0 rather than v0.1.0). The tag itself keeps
+          # the v prefix because GitHub release URLs expect it.
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build binaries
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          mkdir -p dist/stage
+          # Inject the release version into sysinfo.DarkVersion so
+          # `dark` / `darkd` / `dark-helper` all report the same
+          # tag. The About page and the self-update check both
+          # read this constant.
+          LDFLAGS="-s -w -X github.com/automationaddict/dark/internal/services/sysinfo.DarkVersion=${{ steps.version.outputs.version }}"
+          for bin in dark darkd dark-helper; do
+            go build -trimpath -ldflags "$LDFLAGS" -o "dist/stage/$bin" "./cmd/$bin"
+          done
+
+      - name: Package tarball
+        run: |
+          TAG=${{ steps.version.outputs.tag }}
+          TARBALL="dark-${TAG}-linux-amd64.tar.gz"
+          tar -C dist/stage -czf "dist/${TARBALL}" dark darkd dark-helper
+          ( cd dist && sha256sum "${TARBALL}" > SHA256SUMS )
+          echo "Built dist/${TARBALL}"
+          cat "dist/SHA256SUMS"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Let softprops derive the tag from GITHUB_REF; we don't
+          # pass one explicitly so it picks up the tag we're
+          # actually building.
+          files: |
+            dist/dark-*-linux-amd64.tar.gz
+            dist/SHA256SUMS
+          generate_release_notes: true
+          draft: false
+          prerelease: false

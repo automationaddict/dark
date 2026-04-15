@@ -1,0 +1,37 @@
+[Unit]
+Description=dark settings panel daemon
+Documentation=https://github.com/automationaddict/dark
+# Wait for the graphical session so hyprctl, D-Bus, and session
+# env vars are available. darkd itself degrades gracefully when
+# individual services are missing but it benefits from starting
+# after the shell session is ready.
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# %h is systemd's portable shorthand for $HOME, so this unit is
+# user-agnostic — the same file works for every account that
+# enables it via `systemctl --user enable darkd.service`.
+ExecStart=%h/.local/bin/darkd
+Restart=on-failure
+RestartSec=2s
+
+# darkd is a user-scope daemon; no privileged file writes happen
+# in this process. Privileged work is delegated to dark-helper
+# via pkexec at action time, so we can run with no extra
+# capabilities and tighter sandboxing.
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+# The daemon writes a PID lockfile under XDG_RUNTIME_DIR and
+# caches under XDG_CACHE_HOME. Both live under $HOME, which
+# read-only ProtectHome would otherwise block; RuntimeDirectory
+# and CacheDirectory punch holes for us.
+RuntimeDirectory=dark
+CacheDirectory=dark
+ReadWritePaths=%h/.cache/dark
+PrivateTmp=yes
+
+[Install]
+WantedBy=graphical-session.target

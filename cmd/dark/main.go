@@ -41,6 +41,25 @@ import (
 )
 
 func main() {
+	// Short-circuit flags that don't need the full TUI / NATS
+	// pipeline. --version is used by install.sh and the in-app
+	// updater to detect the running release.
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "-v", "--version":
+			fmt.Println(sysinfo.DarkVersion)
+			return
+		case "-h", "--help":
+			fmt.Println("dark — system settings for Omarchy")
+			fmt.Println()
+			fmt.Println("Usage: dark [--tab=<id>]")
+			fmt.Println("       dark --version")
+			fmt.Println()
+			fmt.Println("Press ? inside dark for full in-app help.")
+			return
+		}
+	}
+
 	lk, err := lock.Acquire("dark")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "dark:", err)
