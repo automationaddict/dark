@@ -131,9 +131,14 @@ tasks:
       - rm -rf tmp
 
   prod:install:
-    desc: Install the latest release via install.sh (--skip-enable keeps the systemd unit dormant)
+    desc: Install the latest release via install.sh (use `task prod:install -- --force` to reinstall; or run `task prod:reinstall`)
     cmds:
       - curl -fsSL {{.INSTALL_URL}} | bash -s -- --skip-enable {{.CLI_ARGS}}
+
+  prod:reinstall:
+    desc: Reinstall the latest release even when it's already at the installed version (shortcut for prod:install -- --force)
+    cmds:
+      - curl -fsSL {{.INSTALL_URL}} | bash -s -- --skip-enable --force
 
   prod:up:
     desc: Stop any running darkd, start the release daemon in the background, then run the release TUI in the foreground

@@ -29,12 +29,16 @@ func wireDarkUpdate(nc *nats.Conn) func() {
 
 	if _, err := nc.Subscribe(bus.SubjectDarkUpdateCheckCmd, func(m *nats.Msg) {
 		snap := client.CheckLatest()
-		data, _ := json.Marshal(snap)
-		respond(m, data)
-		// Publish the new snapshot so the TUI's cached copy
-		// updates immediately rather than waiting for the
-		// reply path to land.
-		publish(nc, bus.SubjectDarkUpdateSnapshot, data)
+		// Reply is wrapped in darkUpdateResponse so the client
+		// decoder sees the same shape Apply uses. Sending the
+		// bare snapshot here leaves the client's `snapshot`
+		// field empty and clobbers state with zero values.
+		replyData, _ := json.Marshal(darkUpdateResponse{Snapshot: snap})
+		respond(m, replyData)
+		// The broadcast channel still ships the bare snapshot
+		// because darkUpdateSub decodes it as a plain Snapshot.
+		snapData, _ := json.Marshal(snap)
+		publish(nc, bus.SubjectDarkUpdateSnapshot, snapData)
 	}); err != nil {
 		slog.Error("subscribe failed", "subject", bus.SubjectDarkUpdateCheckCmd, "error", err)
 		os.Exit(1)
