@@ -135,6 +135,11 @@ func classifyDevice(d Device) string {
 		return ""
 	}
 
+	// /sys/class/input/.../capabilities/ev is a bitmap where bit
+	// positions are the EV_* constants from <linux/input-event-codes.h>:
+	// EV_KEY=1, EV_REL=2, EV_ABS=3. A device with EV_REL is a mouse-
+	// like pointer, EV_ABS is a touchpad/touchscreen/tablet, EV_KEY
+	// alone is a keyboard or button-only device.
 	evBits := parseHexBits(ev)
 	hasBitEV := func(bit int) bool { return evBits&(1<<bit) != 0 }
 

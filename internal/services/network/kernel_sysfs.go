@@ -64,6 +64,9 @@ func uint32ToIP(n uint32) net.IP {
 	return net.IP(b)
 }
 
+// bitsInMask returns the CIDR prefix length of an IPv4 netmask
+// (i.e. popcount). Hand-rolled instead of math/bits.OnesCount32 to
+// keep this file free of extra imports for a 32-bit loop.
 func bitsInMask(mask uint32) int {
 	count := 0
 	for mask != 0 {

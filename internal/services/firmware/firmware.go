@@ -111,6 +111,10 @@ func (s *Service) GetDevices() ([]Device, error) {
 			Summary: varStr(d, "Summary"),
 		}
 		flags := varUint64(d, "Flags")
+		// fwupd splits "this device can be updated" across two flag
+		// bits: UpdatableHidden is used for devices whose update path
+		// is gated (e.g. requires AC power or a specific unlock). We
+		// treat both as updatable so the UI can still surface them.
 		dev.Updatable = flags&flagUpdatable != 0 || flags&flagUpdatableHidden != 0
 		devices = append(devices, dev)
 	}

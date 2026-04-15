@@ -276,6 +276,9 @@ func (b *hyprlandBackend) watchEventSocket() {
 		default:
 		}
 		b.listenSocket(socketPath)
+		// Hyprland's event socket drops on compositor restart / reload.
+		// Back off before reconnecting so a crash loop in Hyprland
+		// doesn't become a tight reconnect loop here.
 		select {
 		case <-b.closeCh:
 			return
@@ -302,6 +305,10 @@ func (b *hyprlandBackend) listenSocket(path string) {
 		if strings.HasPrefix(line, "monitoradded") ||
 			strings.HasPrefix(line, "monitorremoved") ||
 			strings.HasPrefix(line, "configreloaded") {
+			// Non-blocking send: eventCh has capacity 1 and the
+			// consumer debounces, so a pending signal already
+			// covers this event. Dropping is the correct behavior,
+			// not a bug.
 			select {
 			case b.eventCh <- struct{}{}:
 			default:
