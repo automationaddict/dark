@@ -53,6 +53,10 @@ type Backend interface {
 	// `.bak` sibling. Writes go through the same pkexec helper
 	// path as SaveServerConfig when the target is root-owned.
 	RestoreBackup(ctx context.Context, target RestoreTarget) error
+
+	// SSH CA operations — sign keys with a CA and list certificates.
+	SignKey(ctx context.Context, opts SignKeyOptions) (Certificate, error)
+	LoadCertificates(ctx context.Context) ([]Certificate, error)
 }
 
 // ErrUnsupported is returned by stub backends for every method until
@@ -139,19 +143,12 @@ func (b unsupportedBackend) SaveServerConfig(ctx context.Context, edit ServerCon
 func (b unsupportedBackend) RestoreBackup(ctx context.Context, target RestoreTarget) error {
 	return errUnsupported{b.name, "RestoreBackup"}
 }
-
-// OnePasswordBackend is a phase-2 stub. Will delegate to `op` (the
-// 1Password CLI) for key storage and to 1Password's SSH agent for
-// signing. All methods return ErrUnsupported today so the seam is
-// visible to readers and the F5 catalog can advertise it as
-// "coming soon".
-type OnePasswordBackend struct{ unsupportedBackend }
-
-// NewOnePasswordBackend returns the stub implementation.
-func NewOnePasswordBackend() Backend {
-	return OnePasswordBackend{unsupportedBackend{name: "1password"}}
+func (b unsupportedBackend) SignKey(ctx context.Context, opts SignKeyOptions) (Certificate, error) {
+	return Certificate{}, errUnsupported{b.name, "SignKey"}
+}
+func (b unsupportedBackend) LoadCertificates(ctx context.Context) ([]Certificate, error) {
+	return nil, errUnsupported{b.name, "LoadCertificates"}
 }
 
-// GnomeKeyringBackend lives in keyring.go as a real implementation.
-// OnePasswordBackend stays here as a stub until batch 2 lands the
-// `op` CLI integration.
+// OnePasswordBackend lives in onepassword.go as a real implementation.
+// GnomeKeyringBackend lives in keyring.go.

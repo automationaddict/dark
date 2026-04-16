@@ -754,6 +754,16 @@ var commandSchemas = map[string][]CommandField{
 	SubjectSSHRestoreBackupCmd: {
 		{Name: "target", Type: "string", Required: true, Desc: "One of: client_config, authorized_keys, server_config."},
 	},
+	SubjectSSHSignKeyCmd: {
+		{Name: "ca_key_path", Type: "string", Required: true, Desc: "Path to the CA private key."},
+		{Name: "key_path", Type: "string", Required: true, Desc: "Path to the public key (.pub) to sign."},
+		{Name: "key_id", Type: "string", Required: true, Desc: "Identity string baked into the certificate."},
+		{Name: "cert_type", Type: "string", Required: false, Desc: "\"user\" (default) or \"host\"."},
+		{Name: "principals", Type: "[]string", Required: false, Desc: "Authorized principals (user names or hostnames)."},
+		{Name: "validity", Type: "string", Required: false, Desc: "Validity period, e.g. \"+52w\" for one year."},
+		{Name: "serial", Type: "int", Required: false, Desc: "Serial number for the certificate."},
+		{Name: "passphrase", Type: "string", Required: false, Desc: "Passphrase for the CA key, if encrypted."},
+	},
 	SubjectSSHSaveServerConfigCmd: {
 		{Name: "port", Type: "int", Required: false, Desc: "TCP port sshd listens on (omit to leave untouched)."},
 		{Name: "permit_root_login", Type: "string", Required: false, Desc: "yes | no | prohibit-password | forced-commands-only."},

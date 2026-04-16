@@ -46,12 +46,27 @@ type SSHSnapshot struct {
 	InstalledOK    bool
 	Backend        string
 	Keys           []SSHKey
+	Certificates   []SSHCertificate
 	Agent          SSHAgentStatus
 	ClientConfig   SSHClientConfig
 	KnownHosts     []SSHKnownHost
 	AuthorizedKeys []SSHAuthorizedKey
 	ServerConfig   SSHServerConfig
 	LastError      string
+}
+
+// SSHCertificate is the TUI-side view of a parsed -cert.pub file.
+type SSHCertificate struct {
+	CertPath       string
+	Type           string // "user" or "host"
+	KeyID          string
+	Serial         string
+	ValidAfter     time.Time
+	ValidBefore    time.Time
+	Principals     []string
+	CAFingerprint  string
+	KeyFingerprint string
+	Expired        bool
 }
 
 // SSHKey is the TUI-side view of one SSH key pair. Private key

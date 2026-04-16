@@ -194,6 +194,13 @@ func wireSSH(nc *nats.Conn) func() {
 		return svc.Backend().RestoreBackup(ctx, sshsvc.RestoreTarget(req.Target))
 	})
 
+	sub(bus.SubjectSSHSignKeyCmd, 30*time.Second, true, func(ctx context.Context, m *nats.Msg) error {
+		var opts sshsvc.SignKeyOptions
+		_ = json.Unmarshal(m.Data, &opts)
+		_, err := svc.Backend().SignKey(ctx, opts)
+		return err
+	})
+
 	publishSnapshot := func() {
 		data, err := json.Marshal(svc.Snapshot())
 		if err != nil {

@@ -271,6 +271,7 @@ const (
 	SubjectSSHRemoveAuthorizedKeyCmd = "dark.cmd.ssh.remove_authorized_key"
 	SubjectSSHSaveServerConfigCmd    = "dark.cmd.ssh.save_server_config"
 	SubjectSSHRestoreBackupCmd       = "dark.cmd.ssh.restore_backup"
+	SubjectSSHSignKeyCmd             = "dark.cmd.ssh.sign_key"
 
 	SubjectScriptingListCmd       = "dark.cmd.scripting.list"
 	SubjectScriptingRegistryCmd   = "dark.cmd.scripting.registry"

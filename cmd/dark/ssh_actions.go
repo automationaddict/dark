@@ -194,6 +194,20 @@ func serviceSnapshotToCore(s sshsvc.Snapshot) core.SSHSnapshot {
 			ParseError:             s.ServerConfig.ParseError,
 		},
 	}
+	for _, c := range s.Certificates {
+		out.Certificates = append(out.Certificates, core.SSHCertificate{
+			CertPath:       c.CertPath,
+			Type:           c.Type,
+			KeyID:          c.KeyID,
+			Serial:         c.Serial,
+			ValidAfter:     c.ValidAfter,
+			ValidBefore:    c.ValidBefore,
+			Principals:     c.Principals,
+			CAFingerprint:  c.CAFingerprint,
+			KeyFingerprint: c.KeyFingerprint,
+			Expired:        c.Expired,
+		})
+	}
 	for _, k := range s.Keys {
 		out.Keys = append(out.Keys, core.SSHKey{
 			Path:          k.Path,

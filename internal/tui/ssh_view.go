@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -126,6 +127,14 @@ func renderSSHKeys(s *core.State, width, height int) string {
 		selected := s.SSHContentFocused && i == s.SSHKeysIdx
 		b.WriteString(sshKeyBlock(k, selected))
 		b.WriteString("\n")
+	}
+	if len(s.SSH.Certificates) > 0 {
+		b.WriteString(lipgloss.NewStyle().Bold(true).Render("Certificates"))
+		b.WriteString("\n\n")
+		for _, c := range s.SSH.Certificates {
+			b.WriteString(sshCertBlock(c))
+			b.WriteString("\n")
+		}
 	}
 	hint := "enter focus · g generate"
 	if s.SSHContentFocused {
@@ -356,6 +365,36 @@ func renderSSHServerConfig(s *core.State, width, height int) string {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
+
+func sshCertBlock(c core.SSHCertificate) string {
+	var b strings.Builder
+	label := c.KeyID
+	if label == "" {
+		label = filepath.Base(c.CertPath)
+	}
+	header := lipgloss.NewStyle().Bold(true)
+	if c.Expired {
+		header = header.Foreground(lipgloss.Color("9"))
+		label += " (EXPIRED)"
+	}
+	b.WriteString(header.Render("  " + label))
+	b.WriteString("\n")
+	b.WriteString(sshDetailRow("Type", c.Type+" certificate"))
+	b.WriteString(sshDetailRow("Key", c.KeyFingerprint))
+	b.WriteString(sshDetailRow("CA", c.CAFingerprint))
+	if len(c.Principals) > 0 {
+		b.WriteString(sshDetailRow("Principals", strings.Join(c.Principals, ", ")))
+	}
+	if !c.ValidAfter.IsZero() {
+		b.WriteString(sshDetailRow("Valid from", c.ValidAfter.Format("2006-01-02 15:04")))
+	}
+	if !c.ValidBefore.IsZero() {
+		b.WriteString(sshDetailRow("Valid until", c.ValidBefore.Format("2006-01-02 15:04")))
+	} else {
+		b.WriteString(sshDetailRow("Valid until", "forever"))
+	}
+	return b.String()
+}
 
 func sshKeyBaseName(k core.SSHKey) string {
 	if k.Path != "" {

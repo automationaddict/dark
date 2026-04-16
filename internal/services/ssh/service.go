@@ -96,6 +96,10 @@ func (s *Service) Snapshot() Snapshot {
 	collect("keys", err)
 	snap.Keys = keys
 
+	certs, err := s.backend.LoadCertificates(ctx)
+	collect("certificates", err)
+	snap.Certificates = certs
+
 	agent, err := s.backend.AgentStatus(ctx)
 	collect("agent", err)
 	snap.Agent = agent

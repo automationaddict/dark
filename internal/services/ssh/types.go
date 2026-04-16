@@ -17,15 +17,16 @@ import "time"
 // value type so the TUI can mirror the shape into core without taking
 // a build-time dependency on this package.
 type Snapshot struct {
-	InstalledOK    bool           `json:"installed_ok"`
-	Backend        string         `json:"backend"`
-	Keys           []Key          `json:"keys,omitempty"`
-	Agent          AgentStatus    `json:"agent"`
-	ClientConfig   ClientConfig   `json:"client_config"`
-	KnownHosts     []KnownHost    `json:"known_hosts,omitempty"`
+	InstalledOK    bool            `json:"installed_ok"`
+	Backend        string          `json:"backend"`
+	Keys           []Key           `json:"keys,omitempty"`
+	Certificates   []Certificate   `json:"certificates,omitempty"`
+	Agent          AgentStatus     `json:"agent"`
+	ClientConfig   ClientConfig    `json:"client_config"`
+	KnownHosts     []KnownHost     `json:"known_hosts,omitempty"`
 	AuthorizedKeys []AuthorizedKey `json:"authorized_keys,omitempty"`
-	ServerConfig   ServerConfig   `json:"server_config"`
-	LastError      string         `json:"last_error,omitempty"`
+	ServerConfig   ServerConfig    `json:"server_config"`
+	LastError      string          `json:"last_error,omitempty"`
 }
 
 // Key describes one SSH key pair living under ~/.ssh. Dark never
