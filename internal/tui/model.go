@@ -87,6 +87,7 @@ type Model struct {
 	workspaces  WorkspacesActions
 	darkupdate  DarkUpdateActions
 	scripting   ScriptingActions
+	ssh         SSHActions
 	events      EventsActions
 	dialog      *Dialog
 	spinner    spinner.Model
@@ -545,6 +546,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.state.SetMCPCatalog(msg.Tools, msg.Resources)
+		return m, nil
+
+	case SSHSnapshotMsg:
+		m.state.SetSSH(core.SSHSnapshot(msg))
+		return m, nil
+
+	case SSHActionResultMsg:
+		m.state.SetSSH(msg.Snapshot)
+		if msg.Err != "" {
+			slog.Warn("ssh action failed", "action", msg.Action, "error", msg.Err)
+			m.state.SSHActionError = msg.Err
+			m.notifyError("SSH", msg.Err)
+		} else {
+			m.state.SSHActionError = ""
+		}
 		return m, nil
 
 	case externalEditDoneMsg:

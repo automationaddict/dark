@@ -164,4 +164,24 @@ func (e *Engine) seedEventHooks() {
 	e.registry.RegisterEvent("on_workspaces",
 		"(snapshot)",
 		"Fires on workspaces snapshot publishes (layout, options, monitor map).")
+
+	// SSH events — F4 surface. The bus catalog auto-generates
+	// `dark.actions.ssh.*` for every mutation; these events cover
+	// the reactive side so scripts can respond to state changes
+	// without polling.
+	e.registry.RegisterEvent("on_ssh",
+		"(snapshot)",
+		"Fires on SSH snapshot publishes (keys, agent status, configs, known hosts).")
+	e.registry.RegisterEvent("on_ssh_key_added",
+		"(path)",
+		"Fires after a new SSH key is generated. `path` is the private key path.")
+	e.registry.RegisterEvent("on_ssh_key_removed",
+		"(path)",
+		"Fires after a key is deleted from ~/.ssh.")
+	e.registry.RegisterEvent("on_ssh_agent_started",
+		"()",
+		"Fires when the managed ssh-agent systemd unit transitions from inactive to active.")
+	e.registry.RegisterEvent("on_ssh_agent_stopped",
+		"()",
+		"Fires when the managed ssh-agent systemd unit stops.")
 }

@@ -268,6 +268,23 @@ var commandSummaries = map[string]string{
 	SubjectScriptingRegistryCmd:   "List Lua host functions and event hook points.",
 	SubjectScriptingAPICatalogCmd: "Return the enumerated dark.cmd.* API catalog.",
 	SubjectScriptingMCPCatalogCmd: "Return the MCP tool and resource catalog exposed by `dark mcp`.",
+
+	// SSH
+	SubjectSSHSnapshotCmd:            "Return the current SSH snapshot (keys, agent status, configs, known hosts, authorized keys).",
+	SubjectSSHGenerateKeyCmd:         "Generate a new SSH key pair under ~/.ssh via ssh-keygen.",
+	SubjectSSHDeleteKeyCmd:           "Delete an SSH key pair (private + public) from ~/.ssh.",
+	SubjectSSHChangePassphraseCmd:    "Change the passphrase protecting an SSH private key.",
+	SubjectSSHAgentStartCmd:          "Start the dark-managed ssh-agent systemd user unit.",
+	SubjectSSHAgentStopCmd:           "Stop the dark-managed ssh-agent systemd user unit.",
+	SubjectSSHAgentAddCmd:            "Load an SSH key into the running ssh-agent, optionally with a TTL.",
+	SubjectSSHAgentRemoveCmd:         "Remove a single loaded key from the ssh-agent by fingerprint.",
+	SubjectSSHAgentRemoveAllCmd:      "Clear every identity from the ssh-agent (ssh-add -D).",
+	SubjectSSHSaveHostCmd:            "Create or update a Host block in ~/.ssh/config; auto-scans known_hosts.",
+	SubjectSSHDeleteHostCmd:          "Remove a Host block from ~/.ssh/config.",
+	SubjectSSHScanHostCmd:            "Run ssh-keyscan for a hostname and return the fetched host keys.",
+	SubjectSSHRemoveKnownHostCmd:     "Remove a known_hosts entry via ssh-keygen -R.",
+	SubjectSSHAddAuthorizedKeyCmd:    "Append a raw public-key line to ~/.ssh/authorized_keys.",
+	SubjectSSHRemoveAuthorizedKeyCmd: "Remove every authorized_keys line whose fingerprint matches.",
 	SubjectScriptingReadCmd:       "Read the full contents of a user Lua script by basename.",
 	SubjectScriptingSaveCmd:       "Create or overwrite a user Lua script file.",
 	SubjectScriptingDeleteCmd:     "Delete a user Lua script file.",
@@ -379,6 +396,13 @@ var allCommandSubjects = []string{
 	SubjectWorkspacesSetAnimationsCmd, SubjectWorkspacesSetHideSpecialCmd,
 
 	SubjectDarkUpdateSnapshotCmd, SubjectDarkUpdateCheckCmd, SubjectDarkUpdateApplyCmd,
+
+	SubjectSSHSnapshotCmd, SubjectSSHGenerateKeyCmd, SubjectSSHDeleteKeyCmd,
+	SubjectSSHChangePassphraseCmd, SubjectSSHAgentStartCmd, SubjectSSHAgentStopCmd,
+	SubjectSSHAgentAddCmd, SubjectSSHAgentRemoveCmd, SubjectSSHAgentRemoveAllCmd,
+	SubjectSSHSaveHostCmd, SubjectSSHDeleteHostCmd, SubjectSSHScanHostCmd,
+	SubjectSSHRemoveKnownHostCmd, SubjectSSHAddAuthorizedKeyCmd,
+	SubjectSSHRemoveAuthorizedKeyCmd,
 
 	SubjectScriptingListCmd, SubjectScriptingRegistryCmd, SubjectScriptingAPICatalogCmd,
 	SubjectScriptingMCPCatalogCmd,

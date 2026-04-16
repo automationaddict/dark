@@ -697,6 +697,60 @@ var commandSchemas = map[string][]CommandField{
 	SubjectScriptingRegistryCmd:   {},
 	SubjectScriptingAPICatalogCmd: {},
 	SubjectScriptingMCPCatalogCmd: {},
+
+	// SSH
+	SubjectSSHSnapshotCmd: {},
+	SubjectSSHGenerateKeyCmd: {
+		{Name: "type", Type: "string", Required: false, Desc: "Key type: ed25519 (default), rsa, ecdsa."},
+		{Name: "bits", Type: "int", Required: false, Desc: "Key size for rsa/ecdsa; ignored for ed25519."},
+		{Name: "path", Type: "string", Required: false, Desc: "Output filename (bare or absolute); defaults to id_<type>."},
+		{Name: "comment", Type: "string", Required: false, Desc: "Key comment embedded in the public key."},
+		{Name: "passphrase", Type: "string", Required: false, Desc: "Passphrase for the private key; empty = none."},
+	},
+	SubjectSSHDeleteKeyCmd: {
+		{Name: "path", Type: "string", Required: true, Desc: "Absolute path or basename of the private key under ~/.ssh."},
+	},
+	SubjectSSHChangePassphraseCmd: {
+		{Name: "path", Type: "string", Required: true, Desc: "Path to the private key."},
+		{Name: "old_passphrase", Type: "string", Required: false, Desc: "Current passphrase; empty if unencrypted."},
+		{Name: "new_passphrase", Type: "string", Required: false, Desc: "New passphrase; empty to remove."},
+	},
+	SubjectSSHAgentStartCmd:     {},
+	SubjectSSHAgentStopCmd:      {},
+	SubjectSSHAgentRemoveAllCmd: {},
+	SubjectSSHAgentAddCmd: {
+		{Name: "path", Type: "string", Required: true, Desc: "Path to the private key to load."},
+		{Name: "passphrase", Type: "string", Required: false, Desc: "Passphrase to unlock the key; empty if none."},
+		{Name: "lifetime_seconds", Type: "int", Required: false, Desc: "TTL for the key in the agent; 0 = permanent until restart."},
+	},
+	SubjectSSHAgentRemoveCmd: {
+		{Name: "fingerprint", Type: "string", Required: true, Desc: "SHA256:... fingerprint of the key to unload."},
+	},
+	SubjectSSHSaveHostCmd: {
+		{Name: "pattern", Type: "string", Required: true, Desc: "Host pattern (glob or literal)."},
+		{Name: "hostname", Type: "string", Required: false, Desc: "Real hostname to connect to."},
+		{Name: "user", Type: "string", Required: false, Desc: "Login user for this host."},
+		{Name: "port", Type: "int", Required: false, Desc: "TCP port; defaults to 22."},
+		{Name: "identity_file", Type: "string", Required: false, Desc: "Path to the private key to use for this host."},
+		{Name: "forward_agent", Type: "bool", Required: false, Desc: "Enable SSH agent forwarding."},
+		{Name: "proxy_jump", Type: "string", Required: false, Desc: "Intermediate host to tunnel through."},
+		{Name: "strict_host_key_checking", Type: "string", Required: false, Desc: "yes | no | ask | accept-new."},
+	},
+	SubjectSSHDeleteHostCmd: {
+		{Name: "pattern", Type: "string", Required: true, Desc: "Host pattern to remove from ~/.ssh/config."},
+	},
+	SubjectSSHScanHostCmd: {
+		{Name: "hostname", Type: "string", Required: true, Desc: "Hostname or IP to scan with ssh-keyscan."},
+	},
+	SubjectSSHRemoveKnownHostCmd: {
+		{Name: "hostname", Type: "string", Required: true, Desc: "Hostname whose known_hosts entries to remove."},
+	},
+	SubjectSSHAddAuthorizedKeyCmd: {
+		{Name: "line", Type: "string", Required: true, Desc: "Full authorized_keys line (options + type + base64 + comment)."},
+	},
+	SubjectSSHRemoveAuthorizedKeyCmd: {
+		{Name: "fingerprint", Type: "string", Required: true, Desc: "SHA256 fingerprint of the authorized key to remove."},
+	},
 	SubjectScriptingReadCmd: {
 		{Name: "name", Type: "string", Required: true, Desc: "Script file name (basename with .lua)."},
 	},

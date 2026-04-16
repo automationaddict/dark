@@ -262,6 +262,17 @@ type State struct {
 	MCPCatalogLoaded        bool
 	MCPInnerIdx             int
 
+	SSHSelection       SSHSelection
+	SSH                SSHSnapshot
+	SSHLoaded          bool
+	SSHContentFocused  bool
+	SSHKeysIdx         int
+	SSHAgentIdx        int
+	SSHHostsIdx        int
+	SSHKnownHostsIdx   int
+	SSHAuthorizedIdx   int
+	SSHActionError     string
+
 	ContentFocused bool
 
 	HelpOpen        bool

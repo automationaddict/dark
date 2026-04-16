@@ -240,6 +240,8 @@ func main() {
 
 	publishDarkUpdate := wireDarkUpdate(nc)
 
+	publishSSH := wireSSH(nc)
+
 	wireScripting(nc, scriptEngine)
 	wireScriptEvents(nc, scriptEngine)
 	wireScriptClientEvents(nc, scriptEngine)
@@ -298,6 +300,7 @@ func main() {
 	publishTopBar()
 	publishWorkspaces()
 	publishDarkUpdate()
+	publishSSH()
 
 	var seq uint64
 	for {
@@ -327,6 +330,7 @@ func main() {
 				publishTopBar()
 				publishWorkspaces()
 				publishDarkUpdate()
+	publishSSH()
 				continue
 			}
 			slog.Info("shutting down", "signal", sig.String())

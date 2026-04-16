@@ -33,6 +33,7 @@ import (
 	netsvc "github.com/automationaddict/dark/internal/services/network"
 	"github.com/automationaddict/dark/internal/services/notify"
 	powersvc "github.com/automationaddict/dark/internal/services/power"
+	sshsvc "github.com/automationaddict/dark/internal/services/ssh"
 	"github.com/automationaddict/dark/internal/services/sysinfo"
 	fwsvc "github.com/automationaddict/dark/internal/services/firmware"
 	updatesvc "github.com/automationaddict/dark/internal/services/update"
@@ -189,6 +190,7 @@ func main() {
 	workspacesActions := newWorkspacesActions(nc)
 	darkUpdateActions := newDarkUpdateActions(nc)
 	scriptingActions := newScriptingActions(nc)
+	sshActions := newSSHActions(nc)
 	eventsActions := tui.EventsActions{
 		Publish: func(event string, payload map[string]interface{}) {
 			var data []byte
@@ -209,7 +211,7 @@ func main() {
 	}
 	defer notifier.Close()
 
-	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions, topbarActions, workspacesActions, darkUpdateActions, scriptingActions, eventsActions)
+	model := tui.New(state, binPath, wifiActions, bluetoothActions, audioActions, networkActions, displayActions, powerActions, inputActions, dateTimeActions, notifyCfgActions, notifier, appstoreActions, keybindActions, usersActions, privacyActions, appearanceActions, updateActions, limineActions, screensaverActions, topbarActions, workspacesActions, darkUpdateActions, scriptingActions, sshActions, eventsActions)
 
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
@@ -556,6 +558,20 @@ func main() {
 	}
 	defer workspacesSub.Unsubscribe()
 
+	sshSub, err := nc.Subscribe(bus.SubjectSSHSnapshot, func(m *nats.Msg) {
+		var snap sshsvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			warnDecode("SSH", err)
+			return
+		}
+		p.Send(tui.SSHSnapshotMsg(serviceSnapshotToCore(snap)))
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dark: subscribe ssh:", err)
+		os.Exit(1)
+	}
+	defer sshSub.Unsubscribe()
+
 	darkUpdateSub, err := nc.Subscribe(bus.SubjectDarkUpdateSnapshot, func(m *nats.Msg) {
 		var snap darkupdatesvc.Snapshot
 		if err := json.Unmarshal(m.Data, &snap); err != nil {
@@ -680,6 +696,9 @@ func main() {
 		if err := json.Unmarshal(reply.Data, &snap); err == nil {
 			state.SetWorkspaces(snap)
 		}
+	}
+	if snap, ok := sshInitialFetch(nc); ok {
+		state.SetSSH(snap)
 	}
 	if reply, err := nc.Request(bus.SubjectDarkUpdateSnapshotCmd, nil, core.TimeoutFast); err == nil {
 		var snap darkupdatesvc.Snapshot

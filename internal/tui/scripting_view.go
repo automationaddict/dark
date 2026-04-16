@@ -35,10 +35,23 @@ func renderScriptingOuterSidebar(s *core.State, height int) string {
 	selected := s.ScriptingOuterIndex()
 	outerFocused := !s.ScriptingContentFocused
 
-	labels := []string{"Scripts", "MCP", "Lua", "API"}
+	// Icons match the F1 sidebar aesthetic (Material/Nerd Font
+	// glyphs). Scripts uses a document glyph rather than the Lua
+	// glyph so the individual file rows inside the Scripts group
+	// (which are prefixed with 󰢱) don't duplicate the group icon.
+	entries := []struct {
+		icon  string
+		label string
+	}{
+		{"󰈙", "Scripts"},
+		{"󰚩", "MCP"},
+		{"󰢱", "Lua"},
+		{"󰡨", "API"},
+	}
 	var rows []string
-	for i, label := range labels {
-		rows = append(rows, renderOuterRow(label, i == selected, outerFocused, false, item, active, dim))
+	for i, e := range entries {
+		line := e.icon + "  " + e.label
+		rows = append(rows, renderOuterRow(line, i == selected, outerFocused, false, item, active, dim))
 	}
 	return renderSidebarPane(height, strings.Join(rows, "\n"), outerFocused)
 }

@@ -94,6 +94,7 @@ func wireScriptEvents(nc *nats.Conn, engine *scripting.Engine) {
 		{bus.SubjectUsersSnapshot, "on_users"},
 		{bus.SubjectAppearanceSnapshot, "on_appearance"},
 		{bus.SubjectWorkspacesSnapshot, "on_workspaces"},
+		{bus.SubjectSSHSnapshot, "on_ssh"},
 	}
 	for _, b := range bindings {
 		subject, event := b.subject, b.event

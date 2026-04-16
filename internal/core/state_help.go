@@ -22,6 +22,8 @@ func (s *State) HelpKey() string {
 		case "links":
 			return "links"
 		}
+	case TabF4:
+		return "ssh"
 	case TabF5:
 		if s.ScriptingSelection.Kind == SelKindMCP {
 			return "mcp"
