@@ -751,6 +751,18 @@ var commandSchemas = map[string][]CommandField{
 	SubjectSSHRemoveAuthorizedKeyCmd: {
 		{Name: "fingerprint", Type: "string", Required: true, Desc: "SHA256 fingerprint of the authorized key to remove."},
 	},
+	SubjectSSHRestoreBackupCmd: {
+		{Name: "target", Type: "string", Required: true, Desc: "One of: client_config, authorized_keys, server_config."},
+	},
+	SubjectSSHSaveServerConfigCmd: {
+		{Name: "port", Type: "int", Required: false, Desc: "TCP port sshd listens on (omit to leave untouched)."},
+		{Name: "permit_root_login", Type: "string", Required: false, Desc: "yes | no | prohibit-password | forced-commands-only."},
+		{Name: "password_authentication", Type: "bool", Required: false, Desc: "Enable or disable PasswordAuthentication."},
+		{Name: "pubkey_authentication", Type: "bool", Required: false, Desc: "Enable or disable PubkeyAuthentication."},
+		{Name: "x11_forwarding", Type: "bool", Required: false, Desc: "Enable or disable X11Forwarding."},
+		{Name: "allow_users", Type: "[]string", Required: false, Desc: "Whitespace-separated user allow-list."},
+		{Name: "allow_groups", Type: "[]string", Required: false, Desc: "Whitespace-separated group allow-list."},
+	},
 	SubjectScriptingReadCmd: {
 		{Name: "name", Type: "string", Required: true, Desc: "Script file name (basename with .lua)."},
 	},

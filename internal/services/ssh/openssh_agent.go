@@ -16,9 +16,11 @@ import (
 // SSH_AUTH_SOCK resolves the socket and we call `systemctl --user`
 // to report whether dark is the one managing the agent.
 func (b *OpenSSHBackend) AgentStatus(ctx context.Context) (AgentStatus, error) {
+	sock := os.Getenv("SSH_AUTH_SOCK")
 	st := AgentStatus{
-		SocketPath:        os.Getenv("SSH_AUTH_SOCK"),
+		SocketPath:        sock,
 		SystemdUnitExists: agentUnitExists(),
+		Forwarded:         isForwardedAgentSocket(sock),
 	}
 	if st.SocketPath != "" {
 		if _, err := os.Stat(st.SocketPath); err == nil {
@@ -266,6 +268,20 @@ Restart=on-failure
 WantedBy=default.target
 `
 	return os.WriteFile(unitPath, []byte(unit), 0o644)
+}
+
+// isForwardedAgentSocket returns true when SSH_AUTH_SOCK looks like
+// an sshd-generated forwarded-agent socket. OpenSSH's sshd creates
+// these under /tmp/ssh-XXXXXX/agent.<pid>. Local sockets (dark's
+// systemd unit, gnome-keyring, ssh-agent started by a shell rc)
+// live under $XDG_RUNTIME_DIR. This is heuristic but accurate in
+// practice — it's the same check ssh clients use to decide whether
+// the chain crosses machine boundaries.
+func isForwardedAgentSocket(sock string) bool {
+	if sock == "" {
+		return false
+	}
+	return strings.HasPrefix(sock, "/tmp/ssh-")
 }
 
 // agentUnitExists checks whether dark's managed ssh-agent.service

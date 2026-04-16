@@ -129,7 +129,7 @@ func renderSSHKeys(s *core.State, width, height int) string {
 	}
 	hint := "enter focus · g generate"
 	if s.SSHContentFocused {
-		hint = "j/k navigate · g generate · d delete · a add to agent · c copy · esc back"
+		hint = "j/k nav · g gen · d del · p passphrase · a agent · c copy · esc back"
 	}
 	b.WriteString(sshActionHint(s, hint))
 	return renderContentPane(width, height, b.String())
@@ -171,6 +171,7 @@ func renderSSHAgent(s *core.State, width, height int) string {
 	b.WriteString(sshDetailRow("Running", boolLabel(ag.Running, "yes", "no")))
 	b.WriteString(sshDetailRow("Systemd managed", boolLabel(ag.SystemdManaged, "yes", "no")))
 	b.WriteString(sshDetailRow("Unit installed", boolLabel(ag.SystemdUnitExists, "yes", "no")))
+	b.WriteString(sshDetailRow("Forwarded", boolLabel(ag.Forwarded, "yes (from remote ssh session)", "no")))
 	if ag.SocketPath != "" {
 		b.WriteString(sshDetailRow("Socket", ag.SocketPath))
 	}
@@ -220,7 +221,7 @@ func renderSSHClientConfig(s *core.State, width, height int) string {
 	}
 	hint := "enter focus · n new host"
 	if s.SSHContentFocused {
-		hint = "j/k navigate · n new · e edit · d delete · esc back"
+		hint = "j/k nav · n new · e edit · d del · R restore .bak · esc back"
 	}
 	b.WriteString(sshActionHint(s, hint))
 	return renderContentPane(width, height, b.String())
@@ -308,7 +309,7 @@ func renderSSHAuthorizedKeys(s *core.State, width, height int) string {
 	b.WriteString("\n")
 	hint := "enter focus · n add key"
 	if s.SSHContentFocused {
-		hint = "j/k navigate · n add · d remove · esc back"
+		hint = "j/k nav · n add · d remove · R restore .bak · esc back"
 	}
 	b.WriteString(sshActionHint(s, hint))
 	return renderContentPane(width, height, b.String())
@@ -325,7 +326,7 @@ func renderSSHServerConfig(s *core.State, width, height int) string {
 	if !sc.Readable {
 		b.WriteString(placeholderStyle.Render("\n" + sc.ParseError + "\n"))
 		b.WriteString("\n")
-		b.WriteString(phase2Footer("Edit flow with sshd -t validation lands in phase 2b."))
+		b.WriteString(sshActionHint(s, "— cannot read sshd_config"))
 		return renderContentPane(width, height, b.String())
 	}
 	if sc.Port > 0 {
@@ -346,7 +347,11 @@ func renderSSHServerConfig(s *core.State, width, height int) string {
 		b.WriteString(sshDetailRow("AllowGroups", strings.Join(sc.AllowGroups, " ")))
 	}
 	b.WriteString("\n")
-	b.WriteString(phase2Footer("Editing with sshd -t validation + pkexec write lands in phase 2b."))
+	hint := "enter focus · e edit"
+	if s.SSHContentFocused {
+		hint = "e edit (sshd -t validates) · R restore .bak · esc back"
+	}
+	b.WriteString(sshActionHint(s, hint))
 	return renderContentPane(width, height, b.String())
 }
 
@@ -387,12 +392,6 @@ func sshActionHint(s *core.State, keys string) string {
 		return errStyle.Render("error: "+s.SSHActionError) + "\n" + style.Render(keys)
 	}
 	return style.Render(keys)
-}
-
-// phase2Footer renders the remaining phase-2b breadcrumb for the
-// server config pane. Every other subsection has real actions now.
-func phase2Footer(note string) string {
-	return lipgloss.NewStyle().Foreground(colorDim).Italic(true).Render("— " + note)
 }
 
 func sshTruncate(s string, max int) string {

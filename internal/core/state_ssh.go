@@ -75,6 +75,7 @@ type SSHAgentStatus struct {
 	Running            bool
 	SystemdManaged     bool
 	SystemdUnitExists  bool
+	Forwarded          bool
 	SocketPath         string
 	Pid                int
 	LoadedKeys         []SSHLoadedKey
@@ -145,6 +146,19 @@ type SSHGenerateKeyOptions struct {
 	Path       string `json:"path,omitempty"`
 	Comment    string `json:"comment,omitempty"`
 	Passphrase string `json:"passphrase,omitempty"`
+}
+
+// SSHServerConfigEdit mirrors services/ssh.ServerConfigEdit for the
+// client→daemon request payload. Pointer fields preserve the
+// "omit = leave untouched" semantics the backend splice relies on.
+type SSHServerConfigEdit struct {
+	Port                   *int      `json:"port,omitempty"`
+	PermitRootLogin        *string   `json:"permit_root_login,omitempty"`
+	PasswordAuthentication *bool     `json:"password_authentication,omitempty"`
+	PubkeyAuthentication   *bool     `json:"pubkey_authentication,omitempty"`
+	X11Forwarding          *bool     `json:"x11_forwarding,omitempty"`
+	AllowUsers             *[]string `json:"allow_users,omitempty"`
+	AllowGroups            *[]string `json:"allow_groups,omitempty"`
 }
 
 // SetSSH replaces the cached SSH snapshot and resets any transient

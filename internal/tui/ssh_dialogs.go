@@ -2,6 +2,7 @@ package tui
 
 import (
 	"strconv"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -18,6 +19,14 @@ import (
 // NewDialog, set m.dialog, return nil. On submit, the dialog's
 // callback returns a tea.Cmd that fires the injected action; the
 // resulting SSHActionResultMsg is handled by model.go.
+
+// boolPtr / strPtr / intPtr / stringsPtr are convenience
+// constructors for the pointer-semantics fields on
+// core.SSHServerConfigEdit.
+func boolPtr(v bool) *bool         { return &v }
+func strPtr(v string) *string      { return &v }
+func intPtr(v int) *int            { return &v }
+func stringsPtr(v []string) *[]string { return &v }
 
 // handleSSHKey dispatches a key press when the F4 SSH tab is
 // active and no dialog is open. Focus is on the inner sub-nav when
@@ -57,8 +66,129 @@ func (m *Model) handleSSHKey(key string) (bool, tea.Cmd) {
 		return m.handleSSHKnownHostsKey(key)
 	case core.SSHSubAuthorizedKeys:
 		return m.handleSSHAuthorizedKey(key)
+	case core.SSHSubServerConfig:
+		return m.handleSSHServerConfigKey(key)
 	}
 	return false, nil
+}
+
+func (m *Model) handleSSHServerConfigKey(key string) (bool, tea.Cmd) {
+	switch key {
+	case "e":
+		return true, m.openSSHServerConfigDialog()
+	case "R":
+		return true, m.openSSHRestoreDialog("server_config", "/etc/ssh/sshd_config")
+	}
+	return false, nil
+}
+
+// openSSHServerConfigDialog shows a form pre-filled with the seven
+// editable sshd_config directives. On submit it builds an edit
+// payload that includes ONLY the fields whose value changed, so a
+// no-op submit still rewrites the file but only touches directives
+// the user actually modified. pkexec will prompt the user for auth
+// and sshd -t validates before installing.
+func (m *Model) openSSHServerConfigDialog() tea.Cmd {
+	sc := m.state.SSH.ServerConfig
+	if !sc.Readable {
+		m.state.SSHActionError = "cannot read current sshd_config"
+		return nil
+	}
+	currentPort := ""
+	if sc.Port > 0 {
+		currentPort = strconv.Itoa(sc.Port)
+	}
+	permitOptions := []string{"yes", "no", "prohibit-password", "forced-commands-only"}
+	currentPermit := sc.PermitRootLogin
+	if currentPermit == "" {
+		currentPermit = "prohibit-password"
+	}
+	m.dialog = NewDialog("Edit sshd_config", []DialogFieldSpec{
+		{Key: "port", Label: "Port", Kind: DialogFieldText, Value: currentPort},
+		{Key: "permit_root_login", Label: "PermitRootLogin", Kind: DialogFieldSelect,
+			Options: permitOptions, Value: currentPermit},
+		{Key: "password_auth", Label: "PasswordAuthentication", Kind: DialogFieldSelect,
+			Options: []string{"yes", "no"}, Value: boolLabel(sc.PasswordAuthentication, "yes", "no")},
+		{Key: "pubkey_auth", Label: "PubkeyAuthentication", Kind: DialogFieldSelect,
+			Options: []string{"yes", "no"}, Value: boolLabel(sc.PubkeyAuthentication, "yes", "no")},
+		{Key: "x11", Label: "X11Forwarding", Kind: DialogFieldSelect,
+			Options: []string{"yes", "no"}, Value: boolLabel(sc.X11Forwarding, "yes", "no")},
+		{Key: "allow_users", Label: "AllowUsers (space-separated)", Kind: DialogFieldText,
+			Value: strings.Join(sc.AllowUsers, " ")},
+		{Key: "allow_groups", Label: "AllowGroups (space-separated)", Kind: DialogFieldText,
+			Value: strings.Join(sc.AllowGroups, " ")},
+	}, func(r DialogResult) tea.Cmd {
+		if m.ssh.SaveServerConfig == nil {
+			return nil
+		}
+		edit := core.SSHServerConfigEdit{}
+		// Diff against the current snapshot so unchanged fields
+		// stay as nil pointers and the splice logic skips them.
+		if r["port"] != currentPort {
+			if p, err := strconv.Atoi(r["port"]); err == nil && p > 0 {
+				edit.Port = intPtr(p)
+			}
+		}
+		if r["permit_root_login"] != sc.PermitRootLogin && r["permit_root_login"] != "" {
+			edit.PermitRootLogin = strPtr(r["permit_root_login"])
+		}
+		newPasswordAuth := r["password_auth"] == "yes"
+		if newPasswordAuth != sc.PasswordAuthentication {
+			edit.PasswordAuthentication = boolPtr(newPasswordAuth)
+		}
+		newPubkeyAuth := r["pubkey_auth"] == "yes"
+		if newPubkeyAuth != sc.PubkeyAuthentication {
+			edit.PubkeyAuthentication = boolPtr(newPubkeyAuth)
+		}
+		newX11 := r["x11"] == "yes"
+		if newX11 != sc.X11Forwarding {
+			edit.X11Forwarding = boolPtr(newX11)
+		}
+		newAllowUsers := splitWords(r["allow_users"])
+		if !stringSliceEqual(newAllowUsers, sc.AllowUsers) {
+			edit.AllowUsers = stringsPtr(newAllowUsers)
+		}
+		newAllowGroups := splitWords(r["allow_groups"])
+		if !stringSliceEqual(newAllowGroups, sc.AllowGroups) {
+			edit.AllowGroups = stringsPtr(newAllowGroups)
+		}
+		// Nothing changed — no-op.
+		if edit.Port == nil && edit.PermitRootLogin == nil &&
+			edit.PasswordAuthentication == nil && edit.PubkeyAuthentication == nil &&
+			edit.X11Forwarding == nil && edit.AllowUsers == nil && edit.AllowGroups == nil {
+			return nil
+		}
+		return m.ssh.SaveServerConfig(edit)
+	})
+	return nil
+}
+
+// splitWords normalizes a whitespace-separated string into a slice,
+// trimming empty tokens so accidental double-spaces don't produce
+// garbage entries in the output config.
+func splitWords(s string) []string {
+	var out []string
+	for _, w := range strings.Fields(s) {
+		if w != "" {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
+// stringSliceEqual compares two string slices for set-independent
+// equality. sshd_config preserves order so a strict element-wise
+// compare is what we want here.
+func stringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // ─── Keys ───────────────────────────────────────────────────────
@@ -73,8 +203,38 @@ func (m *Model) handleSSHKeysKey(key string) (bool, tea.Cmd) {
 		return true, m.copySSHPublicKey()
 	case "a":
 		return true, m.openSSHAgentAddDialog()
+	case "p":
+		return true, m.openSSHChangePassphraseDialog()
 	}
 	return false, nil
+}
+
+// openSSHChangePassphraseDialog wraps the ssh-keygen -p flow in a
+// two-field form. An empty new passphrase means "remove the
+// passphrase" which is how ssh-keygen itself treats `-N ''`.
+func (m *Model) openSSHChangePassphraseDialog() tea.Cmd {
+	if len(m.state.SSH.Keys) == 0 {
+		return nil
+	}
+	idx := m.state.SSHKeysIdx
+	if idx >= len(m.state.SSH.Keys) {
+		idx = 0
+	}
+	k := m.state.SSH.Keys[idx]
+	if k.Path == "" {
+		m.state.SSHActionError = "orphan public key — nothing to re-encrypt"
+		return nil
+	}
+	m.dialog = NewDialog("Change passphrase for "+sshKeyBaseName(k), []DialogFieldSpec{
+		{Key: "old", Label: "Current passphrase (empty if none)", Kind: DialogFieldPassword},
+		{Key: "new", Label: "New passphrase (empty to remove)", Kind: DialogFieldPassword},
+	}, func(r DialogResult) tea.Cmd {
+		if m.ssh.ChangePassphrase == nil {
+			return nil
+		}
+		return m.ssh.ChangePassphrase(k.Path, r["old"], r["new"])
+	})
+	return nil
 }
 
 func (m *Model) openSSHGenerateKeyDialog() tea.Cmd {
@@ -246,8 +406,24 @@ func (m *Model) handleSSHHostsKey(key string) (bool, tea.Cmd) {
 		return true, m.openSSHHostDialog(h, "Edit "+h.Pattern)
 	case "d":
 		return true, m.openSSHDeleteHostDialog()
+	case "R":
+		return true, m.openSSHRestoreDialog("client_config", "~/.ssh/config")
 	}
 	return false, nil
+}
+
+// openSSHRestoreDialog shows a confirmation dialog for rolling a
+// file back to its `.bak` sibling. The target string is the same
+// one the bus subject takes so the TUI doesn't have to know about
+// service package types.
+func (m *Model) openSSHRestoreDialog(target, label string) tea.Cmd {
+	m.dialog = NewDialog("Restore "+label+" from .bak?", nil, func(_ DialogResult) tea.Cmd {
+		if m.ssh.RestoreBackup == nil {
+			return nil
+		}
+		return m.ssh.RestoreBackup(target)
+	})
+	return nil
 }
 
 func (m *Model) openSSHHostDialog(initial core.SSHHostEntry, title string) tea.Cmd {
@@ -358,6 +534,8 @@ func (m *Model) handleSSHAuthorizedKey(key string) (bool, tea.Cmd) {
 		return true, m.openSSHAddAuthorizedKeyDialog()
 	case "d":
 		return true, m.openSSHRemoveAuthorizedKeyDialog()
+	case "R":
+		return true, m.openSSHRestoreDialog("authorized_keys", "~/.ssh/authorized_keys")
 	}
 	return false, nil
 }

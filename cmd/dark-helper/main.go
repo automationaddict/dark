@@ -179,6 +179,20 @@ func main() {
 		if err := runCmd("systemctl", "disable", "--now", "sshd"); err != nil {
 			fail(err.Error(), 1)
 		}
+	case "sshd-config-write":
+		if len(os.Args) != 2 {
+			fail("usage: dark-helper sshd-config-write (reads new config from stdin)", 2)
+		}
+		if err := writeSSHDConfig(); err != nil {
+			fail(err.Error(), 1)
+		}
+	case "sshd-config-restore":
+		if len(os.Args) != 2 {
+			fail("usage: dark-helper sshd-config-restore", 2)
+		}
+		if err := restoreSSHDConfig(); err != nil {
+			fail(err.Error(), 1)
+		}
 	case "geoclue-enable":
 		if err := runCmd("systemctl", "start", "geoclue"); err != nil {
 			fail(err.Error(), 1)

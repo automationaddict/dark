@@ -285,6 +285,8 @@ var commandSummaries = map[string]string{
 	SubjectSSHRemoveKnownHostCmd:     "Remove a known_hosts entry via ssh-keygen -R.",
 	SubjectSSHAddAuthorizedKeyCmd:    "Append a raw public-key line to ~/.ssh/authorized_keys.",
 	SubjectSSHRemoveAuthorizedKeyCmd: "Remove every authorized_keys line whose fingerprint matches.",
+	SubjectSSHSaveServerConfigCmd:    "Apply a typed edit to /etc/ssh/sshd_config via pkexec + dark-helper with sshd -t validation.",
+	SubjectSSHRestoreBackupCmd:       "Roll a rewritable SSH file back to its .bak sibling (client_config, authorized_keys, server_config).",
 	SubjectScriptingReadCmd:       "Read the full contents of a user Lua script by basename.",
 	SubjectScriptingSaveCmd:       "Create or overwrite a user Lua script file.",
 	SubjectScriptingDeleteCmd:     "Delete a user Lua script file.",
@@ -402,7 +404,8 @@ var allCommandSubjects = []string{
 	SubjectSSHAgentAddCmd, SubjectSSHAgentRemoveCmd, SubjectSSHAgentRemoveAllCmd,
 	SubjectSSHSaveHostCmd, SubjectSSHDeleteHostCmd, SubjectSSHScanHostCmd,
 	SubjectSSHRemoveKnownHostCmd, SubjectSSHAddAuthorizedKeyCmd,
-	SubjectSSHRemoveAuthorizedKeyCmd,
+	SubjectSSHRemoveAuthorizedKeyCmd, SubjectSSHSaveServerConfigCmd,
+	SubjectSSHRestoreBackupCmd,
 
 	SubjectScriptingListCmd, SubjectScriptingRegistryCmd, SubjectScriptingAPICatalogCmd,
 	SubjectScriptingMCPCatalogCmd,

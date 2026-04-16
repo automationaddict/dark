@@ -175,6 +175,25 @@ func wireSSH(nc *nats.Conn) func() {
 		return svc.Backend().RemoveAuthorizedKey(ctx, req.Fingerprint)
 	})
 
+	// Server config edits run sshd -t against the staged content
+	// before the atomic rename. Timeout is generous because pkexec
+	// may wait on the user to authenticate via the polkit dialog.
+	sub(bus.SubjectSSHSaveServerConfigCmd, 60*time.Second, true, func(ctx context.Context, m *nats.Msg) error {
+		var edit sshsvc.ServerConfigEdit
+		if err := json.Unmarshal(m.Data, &edit); err != nil {
+			return err
+		}
+		return svc.Backend().SaveServerConfig(ctx, edit)
+	})
+
+	sub(bus.SubjectSSHRestoreBackupCmd, 60*time.Second, true, func(ctx context.Context, m *nats.Msg) error {
+		var req struct {
+			Target string `json:"target"`
+		}
+		_ = json.Unmarshal(m.Data, &req)
+		return svc.Backend().RestoreBackup(ctx, sshsvc.RestoreTarget(req.Target))
+	})
+
 	publishSnapshot := func() {
 		data, err := json.Marshal(svc.Snapshot())
 		if err != nil {

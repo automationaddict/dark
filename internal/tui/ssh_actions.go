@@ -25,6 +25,8 @@ type SSHActions struct {
 	ScanHost            func(hostname string) tea.Cmd
 	AddAuthorizedKey    func(line string) tea.Cmd
 	RemoveAuthorizedKey func(fingerprint string) tea.Cmd
+	SaveServerConfig    func(edit core.SSHServerConfigEdit) tea.Cmd
+	RestoreBackup       func(target string) tea.Cmd
 }
 
 // SSHActionResultMsg is the shared response for every SSH command.

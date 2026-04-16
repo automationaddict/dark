@@ -107,6 +107,18 @@ func newSSHActions(nc *nats.Conn) tui.SSHActions {
 				return sshRequest(nc, bus.SubjectSSHRemoveAuthorizedKeyCmd, payload, "remove_authorized_key")
 			}
 		},
+		SaveServerConfig: func(edit core.SSHServerConfigEdit) tea.Cmd {
+			return func() tea.Msg {
+				payload, _ := json.Marshal(edit)
+				return sshRequest(nc, bus.SubjectSSHSaveServerConfigCmd, payload, "save_server_config")
+			}
+		},
+		RestoreBackup: func(target string) tea.Cmd {
+			return func() tea.Msg {
+				payload, _ := json.Marshal(map[string]string{"target": target})
+				return sshRequest(nc, bus.SubjectSSHRestoreBackupCmd, payload, "restore_backup")
+			}
+		},
 	}
 }
 
@@ -162,6 +174,7 @@ func serviceSnapshotToCore(s sshsvc.Snapshot) core.SSHSnapshot {
 			Running:           s.Agent.Running,
 			SystemdManaged:    s.Agent.SystemdManaged,
 			SystemdUnitExists: s.Agent.SystemdUnitExists,
+			Forwarded:         s.Agent.Forwarded,
 			SocketPath:        s.Agent.SocketPath,
 			Pid:               s.Agent.Pid,
 		},

@@ -40,8 +40,19 @@ type Backend interface {
 	AddAuthorizedKey(ctx context.Context, line string) error
 	RemoveAuthorizedKey(ctx context.Context, fingerprint string) error
 
-	// Server config (read-only in v1)
+	// Server config — read with LoadServerConfig, edit a subset of
+	// directives with SaveServerConfig. The save path runs sshd -t
+	// for validation before installing the new file and keeps a
+	// .bak of the previous contents (both via dark-helper under
+	// pkexec). A failed validation returns the sshd -t output
+	// verbatim so the user sees which line was rejected.
 	LoadServerConfig(ctx context.Context) (ServerConfig, error)
+	SaveServerConfig(ctx context.Context, edit ServerConfigEdit) error
+
+	// RestoreBackup rolls one of the rewritable files back to its
+	// `.bak` sibling. Writes go through the same pkexec helper
+	// path as SaveServerConfig when the target is root-owned.
+	RestoreBackup(ctx context.Context, target RestoreTarget) error
 }
 
 // ErrUnsupported is returned by stub backends for every method until
@@ -122,6 +133,12 @@ func (b unsupportedBackend) RemoveAuthorizedKey(ctx context.Context, fingerprint
 func (b unsupportedBackend) LoadServerConfig(ctx context.Context) (ServerConfig, error) {
 	return ServerConfig{}, errUnsupported{b.name, "LoadServerConfig"}
 }
+func (b unsupportedBackend) SaveServerConfig(ctx context.Context, edit ServerConfigEdit) error {
+	return errUnsupported{b.name, "SaveServerConfig"}
+}
+func (b unsupportedBackend) RestoreBackup(ctx context.Context, target RestoreTarget) error {
+	return errUnsupported{b.name, "RestoreBackup"}
+}
 
 // OnePasswordBackend is a phase-2 stub. Will delegate to `op` (the
 // 1Password CLI) for key storage and to 1Password's SSH agent for
@@ -135,12 +152,6 @@ func NewOnePasswordBackend() Backend {
 	return OnePasswordBackend{unsupportedBackend{name: "1password"}}
 }
 
-// GnomeKeyringBackend is a phase-2 stub for gnome-keyring-based key
-// storage. Same pattern as OnePasswordBackend — exists so the
-// interface has visible alternatives.
-type GnomeKeyringBackend struct{ unsupportedBackend }
-
-// NewGnomeKeyringBackend returns the stub implementation.
-func NewGnomeKeyringBackend() Backend {
-	return GnomeKeyringBackend{unsupportedBackend{name: "keyring"}}
-}
+// GnomeKeyringBackend lives in keyring.go as a real implementation.
+// OnePasswordBackend stays here as a stub until batch 2 lands the
+// `op` CLI integration.

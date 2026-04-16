@@ -50,6 +50,7 @@ type AgentStatus struct {
 	Running            bool        `json:"running"`
 	SystemdManaged     bool        `json:"systemd_managed"`
 	SystemdUnitExists  bool        `json:"systemd_unit_exists"`
+	Forwarded          bool        `json:"forwarded"` // SSH_AUTH_SOCK looks like a forwarded agent
 	SocketPath         string      `json:"socket_path,omitempty"`
 	Pid                int         `json:"pid,omitempty"`
 	LoadedKeys         []LoadedKey `json:"loaded_keys,omitempty"`

@@ -5,11 +5,13 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/nats-io/nats.go"
 
 	"github.com/automationaddict/dark/internal/bus"
 	"github.com/automationaddict/dark/internal/scripting"
+	sshsvc "github.com/automationaddict/dark/internal/services/ssh"
 )
 
 // registerScriptActions walks the bus command catalog and installs a
@@ -109,5 +111,74 @@ func wireScriptEvents(nc *nats.Conn, engine *scripting.Engine) {
 			slog.Error("subscribe failed", "subject", subject, "error", err)
 			os.Exit(1)
 		}
+	}
+
+	// SSH snapshot diffing. Every dark.ssh.snapshot publish is
+	// compared against the previous payload so scripts can hook
+	// `on_ssh_key_added`, `on_ssh_key_removed`, and the agent
+	// lifecycle events without walking the full snapshot
+	// themselves. prev holds the most recent payload; mu guards
+	// it because NATS callbacks may interleave during a burst of
+	// mutations.
+	var prev sshsvc.Snapshot
+	var havePrev bool
+	var mu sync.Mutex
+	_, err := nc.Subscribe(bus.SubjectSSHSnapshot, func(m *nats.Msg) {
+		var snap sshsvc.Snapshot
+		if err := json.Unmarshal(m.Data, &snap); err != nil {
+			return
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if !havePrev {
+			prev = snap
+			havePrev = true
+			return
+		}
+		dispatchSSHDiff(engine, prev, snap)
+		prev = snap
+	})
+	if err != nil {
+		slog.Error("subscribe failed", "subject", bus.SubjectSSHSnapshot, "error", err)
+		os.Exit(1)
+	}
+}
+
+// dispatchSSHDiff compares two consecutive SSH snapshots and fires
+// the matching granular events. Key add/remove is detected by
+// fingerprint set membership so a rename (new Path, same content)
+// still comes through cleanly. Agent lifecycle is a simple running
+// transition on AgentStatus.Running.
+func dispatchSSHDiff(engine *scripting.Engine, prev, cur sshsvc.Snapshot) {
+	if engine == nil {
+		return
+	}
+	prevKeys := map[string]sshsvc.Key{}
+	for _, k := range prev.Keys {
+		if k.Fingerprint != "" {
+			prevKeys[k.Fingerprint] = k
+		}
+	}
+	curKeys := map[string]sshsvc.Key{}
+	for _, k := range cur.Keys {
+		if k.Fingerprint != "" {
+			curKeys[k.Fingerprint] = k
+		}
+	}
+	for fp, k := range curKeys {
+		if _, ok := prevKeys[fp]; !ok {
+			engine.DispatchEvent("on_ssh_key_added", k.Path)
+		}
+	}
+	for fp, k := range prevKeys {
+		if _, ok := curKeys[fp]; !ok {
+			engine.DispatchEvent("on_ssh_key_removed", k.Path)
+		}
+	}
+	if !prev.Agent.Running && cur.Agent.Running {
+		engine.DispatchEvent("on_ssh_agent_started")
+	}
+	if prev.Agent.Running && !cur.Agent.Running {
+		engine.DispatchEvent("on_ssh_agent_stopped")
 	}
 }
