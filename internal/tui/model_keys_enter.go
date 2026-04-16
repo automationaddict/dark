@@ -22,6 +22,11 @@ func (m Model) handleEnterKey() (tea.Model, tea.Cmd) {
 		return m, m.triggerOmarchyEnter()
 	case m.state.ActiveTab == core.TabF2:
 		return m.handleEnterAppstore()
+	case m.state.ActiveTab == core.TabF4:
+		if !m.state.SSHContentFocused {
+			m.state.SSHContentFocused = true
+		}
+		return m, nil
 	case m.state.ActiveTab == core.TabSettings:
 		return m.handleEnterSettings()
 	}

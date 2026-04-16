@@ -17,15 +17,14 @@
 package logging
 
 import (
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
-// Setup configures the slog default logger. Call once at the top of
-// main() before any slog calls. Safe to call multiple times (each
-// call replaces the default).
-func Setup(component string) {
+func parseLevel() slog.Level {
 	level := slog.LevelInfo
 	if v := os.Getenv("DARK_LOG_LEVEL"); v != "" {
 		switch strings.ToLower(v) {
@@ -37,8 +36,44 @@ func Setup(component string) {
 			level = slog.LevelError
 		}
 	}
+	return level
+}
+
+// Setup configures the slog default logger. Call once at the top of
+// main() before any slog calls. Safe to call multiple times (each
+// call replaces the default).
+func Setup(component string) {
 	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: level,
+		Level: parseLevel(),
 	})
 	slog.SetDefault(slog.New(handler).With("component", component))
+}
+
+// SetupFile configures slog to write to a log file under
+// ~/.local/state/dark/<component>.log instead of stderr. Use this
+// for the TUI process where stderr output corrupts the alt-screen.
+// Returns a closer that the caller should defer. If the file cannot
+// be opened, falls back to io.Discard silently.
+func SetupFile(component string) io.Closer {
+	stateDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "dark")
+	_ = os.MkdirAll(stateDir, 0o755)
+	f, err := os.OpenFile(
+		filepath.Join(stateDir, component+".log"),
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644,
+	)
+	if err != nil {
+		f = nil
+	}
+	var w io.Writer = io.Discard
+	if f != nil {
+		w = f
+	}
+	handler := slog.NewTextHandler(w, &slog.HandlerOptions{
+		Level: parseLevel(),
+	})
+	slog.SetDefault(slog.New(handler).With("component", component))
+	if f != nil {
+		return f
+	}
+	return io.NopCloser(nil)
 }

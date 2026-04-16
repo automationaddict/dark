@@ -182,8 +182,6 @@ type SSHServerConfigEdit struct {
 func (s *State) SetSSH(snap SSHSnapshot) {
 	s.SSH = snap
 	s.SSHLoaded = true
-	s.SSHActionError = ""
-
 	// Clamp the inner-list selections in case the underlying lists
 	// shrank since the last snapshot.
 	if s.SSHKeysIdx >= len(snap.Keys) {

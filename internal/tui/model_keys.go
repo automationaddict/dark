@@ -75,38 +75,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleAppstoreSearchInput(msg)
 	}
 
-	// F4 SSH tab routing. Up/down walks the inner sub-nav when the
-	// outer column is focused, and walks the subsection's list when
-	// the detail column is focused. enter/esc toggle focus between
-	// them. Action keys (g, d, c, a, n, e, s, x, D) are dispatched
-	// to handleSSHKey, which checks the active subsection and
-	// opens dialogs through model.dialog.
-	if m.state.ActiveTab == core.TabF4 && m.dialog == nil {
-		key := msg.String()
-		if !m.state.SSHContentFocused {
-			switch key {
-			case "up", "k":
-				m.state.MoveSSHSubsection(-1)
-				return m, nil
-			case "down", "j":
-				m.state.MoveSSHSubsection(1)
-				return m, nil
-			}
-		} else {
-			switch key {
-			case "up", "k":
-				m.state.MoveSSHInner(-1)
-				return m, nil
-			case "down", "j":
-				m.state.MoveSSHInner(1)
-				return m, nil
-			}
-		}
-		if handled, cmd := m.handleSSHKey(key); handled {
-			return m, cmd
-		}
-	}
-
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
@@ -203,6 +171,8 @@ func (m Model) handleEscKey() (tea.Model, tea.Cmd) {
 		m.state.OmarchyLinksFocused = false
 	case m.state.KeybindTableFocused:
 		m.state.KeybindTableFocused = false
+	case m.state.SSHContentFocused:
+		m.state.SSHContentFocused = false
 	case m.state.ScriptingContentFocused:
 		m.state.ScriptingContentFocused = false
 	case m.state.ContentFocused:

@@ -556,10 +556,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.SetSSH(msg.Snapshot)
 		if msg.Err != "" {
 			slog.Warn("ssh action failed", "action", msg.Action, "error", msg.Err)
-			m.state.SSHActionError = msg.Err
 			m.notifyError("SSH", msg.Err)
-		} else {
-			m.state.SSHActionError = ""
 		}
 		return m, nil
 

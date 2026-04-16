@@ -3,7 +3,15 @@ package core
 // FocusContent enters the content pane for the current section if that
 // section exposes selectable content. No-op otherwise.
 func (s *State) FocusContent() {
-	if s.ActiveTab != TabSettings {
+	switch s.ActiveTab {
+	case TabF4:
+		if s.SSHLoaded {
+			s.ContentFocused = true
+		}
+		return
+	case TabSettings:
+		// fall through to section-level dispatch below
+	default:
 		return
 	}
 	switch s.ActiveSection().ID {
@@ -88,6 +96,7 @@ func (s *State) FocusSidebar() {
 	s.UsersContentFocused = false
 	s.WorkspacesContentFocused = false
 	s.AppearanceContentFocused = false
+	s.SSHContentFocused = false
 }
 
 func (s *State) MoveSettingsFocus(delta int) {

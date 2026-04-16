@@ -43,6 +43,17 @@ func (m *Model) moveSelection(delta int) {
 			}
 		}
 		return
+	case core.TabF4:
+		if !m.state.ContentFocused {
+			// Outer F4 sidebar — only SSH for now, no-op.
+			return
+		}
+		if m.state.SSHContentFocused {
+			m.state.MoveSSHInner(delta)
+		} else {
+			m.state.MoveSSHSubsection(delta)
+		}
+		return
 	case core.TabF5:
 		if m.state.ScriptingContentFocused {
 			m.state.MoveScriptingInner(delta)

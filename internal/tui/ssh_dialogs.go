@@ -28,32 +28,15 @@ func strPtr(v string) *string      { return &v }
 func intPtr(v int) *int            { return &v }
 func stringsPtr(v []string) *[]string { return &v }
 
-// handleSSHKey dispatches a key press when the F4 SSH tab is
-// active and no dialog is open. Focus is on the inner sub-nav when
-// SSHContentFocused is false and on the subsection's list when
-// true. Returns (handled, tea.Cmd) so the caller can fall through
-// on unhandled keys.
+// handleSSHKey dispatches action-key presses for the F4 SSH tab.
+// Movement (up/down) and focus (enter/esc) are handled by the
+// standard handlers in model_keys.go, model_keys_enter.go, and
+// model_navigation.go. This function only routes subsection-
+// specific action shortcuts (g, d, c, a, s, x, etc.) when the
+// detail pane is focused.
 func (m *Model) handleSSHKey(key string) (bool, tea.Cmd) {
-	if m.state.ActiveTab != core.TabF4 {
-		return false, nil
-	}
-	if m.dialog != nil {
-		return false, nil
-	}
-	// Outer sub-nav focus: enter drops into the detail pane.
 	if !m.state.SSHContentFocused {
-		switch key {
-		case "enter":
-			m.state.SSHContentFocused = true
-			return true, nil
-		}
 		return false, nil
-	}
-	// Content-focused keys. esc backs out to the sub-nav.
-	switch key {
-	case "esc":
-		m.state.SSHContentFocused = false
-		return true, nil
 	}
 	switch m.state.SSHSelection.Subsection {
 	case core.SSHSubKeys:
@@ -91,7 +74,7 @@ func (m *Model) handleSSHServerConfigKey(key string) (bool, tea.Cmd) {
 func (m *Model) openSSHServerConfigDialog() tea.Cmd {
 	sc := m.state.SSH.ServerConfig
 	if !sc.Readable {
-		m.state.SSHActionError = "cannot read current sshd_config"
+		m.notifyError("SSH", "cannot read current sshd_config")
 		return nil
 	}
 	currentPort := ""
@@ -222,7 +205,7 @@ func (m *Model) openSSHChangePassphraseDialog() tea.Cmd {
 	}
 	k := m.state.SSH.Keys[idx]
 	if k.Path == "" {
-		m.state.SSHActionError = "orphan public key — nothing to re-encrypt"
+		m.notifyError("SSH", "orphan public key — nothing to re-encrypt")
 		return nil
 	}
 	m.dialog = NewDialog("Change passphrase for "+sshKeyBaseName(k), []DialogFieldSpec{
@@ -279,7 +262,7 @@ func (m *Model) openSSHDeleteKeyDialog() tea.Cmd {
 
 // copySSHPublicKey copies the selected key's public half to the
 // system clipboard. Uses the shared clipboard helper; failures
-// surface through SSHActionError so the user sees what went wrong.
+// surface through notifyError.
 func (m *Model) copySSHPublicKey() tea.Cmd {
 	if len(m.state.SSH.Keys) == 0 {
 		return nil
@@ -290,15 +273,14 @@ func (m *Model) copySSHPublicKey() tea.Cmd {
 	}
 	k := m.state.SSH.Keys[idx]
 	if k.PublicKey == "" {
-		m.state.SSHActionError = "public key is empty"
+		m.notifyError("SSH", "public key is empty")
 		return nil
 	}
 	if err := clipboard.Copy(k.PublicKey); err != nil {
-		m.state.SSHActionError = err.Error()
+		m.notifyError("SSH", err.Error())
 		m.notifyError("SSH", err.Error())
 		return nil
 	}
-	m.state.SSHActionError = ""
 	m.notifyInfo("SSH", "Public key copied to clipboard")
 	return nil
 }
@@ -327,7 +309,7 @@ func (m *Model) handleSSHAgentKey(key string) (bool, tea.Cmd) {
 
 func (m *Model) openSSHAgentAddDialog() tea.Cmd {
 	if len(m.state.SSH.Keys) == 0 {
-		m.state.SSHActionError = "no keys in ~/.ssh to add"
+		m.notifyError("SSH", "no keys in ~/.ssh to add")
 		return nil
 	}
 	paths := make([]string, 0, len(m.state.SSH.Keys))
@@ -337,7 +319,7 @@ func (m *Model) openSSHAgentAddDialog() tea.Cmd {
 		}
 	}
 	if len(paths) == 0 {
-		m.state.SSHActionError = "no private keys found"
+		m.notifyError("SSH", "no private keys found")
 		return nil
 	}
 	m.dialog = NewDialog("Add key to agent", []DialogFieldSpec{
@@ -357,7 +339,7 @@ func (m *Model) openSSHAgentAddDialog() tea.Cmd {
 func (m *Model) openSSHAgentRemoveDialog() tea.Cmd {
 	loaded := m.state.SSH.Agent.LoadedKeys
 	if len(loaded) == 0 {
-		m.state.SSHActionError = "no keys loaded in agent"
+		m.notifyError("SSH", "no keys loaded in agent")
 		return nil
 	}
 	idx := m.state.SSHAgentIdx
@@ -454,7 +436,7 @@ func (m *Model) openSSHHostDialog(initial core.SSHHostEntry, title string) tea.C
 			entry.Port = p
 		}
 		if entry.Pattern == "" {
-			m.state.SSHActionError = "host pattern is required"
+			m.notifyError("SSH", "host pattern is required")
 			return nil
 		}
 		return m.ssh.SaveHost(entry)
@@ -500,7 +482,7 @@ func (m *Model) openSSHScanDialog() tea.Cmd {
 			return nil
 		}
 		if r["hostname"] == "" {
-			m.state.SSHActionError = "hostname required"
+			m.notifyError("SSH", "hostname required")
 			return nil
 		}
 		return m.ssh.ScanHost(r["hostname"])
@@ -548,7 +530,7 @@ func (m *Model) openSSHAddAuthorizedKeyDialog() tea.Cmd {
 			return nil
 		}
 		if r["line"] == "" {
-			m.state.SSHActionError = "key line required"
+			m.notifyError("SSH", "key line required")
 			return nil
 		}
 		return m.ssh.AddAuthorizedKey(r["line"])

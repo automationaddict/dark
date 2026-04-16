@@ -14,6 +14,7 @@ import (
 	"github.com/automationaddict/dark/internal/core"
 	"github.com/automationaddict/dark/internal/help"
 	"github.com/automationaddict/dark/internal/lock"
+	"github.com/automationaddict/dark/internal/logging"
 	appstoresvc "github.com/automationaddict/dark/internal/services/appstore"
 	darkupdatesvc "github.com/automationaddict/dark/internal/services/darkupdate"
 	screensaversvc "github.com/automationaddict/dark/internal/services/screensaver"
@@ -78,6 +79,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
 		os.Exit(runMcpSubcommand(os.Args[2:]))
 	}
+
+	logCloser := logging.SetupFile("dark")
+	defer logCloser.Close()
 
 	lk, err := lock.Acquire("dark")
 	if err != nil {

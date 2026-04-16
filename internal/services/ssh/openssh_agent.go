@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // AgentStatus reads the currently-running ssh-agent from the
@@ -88,6 +89,25 @@ func (b *OpenSSHBackend) AgentStart(ctx context.Context) error {
 	if _, err := runCapture(ctx, "systemctl", "--user", "start", "ssh-agent.service"); err != nil {
 		return fmt.Errorf("systemctl start: %w", err)
 	}
+	// Point this process at the managed socket so subsequent ssh-add
+	// calls (e.g. AgentAdd right after start) can reach the agent.
+	sock := agentSocketPath()
+	if sock != "" {
+		os.Setenv("SSH_AUTH_SOCK", sock)
+	}
+	// Wait briefly for the socket to appear — systemd starts the
+	// unit asynchronously and ssh-add will fail if the socket isn't
+	// ready yet.
+	for i := 0; i < 20; i++ {
+		if _, err := os.Stat(sock); err == nil {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
 	return nil
 }
 
@@ -111,6 +131,14 @@ func (b *OpenSSHBackend) AgentStop(ctx context.Context) error {
 func (b *OpenSSHBackend) AgentAdd(ctx context.Context, keyPath, passphrase string, lifetimeSeconds int) error {
 	if keyPath == "" {
 		return fmt.Errorf("missing key path")
+	}
+	// Auto-start the agent if it isn't running so the user doesn't
+	// get a cryptic "Could not open a connection" error.
+	sock := os.Getenv("SSH_AUTH_SOCK")
+	if sock == "" || !socketExists(sock) {
+		if err := b.AgentStart(ctx); err != nil {
+			return fmt.Errorf("auto-start agent: %w", err)
+		}
 	}
 	args := []string{}
 	if lifetimeSeconds > 0 {
@@ -268,6 +296,26 @@ Restart=on-failure
 WantedBy=default.target
 `
 	return os.WriteFile(unitPath, []byte(unit), 0o644)
+}
+
+// socketExists reports whether the given path exists and is a socket.
+func socketExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.Mode().Type()&os.ModeSocket != 0
+}
+
+// agentSocketPath returns the expected socket path for dark's managed
+// ssh-agent unit: $XDG_RUNTIME_DIR/ssh-agent.socket (matching the
+// %t/ssh-agent.socket in the unit file).
+func agentSocketPath() string {
+	rtDir := os.Getenv("XDG_RUNTIME_DIR")
+	if rtDir == "" {
+		return ""
+	}
+	return filepath.Join(rtDir, "ssh-agent.socket")
 }
 
 // isForwardedAgentSocket returns true when SSH_AUTH_SOCK looks like

@@ -9,6 +9,13 @@ import (
 // handleActionKey dispatches context-aware action shortcuts (letter and
 // symbol keys). Each key falls through section checks in priority order.
 func (m Model) handleActionKey(key string) (tea.Model, tea.Cmd) {
+	// F4 SSH action keys dispatch to subsection-specific handlers.
+	if m.state.ActiveTab == core.TabF4 && m.state.ContentFocused && m.dialog == nil {
+		if handled, cmd := m.handleSSHKey(key); handled {
+			return m, cmd
+		}
+	}
+
 	switch key {
 	case "1":
 		if m.inPrivacyContent() {

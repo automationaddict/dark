@@ -32,8 +32,7 @@ type SSHActions struct {
 // SSHActionResultMsg is the shared response for every SSH command.
 // Snapshot is the refreshed state after the mutation (or the
 // unchanged pre-mutation state on error). Err is non-empty when
-// the operation failed; the TUI stores it as SSHActionError so the
-// content pane can render a banner.
+// the operation failed; the TUI surfaces it through notifyError.
 type SSHActionResultMsg struct {
 	Action   string
 	Snapshot core.SSHSnapshot

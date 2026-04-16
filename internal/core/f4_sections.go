@@ -16,3 +16,24 @@ func F4Sections() []F4Section {
 		{"ssh", "󰣀", "SSH"},
 	}
 }
+
+// SSHSection is one entry in the F4 SSH inner sidebar. The six
+// subsections map 1:1 to SSHSubsection iota values so the index
+// from the sidebar selection can index directly into this slice.
+type SSHSection struct {
+	ID    string
+	Icon  string
+	Label string
+}
+
+// SSHSections returns the inner sidebar entries for F4 SSH.
+func SSHSections() []SSHSection {
+	return []SSHSection{
+		{"keys", "󰌋", "Keys"},
+		{"agent", "󰢹", "Agent"},
+		{"client", "󰖟", "Client"},
+		{"known_hosts", "󰄡", "Known Hosts"},
+		{"authorized", "󱆇", "Authorized"},
+		{"server", "󰒋", "Server"},
+	}
+}

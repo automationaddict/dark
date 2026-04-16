@@ -271,7 +271,6 @@ type State struct {
 	SSHHostsIdx        int
 	SSHKnownHostsIdx   int
 	SSHAuthorizedIdx   int
-	SSHActionError     string
 
 	ContentFocused bool
 

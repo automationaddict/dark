@@ -215,7 +215,7 @@ func (d *Dialog) appendRunes(runes []rune) {
 // View renders the dialog as a bordered modal box. Caller is responsible
 // for compositing it onto the base view via overlayCenter.
 func (d *Dialog) View() string {
-	const innerWidth = 48
+	const innerWidth = 60
 
 	var rows []string
 
@@ -236,10 +236,12 @@ func (d *Dialog) View() string {
 
 	hint := "enter submit · esc cancel"
 	af := d.activeField()
-	if af != nil && af.kind == DialogFieldSelect {
+	if af != nil && af.kind == DialogFieldSelect && len(d.fields) > 1 {
+		hint = "j/k select · tab next field · enter submit · esc cancel"
+	} else if af != nil && af.kind == DialogFieldSelect {
 		hint = "j/k select · enter submit · esc cancel"
 	} else if len(d.fields) > 1 {
-		hint = "enter submit · tab next field · esc cancel"
+		hint = "tab next field · enter submit · esc cancel"
 	}
 	rows = append(rows, dialogHintStyle.Render(hint))
 
